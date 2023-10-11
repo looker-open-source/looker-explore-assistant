@@ -64,14 +64,6 @@ resource "google_project_iam_member" "iam_looker_service_usage" {
   depends_on = [ time_sleep.wait_after_apis_activate ]
 }
 
-resource "google_project_iam_member" "iam_invoker" {  
-  project = var.project_id
-  role    = "roles/cloudfunctions.invoker"
-  member  = "allUsers" 
-  # format("serviceAccount:%s", google_service_account.looker_llm_service_account.email)
-  depends_on = [ time_sleep.wait_after_apis_activate ]
-}
-
 resource "random_id" "default" {
   byte_length = 8
 }
@@ -113,30 +105,60 @@ resource "google_cloudfunctions2_function" "default" {
   }
 
   service_config {
-    max_instance_count = 5
-    available_memory   = "256M"
+    max_instance_count = 10
+    min_instance_count = 1
+    available_memory   = "4Gi"
     timeout_seconds    = 60
+    available_cpu      = "4"
     max_instance_request_concurrency = 20
-    available_cpu = "4"
     environment_variables = {
         REGION = each.value
-        PROJECT = var.project_id.default
+        PROJECT = var.project_id
     }
     all_traffic_on_latest_revision = true
-    service_account_email = google_service_account.looker_llm_service_account
+    service_account_email = google_service_account.looker_llm_service_account.email
   }
 }
 
+### IAM permissions for Cloud Functions Gen2 (requires run invoker as well) for public access
+
 resource "google_cloudfunctions2_function_iam_member" "default" {
-  for_each = toset(data.google_cloud_run_locations.default.locations)
+  for_each = toset(var.deployment_region)
 
   location = google_cloudfunctions2_function.default[each.key].location
   project  = google_cloudfunctions2_function.default[each.key].project
   cloud_function  = google_cloudfunctions2_function.default[each.key].name
   role     = "roles/cloudfunctions.invoker"
   member   = "allUsers"
+
+  depends_on = [google_cloudfunctions2_function.default]
+}
+
+data "google_iam_policy" "noauth" {
+  binding {
+    role = "roles/run.invoker"
+    members = [
+      "allUsers",
+    ]
+  }
+}
+
+resource "google_cloud_run_service_iam_policy" "noauth" {
+  for_each = toset(var.deployment_region)
+
+  location    = google_cloudfunctions2_function.default[each.key].location
+  project     = google_cloudfunctions2_function.default[each.key].project
+  service     = google_cloudfunctions2_function.default[each.key].name
+
+  policy_data = data.google_iam_policy.noauth.policy_data
+
+  depends_on = [google_cloudfunctions2_function.default]
 }
 
 output "function_uri" {
-  value = google_cloudfunctions2_function.default.service_config[0].uri
+  value = values(google_cloudfunctions2_function.default).*.url
 }
+
+output "data" {
+  value = values(google_cloudfunctions2_function.default)
+} 

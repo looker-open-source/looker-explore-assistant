@@ -1,0 +1,56 @@
+.bard {
+    animation: pulse 3s infinite;
+    -webkit-animation: pulse 3s infinite;
+}
+
+.bard2 {
+    animation: pulse2 3s infinite;
+    -webkit-animation: pulse2 3s infinite;
+}
+
+.messageCard {
+    margin:0.8rem;
+    padding:0.2rem;
+    border-radius:0.2rem;
+    background-color: rgb(26, 115, 232,0.1);
+    /* border: 0.01rem solid grey; */
+    /* box-shadow:0 0px 1px 1px grey; */
+    height:auto;
+    /* width:100%; */
+    /* background-color: transparent; */
+    transition: background 1s ease-in-out; 
+    cursor:pointer;
+}
+
+.messageCard:hover {
+    background-color: rgb(26, 115, 232,0.4);
+}
+
+.card {
+    margin-top:1rem;
+    padding:0.2rem;
+    border-radius:0.2rem;
+    background-color: rgb(26, 115, 232,0.1);
+    /* border: 0.01rem solid grey; */
+    /* box-shadow:0 0px 1px 1px grey; */
+    display:flex;
+    flex-direction:column;
+    height:auto;
+    width:100%;
+    /* background-color: transparent; */
+    transition: background 1s ease-in-out; 
+    cursor:pointer;
+}
+
+.card:hover {
+    background-color: rgb(26, 115, 232,0.4);
+}
+
+.scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera*/
+}

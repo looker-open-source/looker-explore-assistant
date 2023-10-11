@@ -6,7 +6,7 @@ This app demonstrates how you could use a foundational language model on GCP to 
 
 ### Recommendations for fine tuning the model
 
-This app uses a one shot prompt technique for fine tuning a model, meaning that all the metadata for the model is contained in the prompt. This is a good technique for a small dataset, but for a larger dataset, you may want to use a more traditional fine tuning approach.
+This app uses a one shot prompt technique for fine tuning a model, meaning that all the metadata for the model is contained in the prompt. This is a good technique for a small dataset, but for a larger dataset, you may want to use a more traditional fine tuning approach. In this repo we check the prompt token limit and if it is greater than 3000, we use the `text-bison32k` model otherwise `text-bison` is used. You can change this limit in the `cloud-function/src/main.py` file. This is a simple implementation, but you can also use a more sophisticated approach that involves generating embeddings for explore metadata and leveraging a vector database for indexing. For more information on this approach, please see this [blog post](https://cloud.google.com/blog/products/ai-machine-learning/how-to-build-a-natural-language-processing-search-engine-with-vertex-ai).
 
 To best optimize the one shot prompt accuracy, please update the example input output string in the Cloud Function code to be a representative sample of the data you are trying to model. For example, if you are trying to model a dataset of sales data, you may want to use a prompt like "What is the total sales for each region?" and follow that with the output using Looker's expanded url syntax. 20-100 examples is a good starting point for a one shot prompt and can drastically improve the accuracy of the model.
 
@@ -16,14 +16,13 @@ We recommend using Looker System Activity, filtering queries for the model and e
 #### Frontend
 - [React](https://reactjs.org/)
 - [TypeScript](https://www.typescriptlang.org/)
-- [React Extension SDK](https://github.com/looker-open-source/sdk-codegen/tree/main/packages/extension-sdk-react)
 - [Webpack](https://webpack.js.org/).
 - [Styled components](https://www.styled-components.com/docs)
 
 #### Looker
-- [Looker Extension SDK]()
-- [Looker Embed SDK]()
-- [Looker Components]()
+- [Looker Extension SDK](https://github.com/looker-open-source/sdk-codegen/tree/main/packages/extension-sdk-react)
+- [Looker Embed SDK](https://cloud.google.com/looker/docs/embed-sdk)
+- [Looker Components](https://cloud.google.com/looker/docs/components)
 
 #### Backend API
 - [Google Cloud Platform](https://cloud.google.com/)
@@ -78,13 +77,13 @@ Please see this resource for more information on how to deploy regional endpoint
 
    ```bash
    # cd ~/ Optional. your user directory is usually a good place to git clone to.
-   git clone git@github.com:looker-open-source/extension-examples.git
+   git clone git@github.com:LukaFontanilla/looker-explore-assistant.git
    ```
 
 2. Navigate (`cd`) to the template directory on your system
 
    ```bash
-   cd dashboard_demo
+   cd looker-explore-assistant
    ```
 
 3. Install the dependencies with [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).

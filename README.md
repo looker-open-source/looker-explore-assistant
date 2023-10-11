@@ -35,6 +35,8 @@ This section describes how to set up the Gen AI endpoint for the Explore Assista
 
 ### Getting Started for Development
 
+![simple-architecture](./static/simple-architecture.png)
+
 1. Clone or download a copy of this repository to your development machine.
 
    ```bash
@@ -63,6 +65,8 @@ This section describes how to set up the Gen AI endpoint for the Explore Assista
 5. Save Deployed Cloud Function URL Endpoints
 
 ### Optionally, deploy regional endpoints and load balance traffic from Looker
+
+![global-architecture](./static/global-architecture.png)
 
 Please see this resource for more information on how to deploy regional endpoints and load balance traffic from Looker: https://cloud.google.com/load-balancing/docs/https/setting-up-https-serverless
 

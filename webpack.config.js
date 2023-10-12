@@ -80,6 +80,6 @@ module.exports = {
     new BundleAnalyzerPlugin({
       analyzerMode: process.env.ANALYZE_MODE || 'disabled',
     }),
-    new webpack.EnvironmentPlugin(['GOOGLE_API_KEY','VERTEX_AI_ENDPOINT','LOOKER_EXPLORE_ID','LOOKER_MODEL','LOOKER_EXPLORE']),
+    new webpack.EnvironmentPlugin(['VERTEX_AI_ENDPOINT','LOOKER_EXPLORE_ID','LOOKER_MODEL','LOOKER_EXPLORE']),
   ],
 }

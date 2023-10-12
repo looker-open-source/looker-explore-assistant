@@ -12,7 +12,8 @@
     "prebuild": "npm run clean",
     "tsc": "tsc",
     "lint:es": "eslint 'src/**/*.ts{,x}' --cache",
-    "lint:es:fix": "eslint 'src/**/*.ts{,x}' --cache --fix"
+    "lint:es:fix": "eslint 'src/**/*.ts{,x}' --cache --fix",
+    "format": "prettier --write 'src/*.{ts,tsx}'"
   },
   "author": "Google LLC",
   "license": "Apache-2.0",

@@ -1,1 +1,1 @@
-export const bard: string;
+export const bard: string

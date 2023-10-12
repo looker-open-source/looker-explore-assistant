@@ -6,7 +6,6 @@ dist
 temp_db.json
 .env
 .eslintcache
-package-lock.json
 cloud-function/terraform/.terraform
 cloud-function/terraform/terraform.tfstate
 cloud-function/terraform/terraform.tfstate.backup

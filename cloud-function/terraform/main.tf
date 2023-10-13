@@ -15,6 +15,7 @@ module "project-services" {
     "cloudapis.googleapis.com",
     "cloudbuild.googleapis.com",
     "cloudfunctions.googleapis.com",
+    "run.googleapis.com",
     "iam.googleapis.com",
     "serviceusage.googleapis.com",
     "storage-api.googleapis.com",

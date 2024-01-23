@@ -18,7 +18,7 @@
   "author": "Google LLC",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=14"
+    "node": ">=14 <17"
   },
   "dependencies": {
     "@looker/components": "^4.1.3",

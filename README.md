@@ -50,13 +50,13 @@ This section describes how to set up the Gen AI endpoint for the Explore Assista
 
    ```bash
    # cd ~/ Optional. your user directory is usually a good place to git clone to.
-   git clone git@github.com:looker-open-source/extension-examples.git
+   git clone git@github.com:LukaFontanilla/looker-explore-assistant.git
    ```
 
 2. Navigate (`cd`) to the template directory on your system
 
    ```bash
-   cd cloud-function/terraform
+   cd looker-explore-assistant/cloud-function/terraform
    ```
 
 3. Replace defaults in the `variables.tf` file for project and region.
@@ -86,20 +86,13 @@ Please see this resource for more information on how to deploy regional endpoint
 
 #### Getting Started for Development
 
-1. Clone or download a copy of this repository to your development machine.
-
-   ```bash
-   # cd ~/ Optional. your user directory is usually a good place to git clone to.
-   git clone git@github.com:LukaFontanilla/looker-explore-assistant.git
-   ```
-
-2. Navigate (`cd`) to the template directory on your system
+1. Navigate (`cd`) to the template directory on your system
 
    ```bash
    cd looker-explore-assistant
    ```
 
-3. Install the dependencies with [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
+1. Install the dependencies with [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
 
    ```bash
    npm install
@@ -107,7 +100,15 @@ Please see this resource for more information on how to deploy regional endpoint
 
    > You may need to update your Node version or use a [Node version manager](https://github.com/nvm-sh/nvm) to change your Node version.
 
-4. Start the development server
+1. Ensure all the appropriate environment variables are set.
+
+   ```
+   VERTEX_AI_ENDPOINT=
+   LOOKER_MODEL=
+   LOOKER_EXPLORE=
+   ```
+
+1. Start the development server
 
    ```bash
    npm start
@@ -115,7 +116,7 @@ Please see this resource for more information on how to deploy regional endpoint
 
    Great! Your extension is now running and serving the JavaScript at https://localhost:8080/bundle.js.
 
-5. Now log in to Looker and create a new project.
+1. Now log in to Looker and create a new project.
 
    This is found under **Develop** => **Manage LookML Projects** => **New LookML Project**.
 
@@ -129,7 +130,7 @@ Please see this resource for more information on how to deploy regional endpoint
    application: explore_assistant {
     label: "Explore Assistant"
     url: "https://localhost:8080/bundle.js"
-    file: "bundle.js"
+    # file: "bundle.js"
     entitlements: {
       core_api_methods: ["lookml_model_explore"]
       navigation: yes
@@ -143,37 +144,27 @@ Please see this resource for more information on how to deploy regional endpoint
    }
    ```
 
-6. Create a `model` LookML file in your project. The name doesn't matter. The model and connection won't be used, and in the future this step may be eliminated.
+1. Create a `model` LookML file in your project. The name doesn't matter. The model and connection won't be used, and in the future this step may be eliminated.
 
    - Add a connection in this model. It can be any connection, it doesn't matter which.
    - [Configure the model you created](https://docs.looker.com/data-modeling/getting-started/create-projects#configuring_a_model) so that it has access to some connection.
 
-7. Connect your new project to Git. You can do this multiple ways:
+1. Connect your new project to Git. You can do this multiple ways:
 
    - Create a new repository on GitHub or a similar service, and follow the instructions to [connect your project to Git](https://docs.looker.com/data-modeling/getting-started/setting-up-git-connection)
    - A simpler but less powerful approach is to set up git with the "Bare" repository option which does not require connecting to an external Git Service.
 
-8. Commit your changes and deploy your them to production through the Project UI.
+1. Commit your changes and deploy your them to production through the Project UI.
 
-9. Reload the page and click the `Browse` dropdown menu. You should see your extension in the list.
+1. Reload the page and click the `Browse` dropdown menu. You should see your extension in the list.
    - The extension will load the JavaScript from the `url` provided in the `application` definition. By default, this is https://localhost:8080/bundle.js. If you change the port your server runs on in the package.json, you will need to also update it in the manifest.lkml.
-
-- Refreshing the extension page will bring in any new code changes from the extension template, although some changes will hot reload.
-
-10. Ensure All the Appropriate Environment Variables are set.
-
-```
-VERTEX_AI_ENDPOINT=
-LOOKER_EXPLORE_ID=
-LOOKER_MODEL=
-LOOKER_EXPLORE=
-```
+   - Refreshing the extension page will bring in any new code changes from the extension template, although some changes will hot reload.
 
 #### Deployment
 
 The process above requires your local development server to be running to load the extension code. To allow other people to use the extension, a production build of the extension needs to be run. As the kitchensink uses code splitting to reduce the size of the initially loaded bundle, multiple JavaScript files are generated.
 
-1. In your extension project directory on your development machine, build the extension by running the command `yarn build`.
+1. In your extension project directory on your development machine, build the extension by running the command `npm build`.
 2. Drag and drop ALL of the generated JavaScript files contained in the `dist` directory into the Looker project interface.
 3. Modify your `manifest.lkml` to use `file` instead of `url` and point it at the `bundle.js` file.
 

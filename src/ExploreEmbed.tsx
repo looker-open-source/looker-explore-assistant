@@ -28,7 +28,7 @@ import React, { useContext, useRef, useEffect } from 'react'
 import styled from 'styled-components'
 import { LookerEmbedSDK } from '@looker/embed-sdk'
 import { ExtensionContext } from '@looker/extension-sdk-react'
-const LOOKER_EXPLORE_ID = process.env.LOOKER_EXPLORE_ID || ''
+const LOOKER_EXPLORE_ID = `${process.env.LOOKER_MODEL}/${process.env.LOOKER_EXPLORE}` || ''
 
 export interface ExploreEmbedProps {
   exploreUrl: string

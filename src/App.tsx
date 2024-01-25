@@ -1,29 +1,3 @@
-/*
-
- MIT License
-
- Copyright (c) 2022 Looker Data Sciences, Inc.
-
- Permission is hereby granted, free of charge, to any person obtaining a copy
- of this software and associated documentation files (the "Software"), to deal
- in the Software without restriction, including without limitation the rights
- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- copies of the Software, and to permit persons to whom the Software is
- furnished to do so, subject to the following conditions:
-
- The above copyright notice and this permission notice shall be included in all
- copies or substantial portions of the Software.
-
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE.
-
- */
-
 import React, { useContext, useEffect } from 'react'
 import { hot } from 'react-hot-loader/root'
 import {
@@ -55,6 +29,14 @@ const AppInternal = () => {
   const [data, setData] = React.useState<any>([])
   const [exploreData, setExploreData] = React.useState<any>(null)
 
+  /**
+   * Initializes the application by performing the following steps:
+   * 1. Initializes the database.
+   * 2. Retrieves data from the 'chat' store.
+   * 3. Retrieves the fields of the specified LookML model explore.
+   * 4. Extracts dimensions and measures from the fields.
+   * 5. Sets the explore data with the extracted dimensions and measures.
+   */
   const initialize = async () => {
     const status = await initDB()
     setDb(status)
@@ -101,7 +83,14 @@ const AppInternal = () => {
     setQuery(e.currentTarget.value)
   }
 
-  async function fetchData(prompt: string | undefined, fields?: any) {
+  /**
+   * Fetches data from the VERTEX_AI_ENDPOINT based on the provided prompt and fields.
+   * If prompt is undefined, it uses the query as the prompt.
+   * @param prompt - The prompt to be used for the question.
+   * @param fields - The fields object containing dimensions and measures.
+   * @returns {Promise<void>} - A promise that resolves when the data is fetched.
+   */
+  async function fetchData(prompt: string | undefined, fields?: any): Promise<void> {
     const question = prompt !== undefined ? prompt : query
     console.log('Question: ', prompt, query)
     const responseData = await fetch(VERTEX_AI_ENDPOINT, {
@@ -123,6 +112,11 @@ const AppInternal = () => {
     setExploreUrl(exploreData.trim() + '&toggle=dat,pik,vis')
   }
 
+  /**
+   * Handles the form submission.
+   * 
+   * @param prompt - The optional prompt string.
+   */
   const handleSubmit = async (prompt: string | undefined) => {
     const status = await initDB()
     setDb(status)
@@ -133,6 +127,11 @@ const AppInternal = () => {
     fetchData(prompt, exploreData)
   }
 
+  /**
+   * Handles the submission of an example prompt.
+   * @param {string} prompt - The prompt to submit.
+   * @returns {Promise<void>} - A promise that resolves when the submission is complete.
+   */
   const handleExampleSubmit = async (prompt: string) => {
     setQuery(prompt)
     handleSubmit(prompt)

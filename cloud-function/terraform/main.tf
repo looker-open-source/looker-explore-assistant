@@ -1,3 +1,11 @@
+/**
+ * This Terraform configuration file sets up a Google Cloud Function for the Looker Explore Assistant.
+ * It provisions the necessary resources such as project services, service accounts, IAM permissions,
+ * storage bucket, and deploys the Cloud Function with the specified runtime and configuration.
+ * The Cloud Function acts as an endpoint for generating Looker queries from natural language using Generative UI.
+ * It also includes IAM permissions for Cloud Functions Gen2 to allow public access.
+ */
+ 
 provider "google" {
   project = var.project_id
 }

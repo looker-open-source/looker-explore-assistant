@@ -1,29 +1,3 @@
-/*
-
- MIT License
-
- Copyright (c) 2022 Looker Data Sciences, Inc.
-
- Permission is hereby granted, free of charge, to any person obtaining a copy
- of this software and associated documentation files (the "Software"), to deal
- in the Software without restriction, including without limitation the rights
- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- copies of the Software, and to permit persons to whom the Software is
- furnished to do so, subject to the following conditions:
-
- The above copyright notice and this permission notice shall be included in all
- copies or substantial portions of the Software.
-
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE.
-
- */
-
 /**
  * This file contains the IndexedDB logic for storing and retrieving chat messages for explore assistant
  */
@@ -36,6 +10,10 @@ export enum Stores {
   Chat = 'chat',
 }
 
+/**
+ * Initializes the database connection.
+ * @returns A promise that resolves to a boolean indicating whether the database connection was successfully established.
+ */
 export const initDB = () => {
   return new Promise((resolve) => {
     // open the connection
@@ -66,6 +44,12 @@ export const initDB = () => {
   })
 }
 
+/**
+ * Adds data to the specified store in IndexedDB.
+ * @param storeName - The name of the store to add data to.
+ * @param data - The data to be added to the store.
+ * @returns A promise that resolves with the added data or an error message.
+ */
 export const addData = (storeName: string, data: any) => {
   return new Promise((resolve) => {
     request = indexedDB.open('myDB', version)
@@ -89,6 +73,11 @@ export const addData = (storeName: string, data: any) => {
   })
 }
 
+/**
+ * Retrieves data from the specified object store in the indexedDB.
+ * @param storeName - The name of the object store to retrieve data from.
+ * @returns A promise that resolves with the retrieved data.
+ */
 export const getStoreData = (storeName: string) => {
   return new Promise((resolve) => {
     request = indexedDB.open('myDB')

@@ -6,12 +6,30 @@ import json
 import re
 
 def tokenizer(text):
+    """
+    Tokenizes the given text into a list of words.
+
+    Args:
+        text (str): The text to be tokenized.
+
+    Returns:
+        list: A list of words extracted from the text.
+    """
     pattern = re.compile('\w+')
     matches = pattern.finditer(text)
     return list(matches)
 
 @functions_framework.http
 def gen_looker_query(request):
+    """
+    Generate Looker query based on the given request.
+
+    Args:
+        request (flask.Request): The HTTP request object.
+
+    Returns:
+        tuple: A tuple containing the response body, status code, and headers.
+    """
 
     if request.method == "OPTIONS":
         headers = {

@@ -61,7 +61,7 @@ module "project-services" {
 
 resource "time_sleep" "wait_after_apis_activate" {
   depends_on      = [module.project-services]
-  create_duration = "300s"
+  create_duration = "100s"
 }
 
 resource "google_service_account" "looker_llm_service_account" {
@@ -124,7 +124,7 @@ resource "google_storage_bucket_object" "object" {
 resource "google_cloudfunctions2_function" "default" {
   for_each    = toset(var.deployment_region)
 
-  name        = "explore-assistant-endpoint--${each.value}"
+  name        = "two-explore-assistant-endpoint--${each.value}"
   location    = each.value
   description = "An endpoint for generating Looker queries from natural language using Generative UI"
 

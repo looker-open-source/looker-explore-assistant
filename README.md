@@ -12,6 +12,9 @@ Additionally, the extension provides:
 
  - Question History (*this is stored in the browser with IndexDB*)
  - Categorized Prompts (*these can be customized by the use cases of your organization*)
+ - **NEW** Cached Explore URL's when clicking from History
+ - **NEW** Structured Logging with Input & Output Token Counts (*enables a workflow of log sink to BQ for cost estimation & tracking*)
+ - **NEW** Gemini Pro Update in Cloud Function
 
 Upcoming capabilities on the roadmap:
 
@@ -174,8 +177,8 @@ Note that the additional JavaScript files generated during the production build 
 
 ### Recommendations for fine tuning the model
 
-This app uses a one shot prompt technique for fine tuning a model, meaning that all the metadata for the model is contained in the prompt. This is a good technique for a small dataset, but for a larger dataset, you may want to use a more traditional fine tuning approach. In this repo we check the prompt token limit and if it is greater than 3000, we use the `text-bison32k` model otherwise `text-bison` is used. You can change this limit in the `cloud-function/src/main.py` file. This is a simple implementation, but you can also use a more sophisticated approach that involves generating embeddings for explore metadata and leveraging a vector database for indexing.
+This app uses a one shot prompt technique for fine tuning a model, meaning that all the metadata for the model is contained in the prompt. It's a good technique for a small dataset, but for a larger dataset, you may want to use a more traditional fine tuning approach. This is a simple implementation, but you can also use a more sophisticated approach that involves generating embeddings for explore metadata and leveraging a vector database for indexing.
 
-To best optimize the one shot prompt accuracy, please update the example input output string in the Cloud Function code to be a representative sample of the data you are trying to model. For example, if you are trying to model a dataset of sales data, you may want to use a prompt like "What is the total sales for each region?" and follow that with the output using Looker's expanded url syntax. 20-100 examples is a good starting point for a one shot prompt and can drastically improve the accuracy of the model.
+To best optimize the one shot prompt accuracy, please update the example input output jsonl file (`cloud_function/src/examples.jsonl`) in the Cloud Function code to be a representative sample of the data you are trying to model. For example, if you are trying to model a dataset of sales data, you may want to use a prompt like "What is the total sales for each region?" and follow that with the output using Looker's expanded url syntax. 20-100 examples is a good starting point for a one shot prompt and can drastically improve the accuracy of the model.
 
 We recommend using Looker System Activity, filtering queries for the model and explore you plan on using the assistant with, and then using the top 20-100 queries as your example input output string with their expanded url syntax.

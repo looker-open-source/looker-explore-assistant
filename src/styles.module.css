@@ -53,19 +53,24 @@ SOFTWARE.
 }
 
 .card {
-    margin-top:1rem;
-    padding:0.2rem;
+    margin:0.4rem;
+    padding:0.8rem;
     border-radius:0.2rem;
-    background-color: rgb(26, 115, 232,0.1);
+    /* background-color: rgb(26, 115, 232,0.1); */
     /* border: 0.01rem solid grey; */
     /* box-shadow:0 0px 1px 1px grey; */
     display:flex;
     flex-direction:column;
     height:auto;
-    width:100%;
+    width:98%;
     /* background-color: transparent; */
     transition: background 1s ease-in-out; 
     cursor:pointer;
+    --tw-shadow: 0 1px 3px 0 rgb(0 0 0 / .1), 0 1px 2px -1px rgb(0 0 0 / .1);
+    --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000),var(--tw-ring-shadow, 0 0 #0000),var(--tw-shadow);
+    --tw-bg-opacity: 1;
+    background-color: rgb(255 255 255 / var(--tw-bg-opacity));
 }
 
 .card:hover {

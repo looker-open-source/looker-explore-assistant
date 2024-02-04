@@ -38,13 +38,13 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import type { ChangeEvent } from 'react'
 import { ExploreEmbed } from './ExploreEmbed'
 import styles from './styles.module.css'
-import { initDB, addData, getStoreData } from './db'
+import { initDB, addData, getStoreData, updateData, getData } from './db'
 
 const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
 const LOOKER_MODEL = process.env.LOOKER_MODEL || ''
 const LOOKER_EXPLORE = process.env.LOOKER_EXPLORE || ''
 
-const AppInternal = () => {
+const ExploreAssistant = () => {
   const { core40SDK } = useContext(ExtensionContext)
   const [exploreUrl, setExploreUrl] = React.useState<any>('')
   const [query, setQuery] = React.useState<string>('')
@@ -136,6 +136,7 @@ const AppInternal = () => {
     const exploreData = await responseData.text()
     console.log(exploreData)
     setExploreUrl(exploreData.trim() + '&toggle=dat,pik,vis')
+    await updateData('chat',question, { message: question, url: exploreData.trim() + '&toggle=dat,pik,vis'})
   }
 
   /**
@@ -165,6 +166,17 @@ const AppInternal = () => {
     if (elem) {
       elem.scrollTop = elem.scrollHeight
     }
+  }
+
+  /**
+   * Handles the submission of a historical prompt. Doesn't issue a new network request
+   * @param {string} prompt - The prompt to submit.
+   * @returns {Promise<void>} - A promise that resolves when the submission is complete.
+   */
+  const handleHistorySubmit = async (prompt: string) => {
+    const res = await getData('chat',prompt)
+    setSubmit(true)
+    setExploreUrl(res.url)
   }
 
   const categorizedPrompts = [
@@ -274,7 +286,7 @@ const AppInternal = () => {
                   <Tab2 id="examples" label="Example Prompts">
                     <div
                       className={styles.scrollbar}
-                      style={{ overflowY: 'scroll', height: '40vh' }}
+                      style={{ overflowY: 'scroll', height: '40vh', display:'flex',flexDirection:'column',justifyContent:'flex-start',alignItems:'center' }}
                     >
                       {categorizedPrompts.map((item, index: number) => (
                         <div
@@ -303,7 +315,7 @@ const AppInternal = () => {
                     <div
                       className={styles.scrollbar}
                       id="historyScroll"
-                      style={{ overflowY: 'scroll', height: '40vh' }}
+                      style={{ overflowY: 'scroll', height: '40vh', display:'flex',flexDirection:'column',justifyContent:'flex-start', alignItems:'center' }}
                     >
                       {db &&
                         data.length > 0 &&
@@ -313,9 +325,7 @@ const AppInternal = () => {
                             return (
                               <div
                                 key={index}
-                                onClick={() =>
-                                  handleExampleSubmit(item.message)
-                                }
+                                onClick={() => handleHistorySubmit(item.message)}
                                 className={styles.card}
                               >
                                 <span style={{ fontSize: '1.5vh' }}>
@@ -341,6 +351,7 @@ const AppInternal = () => {
               {exploreUrl && (
                 <div
                   style={{
+                    position:'relative',
                     backgroundColor: '#f7f7f7',
                     height: '100vh',
                     width: '100%',
@@ -350,6 +361,7 @@ const AppInternal = () => {
                     <ExploreEmbed
                       exploreUrl={exploreUrl}
                       setExplore={setExplore}
+                      submit={submit}
                       setSubmit={setSubmit}
                     />
                   )}
@@ -604,4 +616,5 @@ const BardLogo = ({ search }: BardLogoProps) => {
   )
 }
 
-export const App = hot(AppInternal)
+export const App = hot(ExploreAssistant)
+export { BardLogo }

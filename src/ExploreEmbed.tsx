@@ -28,11 +28,13 @@ import React, { useContext, useRef, useEffect } from 'react'
 import styled from 'styled-components'
 import { LookerEmbedSDK } from '@looker/embed-sdk'
 import { ExtensionContext } from '@looker/extension-sdk-react'
+import { BardLogo } from './App'
 const LOOKER_EXPLORE_ID = `${process.env.LOOKER_MODEL}/${process.env.LOOKER_EXPLORE}` || ''
 
 export interface ExploreEmbedProps {
   exploreUrl: string
   setExplore: any
+  submit: any
   setSubmit: any
 }
 
@@ -40,12 +42,14 @@ export interface ExploreEmbedProps {
  * Renders an embedded Looker explore based on the provided explore URL.
  * @param exploreUrl - The URL of the Looker explore to embed.
  * @param setExplore - A function to set the embedded explore instance.
+ * @param submit - boolean for search query
  * @param setSubmit - A function to control the submit behavior of the explore.
  * @returns The ExploreEmbed component.
  */
 export const ExploreEmbed = ({
   exploreUrl,
   setExplore,
+  submit,
   setSubmit,
 }: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
@@ -86,7 +90,6 @@ export const ExploreEmbed = ({
         .on('drillmenu:click', canceller)
         .on('drillmodal:explore', canceller)
         .on('explore:run:start', animateExploreLoad)
-        .on('explore:run:complete', (e) => console.log(e))
         .build()
         .connect()
         .then((explore) => setExplore(explore))
@@ -99,13 +102,25 @@ export const ExploreEmbed = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exploreUrl])
 
-  return <EmbedContainer id="embedcontainer" ref={ref} />
+  return (
+    <>
+    <div style={{position:'absolute', display:'flex', flexDirection:'column', alignItems:'center',justifyContent:'center',width:'100%',height:'100%',backgroundColor:'rgb(214, 206, 195,0.4)',zIndex:submit ? 1 : -1}}>
+      <div style={{
+        height: '50%',
+        width:'50%'
+      }}>
+      <BardLogo />
+      </div>
+    </div>
+    <EmbedContainer id="embedcontainer" ref={ref} submit/>
+    </>
+  )
 }
 
-const EmbedContainer = styled.div`
+const EmbedContainer = styled.div<{ submit: boolean}>`
   backgroundcolor: #f7f7f7;
   height: 100%;
-  opacity: 0.2;
+  opacity: ${props => props.submit === true ? 0.2 : 1};
   animation: fadeIn ease-in ease-out 3s;
   > iframe {
     display: block;

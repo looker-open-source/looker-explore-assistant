@@ -84,7 +84,7 @@ export const addData = (storeName: string, data: any) => {
       db = request.result
       const tx = db.transaction(storeName, 'readwrite')
       const store = tx.objectStore(storeName)
-      store.add(data)
+      store.add(data,data.message)
       resolve(data)
     }
 
@@ -115,6 +115,52 @@ export const getStoreData = (storeName: string) => {
       const res = store.getAll()
       res.onsuccess = () => {
         resolve(res.result)
+      }
+    }
+  })
+}
+
+/**
+ * Retrieves data from the specified object store and key in the indexedDB.
+ * @param storeName - The name of the object store to retrieve data from.
+ * @param key - The key of the row to fetch data from
+ * @returns A promise that resolves with the retrieved data.
+ */
+export const getData = (storeName: string, key: string) => {
+  return new Promise((resolve) => {
+    request = indexedDB.open('myDB')
+
+    request.onsuccess = () => {
+      db = request.result
+      const tx = db.transaction(storeName, 'readonly')
+      const store = tx.objectStore(storeName)
+      const res = store.get(key)
+      res.onsuccess = () => {
+        resolve(res.result)
+      }
+    }
+  })
+}
+
+
+/**
+ * Updates data from the specified object store at a given key in the indexedDB.
+ * @param storeName - The name of the object store to retrieve data from.
+ * @param key - The key to update data at.
+ * @param value - The value to update at the given key.
+ * @returns A promise that resolves with the successful update.
+ */
+export const updateData = (storeName: string, key:string, value: any) => {
+  return new Promise((resolve) => {
+    request = indexedDB.open('myDB')
+
+    request.onsuccess = () => {
+      db = request.result
+      const tx = db.transaction(storeName, 'readwrite')
+      const store = tx.objectStore(storeName)
+      const res = store.put(value,key)
+      res.onsuccess = () => {
+        resolve(res)
       }
     }
   })

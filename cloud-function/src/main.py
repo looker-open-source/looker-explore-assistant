@@ -80,76 +80,14 @@ def gen_looker_query(request):
     context = """You\'re a developer who would transalate questions to a structured URL query based on the following json of fields - choose only the fields in the below description using the field "name" in the url. Make sure a limit of 500 or less is always applied.: \n
     """
 
-    examples = """\n The examples here showcase how the url should be constructed. Only use the "dimensions" and "measures" above for fields, filters and sorts
-    input: customer with lifetime revenue > 100
-    output :fields=user_order_facts.lifetime_revenue&f[user_order_facts.lifetime_revenue]=>100&sorts=user_order_facts.lifetime_revenue desc 0&limit=500
+    # read examples jsonl file from local filesystem
+    # in a production use case, reading from cloud storage would be recommended
+    examples = """\n The examples here showcase how the url should be constructed. Only use the "dimensions" and "measures" above for fields, filters and sorts: \n"""
+    with open("./examples.jsonl", "r") as f:
+        lines = f.readlines()
 
-    input : Customer who are currently active and made an order in the last day 30 days
-    output :fields=users.email,order_items.created_date&f[user_order_facts.currently_active_customer]=Yes&f[order_items.created_date]=last 30 days&sorts=order_items.created_date desc
-
-
-    input: What s the total sales of brand Calvin Klein?
-    output:fields=order_items.total_sale_price&f[products.brand]=Calvin Klein&vis={"type":"single_value"}
-
-    input: Orders that are still in Processing after 3 days, filtered by Distribution Center
-    output:fields=order_items.created_date,order_items.order_id,products.item_name,order_items.status,users.email,order_items.average_days_to_process&f[distribution_centers.name]=Chicago IL&f[order_items.created_date]=before 3 days ago&f[order_items.status]=Processing&sorts=order_items.created_date desc&column_limit=50&vis={"type":"looker_grid"}
-
-    input: What\'s my sales for the last two years ? plot as bar chart
-    output:fields=order_items.total_sale_price&f[order_items.created_date]=2 years&sorts=order_items.total_sale_price descvis={"type":"looker_bar"}
-
-    input: Severely delayed orders in Chicaco
-    output:fields=order_items.created_date,order_items.order_id,products.item_name,order_items.status,users.email,order_items.average_days_to_process&f[distribution_centers.name]=Chicago IL&f[order_items.created_date]=before 3 days ago&f[order_items.status]=Processing&column_limit=50
-
-    input: 30 Day Repeat Purchase Rate by Brand, column chart
-    output:fields=order_items.30_day_repeat_purchase_rate,products.brand&f[products.brand]=&sorts=order_items.30_day_repeat_purchase_rate desc 0&limit=500&vis={"type":"looker_column"}
-
-    input: Top 10 Brand by Sales
-    output:fields=products.brand,order_items.total_sale_price&sorts=order_items.total_sale_price desc 0&limit=10&column_limit=50
-
-    input: What\'s my sales for last 4 months by category ? plot as area
-    output:fields=products.category,order_items.total_sale_price&f[order_items.created_date]=4 months&limit=500&vis={"type":"single_value"}
-
-    input: repeat purchase rate by category, plot as  pie
-    output:fields=order_items.30_day_repeat_purchase_rate,products.category&vis={"type":"looker_pie"}
-
-    input: average order sales by category, as bar chart
-    output:fields=order_items.average_sale_price,products.category&vis={"type":"looker_bar"}
-
-    input: users whith lifetime value > 100$ and made more than 4 orders, as table
-    output:fields=users.lifetime_revenue,users.lifetime_orders&f[users.lifetime_revenue]=>100&f[users.lifetime_orders]=>4&sorts=users.lifetime_revenue desc 0&vis={"type":"looker_grid"}
-
-    input: sales for Columbia, Levi's and Nike this year, as bar chart
-    output:fields=products.brand,order_items.total_sale_price&f[products.brand]=Columbia,"Levi's", Nike&f[order_items.created_date]=this year&sorts=order_items.total_sale_price desc 0&limit=500&column_limit=50&vis={"type":"looker_bar"}
-
-    input: number of orders this years vs last year
-    output:fields=order_items.count,order_items.created_year,order_items.created_month_name&pivots=order_items.created_year&f[order_items.created_year]=this year, last year&sorts=order_items.created_year desc,order_items.count desc 0&limit=5000&column_limit=50
-
-    input : users by traffic source
-    output:fields=users.traffic_source,users.count&sorts=users.count desc 0&limit=500
-
-    input : customers who likes columbia or levi's
-    output :fields=users.email,products.brand,order_items.total_sale_price&f[products.brand]=Columbia, Levi's&sorts=order_items.total_sale_price desc 0&limit=500
-
-    input : Last week's revenue by category and department
-    output :fields=products.category,products.department,order_items.total_sale_price&pivots=products.department&order_items.created_year&f[order_items.created_date]=last week&sorts=order_items.total_sale_price desc 0&limit=500&column_limit=50
-
-    input : Sales performance by state, on a map
-    output :fields=order_items.order_count,users.count,order_items.total_sale_price,order_items.average_spend_per_user,users.state&f[order_items.created_date]=90 days&sorts=order_items.total_sale_price desc&limit=500&column_limit=50&vis={"type" : "looker_google_map"}
-
-    input : Who are the customer with highest revenue in New York?
-    output :fields=users.email,user_order_facts.lifetime_revenue&f[users.state]=New York&sorts=user_order_facts.lifetime_revenue desc 0&limit=500=vis_config={"type" : "looker_grid"}
-
-    input : Customers who made a purchase in last 6 month or acquired from facebook,
-    output :fields=users.email&filter_expression=matches_filter(${order_items.created_date}, `6 months`) OR matches_filter(${users.traffic_source}, `Facebook`)
-
-    input : Items in Pants or  part of first purchase order
-    output :fields=products.item_name,order_items.count&filter_expression=matches_filter(${order_facts.is_first_purchase}, `Yes`) OR matches_filter(${products.category}, `Pants`)
-
-    input : Customer who made last 6 month or acquired from facebook and purchased from brand Levi's
-    output :fields=products.item_name,order_items.count&filter_expression=matches_filter(${order_items.created_date}, `6 months`) OR matches_filter(${users.traffic_source}, `Facebook`) AND matches_filter(${products.brand}, `Levi's`)
-
-    """
-
+        for line in lines:
+            examples += (f"input: {json.loads(line)['input']} \n" + f"output: {json.loads(line)['output']} \n") 
 
     request_json = request.get_json(silent=True)
     request_args = request.args
@@ -164,28 +102,34 @@ def gen_looker_query(request):
             output: """.format(request_json['question']) ### Formating our input to the model
         predict = context + request_json['explore'] + examples + llm
 
-        model = ''
+        # instantiate gemini model for prediction
+        from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
+        model = GenerativeModel("gemini-pro")
 
-        # if the token limit exceeds what text-bison can handle, initialize the text-bison-32k model
-        if(len(tokenizer(predict)) > 3000):
-            print("Text Bison 32k. Token Count: ", len(tokenizer(predict)))
-            from vertexai.preview.language_models import TextGenerationModel
-            model = TextGenerationModel.from_pretrained("text-bison-32k")
-        else:
-            print("Text Bison. Token Count: ", len(tokenizer(predict)))
-            from vertexai.language_models import TextGenerationModel
-            model = TextGenerationModel.from_pretrained("text-bison")
+        # make prediction to generate Looker Explore URL
+        response =  model.generate_content(
+            contents=predict,
+            generation_config=GenerationConfig(
+                temperature=0.2,
+                top_p=0.8,
+                top_k=40,
+                max_output_tokens=100,
+                candidate_count=1
+            )
+        )
 
+        # grab token character count metadata and log
+        metadata = response.__dict__['_raw_response'].usage_metadata
+        print({"request": request_json['question'],"response": response.text, "input_characters": metadata.prompt_token_count, "output_characters": metadata.candidates_token_count})
         
-        response =  model.predict(predict,**parameters).text # LLM Response
 
         # Set CORS headers for extension request
         headers = {
             "Access-Control-Allow-Origin": "*"
         }
 
-        print("Response: ", response, "Headers: ", headers)
+        print("Response: ", response.text, "Headers: ", headers)
 
-        return (response,200,headers)
+        return (response.text,200,headers)
     else:
         return ('Bad Request',400)

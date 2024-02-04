@@ -124,7 +124,7 @@ resource "google_storage_bucket_object" "object" {
 resource "google_cloudfunctions2_function" "default" {
   for_each    = toset(var.deployment_region)
 
-  name        = "two-explore-assistant-endpoint--${each.value}"
+  name        = "explore-assistant-endpoint--${each.value}"
   location    = each.value
   description = "An endpoint for generating Looker queries from natural language using Generative UI"
 

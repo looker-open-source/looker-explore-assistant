@@ -120,7 +120,17 @@ def gen_looker_query(request):
 
         # grab token character count metadata and log
         metadata = response.__dict__['_raw_response'].usage_metadata
-        print({"request": request_json['question'],"response": response.text, "input_characters": metadata.prompt_token_count, "output_characters": metadata.candidates_token_count})
+        # print({"request": request_json['question'],"response": response.text, "input_characters": metadata.prompt_token_count, "output_characters": metadata.candidates_token_count})
+
+        # Complete a structured log entry.
+        entry = dict(
+            severity="INFO",
+            message={"request": request_json['question'],"response": response.text, "input_characters": metadata.prompt_token_count, "output_characters": metadata.candidates_token_count},
+            # Log viewer accesses 'component' as jsonPayload.component'.
+            component="explore-assistant-metadata",
+        )
+
+        print(json.dumps(entry))
         
 
         # Set CORS headers for extension request

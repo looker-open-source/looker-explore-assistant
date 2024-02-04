@@ -76,11 +76,27 @@ This section describes how to set up the Gen AI endpoint for the Explore Assista
 
 5. Save Deployed Cloud Function URL Endpoints
 
-#### Optionally, deploy regional endpoints and load balance traffic from Looker
+#### Optional: Deploy regional endpoints and load balance traffic from Looker
 
 ![global-architecture](./static/global-architecture.png)
 
 Please see this resource for more information on how to deploy regional endpoints and load balance traffic from Looker: https://cloud.google.com/load-balancing/docs/https/setting-up-https-serverless
+
+#### Optional: Setup Log Sink to BQ for LLM Cost Estimation and Request Logging
+
+Please see [Google Cloud's docs](https://cloud.google.com/logging/docs/export/configure_export_v2#creating_sink) on setting up a log sink to BQ, using the below filter for Explore Assistant Logs:
+
+```
+(resource.type = "cloud_function"
+resource.labels.function_name = "Insert service name"
+resource.labels.region = "<Insert location>")
+ OR 
+(resource.type = "cloud_run_revision"
+resource.labels.service_name = "<Insert service name>"
+resource.labels.location = "<Insert location>")
+ severity>=DEFAULT
+jsonPayload.component="explore-assistant-metadata"
+```
 
 
 

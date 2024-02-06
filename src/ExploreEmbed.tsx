@@ -53,6 +53,7 @@ export const ExploreEmbed = ({
   setSubmit,
 }: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
+  const [exploreRunStart, setExploreRunStart] = React.useState(false)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const canceller = (event: any) => {
@@ -61,7 +62,12 @@ export const ExploreEmbed = ({
 
   const ref = useRef<HTMLDivElement>(null)
 
+  const handleQueryError = () => {
+    setTimeout(() => !exploreRunStart && animateExploreLoad(),10)
+  }
+
   const animateExploreLoad = () => {
+    console.log("Here")
     setSubmit(false)
     document.getElementById('embedcontainer')?.style.setProperty('opacity', '1')
   }
@@ -71,7 +77,7 @@ export const ExploreEmbed = ({
     const el = ref.current
     if (el && hostUrl && exploreUrl) {
       const paramsObj: any = {
-        embed_domain: window.origin,
+        embed_domain: hostUrl,
         sdk: '2',
         _theme: JSON.stringify({
           key_color: '#174ea6',
@@ -87,9 +93,14 @@ export const ExploreEmbed = ({
         .appendTo(el)
         .withClassName('looker-embed')
         .withParams(paramsObj)
+        .on('explore:ready',() => handleQueryError())
         .on('drillmenu:click', canceller)
         .on('drillmodal:explore', canceller)
-        .on('explore:run:start', animateExploreLoad)
+        .on('explore:run:start', () => {
+          setExploreRunStart(true)
+          animateExploreLoad()
+        })
+        .on('explore:run:complete', () => setExploreRunStart(false))
         .build()
         .connect()
         .then((explore) => setExplore(explore))

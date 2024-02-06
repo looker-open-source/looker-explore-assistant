@@ -38,36 +38,37 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import type { ChangeEvent } from 'react'
 import { ExploreEmbed } from './ExploreEmbed'
 import styles from './styles.module.css'
-import { initDB, addData, getStoreData, updateData, getData } from './db'
+// import { initDB, addData, getStoreData, updateData, getData } from './db'
 
 const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
 const LOOKER_MODEL = process.env.LOOKER_MODEL || ''
 const LOOKER_EXPLORE = process.env.LOOKER_EXPLORE || ''
 
 const ExploreAssistant = () => {
-  const { core40SDK } = useContext(ExtensionContext)
+  const { core40SDK, extensionSDK } = useContext(ExtensionContext)
   const [exploreUrl, setExploreUrl] = React.useState<any>('')
   const [query, setQuery] = React.useState<string>('')
   const [explore, setExplore] = React.useState<any>(null)
   const [begin, setBegin] = React.useState<boolean>(false)
   const [submit, setSubmit] = React.useState<boolean>(false)
   const [db, setDb] = React.useState<boolean>(false)
-  const [data, setData] = React.useState<any>([])
+  const [data, setData] = React.useState<any>({})
   const [exploreData, setExploreData] = React.useState<any>(null)
 
   /**
    * Initializes the application by performing the following steps:
    * 1. Initializes the database.
-   * 2. Retrieves data from the 'chat' store.
+   * 2. Retrieves data from the 'chat history' store.
    * 3. Retrieves the fields of the specified LookML model explore.
    * 4. Extracts dimensions and measures from the fields.
    * 5. Sets the explore data with the extracted dimensions and measures.
    */
   const initialize = async () => {
-    const status = await initDB()
-    setDb(status)
-    const responses = await getStoreData('chat')
-    setData(responses)
+    // const status = await initDB()
+    // setDb(status)
+    // const responses = await getStoreData('chat')
+    const responses = await extensionSDK.localStorageGetItem('chat_history')
+    setData(responses === null ? {} : JSON.parse(responses))
     const { fields } = await core40SDK.ok(
       core40SDK.lookml_model_explore(LOOKER_MODEL, LOOKER_EXPLORE, 'fields')
     )
@@ -136,7 +137,9 @@ const ExploreAssistant = () => {
     const exploreData = await responseData.text()
     console.log(exploreData)
     setExploreUrl(exploreData.trim() + '&toggle=dat,pik,vis')
-    await updateData('chat',question, { message: question, url: exploreData.trim() + '&toggle=dat,pik,vis'})
+    // await updateData('chat',question, { message: question, url: exploreData.trim() + '&toggle=dat,pik,vis'})
+    data[question] = { message: question, url: exploreData.trim() + '&toggle=dat,pik,vis'}
+    await extensionSDK.localStorageSetItem('chat_history',JSON.stringify(data))
   }
 
   /**
@@ -145,11 +148,14 @@ const ExploreAssistant = () => {
    * @param prompt - The optional prompt string.
    */
   const handleSubmit = async (prompt: string | undefined) => {
-    const status = await initDB()
-    setDb(status)
-    const res = await addData('chat', { message: query })
-    console.log(res)
-    setData([...data, { message: prompt !== undefined ? prompt : query }])
+    // const status = await initDB()
+    // setDb(status)
+    // await addData('chat', { message: query })
+    // setData([...data, { message: prompt !== undefined ? prompt : query }])
+    console.log(data)
+    data[prompt !== undefined ? prompt : query] = { message: prompt !== undefined ? prompt : query}
+    await extensionSDK.localStorageSetItem('chat_history',JSON.stringify(data))
+    setData(data)
     setSubmit(true)
     fetchData(prompt, exploreData)
   }
@@ -174,9 +180,10 @@ const ExploreAssistant = () => {
    * @returns {Promise<void>} - A promise that resolves when the submission is complete.
    */
   const handleHistorySubmit = async (prompt: string) => {
-    const res = await getData('chat',prompt)
+    const res = await extensionSDK.localStorageGetItem('chat_history') //getData('chat',prompt)
     setSubmit(true)
-    setExploreUrl(res.url)
+    setQuery(prompt)
+    setExploreUrl(JSON.parse(res)[prompt].url)
   }
 
   const categorizedPrompts = [
@@ -206,24 +213,11 @@ const ExploreAssistant = () => {
         <SpaceVertical>
           <div
             className={styles.scrollbar}
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              width: '100%',
-              height: '100%',
-            }}
+            id={styles.layout}
           >
             <div
               className={styles.scrollbar}
-              style={{
-                width: '30vw',
-                padding: '2rem',
-                height: '100vh',
-                borderRight: '1px solid #ccc',
-                overflowY: 'scroll',
-              }}
+              id={styles.subLayout}
             >
               <span
                 style={{
@@ -272,7 +266,7 @@ const ExploreAssistant = () => {
                     alignItems: 'center',
                   }}
                 >
-                  <div style={{ width: '50%' }}>
+                  <div style={{ width: 'auto' }}>
                     <Button
                       disabled={submit}
                       onClick={() => handleSubmit(undefined)}
@@ -317,19 +311,20 @@ const ExploreAssistant = () => {
                       id="historyScroll"
                       style={{ overflowY: 'scroll', height: '40vh', display:'flex',flexDirection:'column',justifyContent:'flex-start', alignItems:'center' }}
                     >
-                      {db &&
-                        data.length > 0 &&
-                        data
-                          .filter((item: any) => item.message !== '')
+                      {
+                      // db &&
+                        Object.keys(data).length > 0 &&
+                        Object.keys(data)
+                          .filter((item: any) => data[item].message !== '')
                           .map((item: any, index: number) => {
                             return (
                               <div
                                 key={index}
-                                onClick={() => handleHistorySubmit(item.message)}
+                                onClick={() => handleHistorySubmit(data[item].message)}
                                 className={styles.card}
                               >
                                 <span style={{ fontSize: '1.5vh' }}>
-                                  {item.message}
+                                  {data[item].message}
                                 </span>
                               </div>
                             )

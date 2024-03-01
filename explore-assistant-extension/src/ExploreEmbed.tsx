@@ -33,7 +33,7 @@ const LOOKER_EXPLORE_ID = `${process.env.LOOKER_MODEL}/${process.env.LOOKER_EXPL
 
 export interface ExploreEmbedProps {
   exploreUrl: string
-  setExplore: any
+  setExploreLoading: any,
   submit: any
   setSubmit: any
 }
@@ -48,7 +48,7 @@ export interface ExploreEmbedProps {
  */
 export const ExploreEmbed = ({
   exploreUrl,
-  setExplore,
+  setExploreLoading,
   submit,
   setSubmit,
 }: ExploreEmbedProps) => {
@@ -77,7 +77,7 @@ export const ExploreEmbed = ({
     const el = ref.current
     if (el && hostUrl && exploreUrl) {
       const paramsObj: any = {
-        embed_domain: hostUrl,
+        embed_domain: window.origin, //hostUrl,
         sdk: '2',
         _theme: JSON.stringify({
           key_color: '#174ea6',
@@ -103,7 +103,7 @@ export const ExploreEmbed = ({
         .on('explore:run:complete', () => setExploreRunStart(false))
         .build()
         .connect()
-        .then((explore) => setExplore(explore))
+        .then((explore) => setExploreLoading(explore))
         .catch((error: Error) => {
           // @TODO - This should probably throw a visible error
           // eslint-disable-next-line no-console

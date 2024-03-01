@@ -51,5 +51,5 @@ SOFTWARE.
     "skipLibCheck": true,
     "suppressImplicitAnyIndexErrors": true
   },
-  "exclude": ["node_modules"]
+  "exclude": ["explore-assistant-extension/node_modules"]
 }

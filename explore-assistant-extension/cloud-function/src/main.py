@@ -83,16 +83,14 @@ def gen_looker_query(request):
     # read examples jsonl file from local filesystem
     # in a production use case, reading from cloud storage would be recommended
     examples = """\n The examples here showcase how the url should be constructed. Only use the "dimensions" and "measures" above for fields, filters and sorts: \n"""
+
+    request_json = request.get_json(silent=True)
+
     with open("./examples.jsonl", "r") as f:
         lines = f.readlines()
 
         for line in lines:
             examples += (f"input: {json.loads(line)['input']} \n" + f"output: {json.loads(line)['output']} \n") 
-
-    request_json = request.get_json(silent=True)
-    request_args = request.args
-
-    print("JSON: ", request.get_json(silent=True))
 
     
 
@@ -120,7 +118,6 @@ def gen_looker_query(request):
 
         # grab token character count metadata and log
         metadata = response.__dict__['_raw_response'].usage_metadata
-        # print({"request": request_json['question'],"response": response.text, "input_characters": metadata.prompt_token_count, "output_characters": metadata.candidates_token_count})
 
         # Complete a structured log entry.
         entry = dict(

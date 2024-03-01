@@ -68,7 +68,6 @@ def looker_llm_vis():
     incoming_request = request.get_json()
     examples = """\n The examples here showcase how the url should be constructed. Only use the "dimensions" and "measures" above for fields, filters and sorts: \n"""
     with open(f"./{incoming_request['model']}::{incoming_request['explore']}.jsonl","r") as f:
-    # open("./examples.jsonl", "r") as f:
         lines = f.readlines()
 
         for line in lines:

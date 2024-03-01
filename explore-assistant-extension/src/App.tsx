@@ -38,7 +38,7 @@ import {
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import type { ChangeEvent } from 'react'
 import { ExploreEmbed } from './ExploreEmbed'
-import styles from './styles.css'
+import styles from './styles.module.css'
 // import { initDB, addData, getStoreData, updateData, getData } from './db'
 
 const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''

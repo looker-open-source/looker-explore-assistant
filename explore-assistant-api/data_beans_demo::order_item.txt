@@ -1,0 +1,91 @@
+Dimensions Used to group by information:
+name: customer.company_id, type: number, description: Foreign key: A valid value from the company table.
+name: customer.country_code, type: string, description: The home country of the customer.
+name: customer.customer_email, type: string, description: Customer's email address
+name: customer.customer_id, type: number, description: Primary key.
+name: customer.customer_inception_date, type: date_date, description: Date of first customer interaction
+name: customer.customer_inception_month, type: date_month, description: Date of first customer interaction
+name: customer.customer_inception_quarter, type: date_quarter, description: Date of first customer interaction
+name: customer.customer_inception_raw, type: date_raw, description: Date of first customer interaction
+name: customer.customer_inception_week, type: date_week, description: Date of first customer interaction
+name: customer.customer_inception_year, type: date_year, description: Date of first customer interaction
+name: customer.customer_name, type: string, description: Name of the customer.
+name: customer.customer_yob, type: number, description: Customer year of birth
+name: location.city_id, type: number, description: The primary city for a location.  For coffee trucks this is the current city.
+name: city.city_id, type: number, description: Primary key.
+name: city.city_location, type: location, description: The latitude and longitude of the city.
+name: city.city_name, type: string, description: The name of the city.
+name: location.company_id, type: number, description: Foreign key: A valid value from the company table.
+name: city.country_code, type: string, description: Alpha 3 Code.
+name: city.lat_long, type: string, description: The latitude and longitude of the city.
+name: city.latitude, type: number, description: The latitude of the city.
+name: location.location_id, type: number, description: Primary key.
+name: location.location_name, type: string, description: Name of the location.
+name: location.location_type, type: string, description: Valid values for location_type are: 'Fixed', 'Mobile'
+name: city.longitude, type: number, description: The longitude of the city.
+name: city.popular_locations, type: string, description: Popular locations within the city.
+name: menu.company_id, type: number, description: Foreign key: Company table.
+name: menu.item_description, type: string, description: The description of the menu item.
+name: menu.item_name, type: string, description: The name of the menu item.
+name: menu.item_price, type: number, description: The price of the menu item.
+name: menu.item_size, type: string, description: The size of the menu item.
+name: menu.llm_item_description, type: string, description: LLM generated description of the menu item.
+name: menu.llm_item_description_prompt, type: string, description: LLM generated prompt for item description.
+name: menu.llm_item_image_url, type: string, description: LLM generated url for item image.
+name: menu.llm_item_image_prompt, type: string, description: LLM generated prompt for item image.
+name: menu.menu_id, type: number, description: Primary key. Menu table.
+name: order.customer_id, type: number, description: Foreign key: Customer table.
+name: order_item.item_price, type: number, description: 
+name: order_item.item_size, type: string, description: 
+name: order.location_id, type: number, description: Foreign key: Location table.
+name: order_item.menu_id, type: number, description: Foreign key: Menu table
+name: order.order_completion_date, type: date_date, description: The datetime the order was completed.
+name: order.order_completion_datetime_date, type: date_date, description: The datetime the order was completed.
+name: order.order_completion_datetime_month, type: date_month, description: The datetime the order was completed.
+name: order.order_completion_datetime_quarter, type: date_quarter, description: The datetime the order was completed.
+name: order.order_completion_datetime_raw, type: date_raw, description: The datetime the order was completed.
+name: order.order_completion_datetime_time, type: date_time, description: The datetime the order was completed.
+name: order.order_completion_datetime_week, type: date_week, description: The datetime the order was completed.
+name: order.order_completion_datetime_year, type: date_year, description: The datetime the order was completed.
+name: order.order_completion_month, type: date_month, description: The datetime the order was completed.
+name: order.order_completion_quarter, type: date_quarter, description: The datetime the order was completed.
+name: order.order_completion_raw, type: date_raw, description: The datetime the order was completed.
+name: order.order_completion_time, type: date_time, description: The datetime the order was completed.
+name: order.order_completion_week, type: date_week, description: The datetime the order was completed.
+name: order.order_completion_year, type: date_year, description: The datetime the order was completed.
+name: order.order_date, type: date_date, description: The datetime the order was started.
+name: order.order_datetime_date, type: date_date, description: The datetime the order was started.
+name: order.order_datetime_month, type: date_month, description: The datetime the order was started.
+name: order.order_datetime_quarter, type: date_quarter, description: The datetime the order was started.
+name: order.order_datetime_raw, type: date_raw, description: The datetime the order was started.
+name: order.order_datetime_time, type: date_time, description: The datetime the order was started.
+name: order.order_datetime_week, type: date_week, description: The datetime the order was started.
+name: order.order_datetime_year, type: date_year, description: The datetime the order was started.
+name: order.order_id, type: number, description: Primary key.
+name: order_item.order_id, type: number, description: Foreign key: Order table
+name: order_item.order_item_id, type: number, description: Primary key.
+name: order.order_month, type: date_month, description: The datetime the order was started.
+name: order.order_quarter, type: date_quarter, description: The datetime the order was started.
+name: order.order_raw, type: date_raw, description: The datetime the order was started.
+name: order.order_time, type: date_time, description: The datetime the order was started.
+name: order_item.item_total, type: number, description: 
+name: order.order_week, type: date_week, description: The datetime the order was started.
+name: order.order_year, type: date_year, description: The datetime the order was started.
+name: order_item.quantity, type: number, description: Number of items ordered
+
+Measures are used to perform calculations/aggregations (if top, bottom, total, sum, etc. are used include a measure):
+name: customer.count, type: count_distinct, description: 
+name: customer.customer_count, type: count_distinct, description: 
+name: city.city_location_latitude_max, type: max, description: The latitude and longitude of the city.
+name: city.city_location_latitude_min, type: min, description: The latitude and longitude of the city.
+name: city.city_location_longitude_max, type: max, description: The latitude and longitude of the city.
+name: city.city_location_longitude_min, type: min, description: The latitude and longitude of the city.
+name: location.count, type: count_distinct, description: 
+name: city.count, type: count_distinct, description: 
+name: city.count_of_cities, type: count_distinct, description: 
+name: location.count_of_locations, type: count_distinct, description: 
+name: menu.count, type: count_distinct, description: 
+name: order.count, type: count_distinct, description: 
+name: order_item.count, type: count, description: 
+name: order.order_count, type: count_distinct, description: 
+name: order_item.total_sales, type: sum, description: 

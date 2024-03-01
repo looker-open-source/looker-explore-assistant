@@ -1,4 +1,3 @@
-
 # MIT License
 
 # Copyright (c) 2023 Looker Data Sciences, Inc.
@@ -21,40 +20,24 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
-import functions_framework
-import vertexai
 import os
+from flask import Flask, request
+from flask_cors import CORS, cross_origin
+import vertexai
 from urllib.parse import urlparse, parse_qs
 import json
 import re
 
-def tokenizer(text):
-    """
-    Tokenizes the given text into a list of words.
+app = Flask(__name__)
+CORS(app)
 
-    Args:
-        text (str): The text to be tokenized.
+# instantiate gemini model for prediction
+from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
+model = GenerativeModel("gemini-pro")
 
-    Returns:
-        list: A list of words extracted from the text.
-    """
-    pattern = re.compile('\w+')
-    matches = pattern.finditer(text)
-    return list(matches)
 
-@functions_framework.http
-def gen_looker_query(request):
-    """
-    Generate Looker query based on the given request.
-
-    Args:
-        request (flask.Request): The HTTP request object.
-
-    Returns:
-        tuple: A tuple containing the response body, status code, and headers.
-    """
-
+@app.route("/", methods = ["POST"])
+def looker_llm_vis():
     if request.method == "OPTIONS":
         headers = {
             "Access-Control-Allow-Origin": "*",
@@ -64,15 +47,15 @@ def gen_looker_query(request):
         }
 
         return ("", 204, headers)
-
+    
+    
     project = os.environ.get("PROJECT")
     location = os.environ.get("REGION")
-
 
     vertexai.init(project=project, location=location)
     parameters = {
         "temperature": 0.2,
-        "max_output_tokens": 100,### Reduce token to avoid having multiples results on the same request
+        "max_output_tokens": 2000,### Reduce token to avoid having multiples results on the same request
         "top_p": 0.8,
         "top_k": 40
     }
@@ -82,29 +65,29 @@ def gen_looker_query(request):
 
     # read examples jsonl file from local filesystem
     # in a production use case, reading from cloud storage would be recommended
+    incoming_request = request.get_json()
     examples = """\n The examples here showcase how the url should be constructed. Only use the "dimensions" and "measures" above for fields, filters and sorts: \n"""
-    with open("./examples.jsonl", "r") as f:
+    with open(f"./{incoming_request['model']}::{incoming_request['explore']}.jsonl","r") as f:
+    # open("./examples.jsonl", "r") as f:
         lines = f.readlines()
 
         for line in lines:
-            examples += (f"input: {json.loads(line)['input']} \n" + f"output: {json.loads(line)['output']} \n") 
-
-    request_json = request.get_json(silent=True)
-    request_args = request.args
-
-    print("JSON: ", request.get_json(silent=True))
+            print(f"input: {json.loads(line)['input']} \n output: {json.loads(line)['output']} \n")
+            examples += (f"input: {json.loads(line)['input']}\n output: {json.loads(line)['output']}\n")
 
     
-
-    if request_json and 'question' in request_json:
+    if incoming_request and 'question' in incoming_request:
         llm = """
             input: {}
-            output: """.format(request_json['question']) ### Formating our input to the model
-        predict = context + request_json['explore'] + examples + llm
-
-        # instantiate gemini model for prediction
-        from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
-        model = GenerativeModel("gemini-pro")
+            output: """.format(incoming_request['question']) ### Formating our input to the model
+        predict = context
+        
+        # read lookml metadata file, append to prompt
+        with open(f"./{incoming_request['model']}::{incoming_request['explore']}.txt", "r") as metadata_file:
+            predict += metadata_file.read()
+        
+        # build examples into prompt
+        predict += examples + llm
 
         # make prediction to generate Looker Explore URL
         response =  model.generate_content(
@@ -113,7 +96,7 @@ def gen_looker_query(request):
                 temperature=0.2,
                 top_p=0.8,
                 top_k=40,
-                max_output_tokens=100,
+                max_output_tokens=1000,
                 candidate_count=1
             )
         )
@@ -125,7 +108,7 @@ def gen_looker_query(request):
         # Complete a structured log entry.
         entry = dict(
             severity="INFO",
-            message={"request": request_json['question'],"response": response.text, "input_characters": metadata.prompt_token_count, "output_characters": metadata.candidates_token_count},
+            message={"model":incoming_request['model'],"explore":incoming_request['explore'],"request": incoming_request['question'],"response": response.text, "input_characters": metadata.prompt_token_count, "output_characters": metadata.candidates_token_count},
             # Log viewer accesses 'component' as jsonPayload.component'.
             component="explore-assistant-metadata",
         )
@@ -138,8 +121,10 @@ def gen_looker_query(request):
             "Access-Control-Allow-Origin": "*"
         }
 
-        print("Response: ", response.text, "Headers: ", headers)
-
-        return (response.text,200,headers)
+        return (f"{response.text.rstrip().lstrip()}&toggle=dat,pik,vis",200,headers)
     else:
         return ('Bad Request',400)
+
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))

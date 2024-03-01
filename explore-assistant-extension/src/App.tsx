@@ -33,11 +33,12 @@ import {
   FieldTextArea,
   Tabs2,
   Tab2,
+  Select,
 } from '@looker/components'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import type { ChangeEvent } from 'react'
 import { ExploreEmbed } from './ExploreEmbed'
-import styles from './styles.module.css'
+import styles from './styles.css'
 // import { initDB, addData, getStoreData, updateData, getData } from './db'
 
 const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
@@ -47,8 +48,8 @@ const LOOKER_EXPLORE = process.env.LOOKER_EXPLORE || ''
 const ExploreAssistant = () => {
   const { core40SDK, extensionSDK } = useContext(ExtensionContext)
   const [exploreUrl, setExploreUrl] = React.useState<any>('')
+  const [exploreLoading, setExploreLoading] = React.useState<boolean>(false)
   const [query, setQuery] = React.useState<string>('')
-  const [explore, setExplore] = React.useState<any>(null)
   const [begin, setBegin] = React.useState<boolean>(false)
   const [submit, setSubmit] = React.useState<boolean>(false)
   const [db, setDb] = React.useState<boolean>(false)
@@ -117,7 +118,7 @@ const ExploreAssistant = () => {
    * @param fields - The fields object containing dimensions and measures.
    * @returns {Promise<void>} - A promise that resolves when the data is fetched.
    */
-  async function fetchData(prompt: string | undefined, fields?: any): Promise<void> {
+  const fetchData = async (prompt: string | undefined, fields?: any): Promise<void> => {
     const question = prompt !== undefined ? prompt : query
     console.log('Question: ', prompt, query)
     const responseData = await fetch(VERTEX_AI_ENDPOINT, {
@@ -125,6 +126,7 @@ const ExploreAssistant = () => {
       headers: {
         'Content-Type': 'application/json',
       },
+      
       body: JSON.stringify({
         explore: `Dimensions Used to group by information:\n 
         ${fields.dimensions.join(';')},\n 
@@ -139,7 +141,7 @@ const ExploreAssistant = () => {
     setExploreUrl(exploreData.trim() + '&toggle=dat,pik,vis')
     // await updateData('chat',question, { message: question, url: exploreData.trim() + '&toggle=dat,pik,vis'})
     data[question] = { message: question, url: exploreData.trim() + '&toggle=dat,pik,vis'}
-    await extensionSDK.localStorageSetItem('chat_history',JSON.stringify(data))
+    await extensionSDK.localStorageSetItem(`chat_history`,JSON.stringify(data))
   }
 
   /**
@@ -154,7 +156,7 @@ const ExploreAssistant = () => {
     // setData([...data, { message: prompt !== undefined ? prompt : query }])
     console.log(data)
     data[prompt !== undefined ? prompt : query] = { message: prompt !== undefined ? prompt : query}
-    await extensionSDK.localStorageSetItem('chat_history',JSON.stringify(data))
+    await extensionSDK.localStorageSetItem(`chat_history`,JSON.stringify(data))
     setData(data)
     setSubmit(true)
     fetchData(prompt, exploreData)
@@ -180,7 +182,7 @@ const ExploreAssistant = () => {
    * @returns {Promise<void>} - A promise that resolves when the submission is complete.
    */
   const handleHistorySubmit = async (prompt: string) => {
-    const res = await extensionSDK.localStorageGetItem('chat_history') //getData('chat',prompt)
+    const res = await extensionSDK.localStorageGetItem(`chat_history`) //getData('chat',prompt)
     setSubmit(true)
     setQuery(prompt)
     setExploreUrl(JSON.parse(res)[prompt].url)
@@ -204,6 +206,19 @@ const ExploreAssistant = () => {
         'Total revenue by category this year compared to last year in a line chart with year pivoted',
       color: 'red',
     },
+  ]
+
+  const categorizedPromptsBilling = [
+    {
+      category: 'Billing Aggregate',
+      prompt: 'Top billed services in the past 2 years.',
+      color: 'blue'
+    },
+    {
+      category: 'Time Series',
+      prompt: 'Totaled Billed by month last year',
+      color: 'green'
+    }
   ]
 
   return (
@@ -282,7 +297,7 @@ const ExploreAssistant = () => {
                       className={styles.scrollbar}
                       style={{ overflowY: 'scroll', height: '40vh', display:'flex',flexDirection:'column',justifyContent:'flex-start',alignItems:'center' }}
                     >
-                      {categorizedPrompts.map((item, index: number) => (
+                      {(categorizedPrompts).map((item, index: number) => (
                         <div
                           key={index}
                           className={styles.card}
@@ -342,7 +357,7 @@ const ExploreAssistant = () => {
                 zIndex: 1,
               }}
             >
-              {!explore && <BardLogo />}
+              {!exploreLoading && <BardLogo />}
               {exploreUrl && (
                 <div
                   style={{
@@ -355,7 +370,7 @@ const ExploreAssistant = () => {
                   {exploreUrl && (
                     <ExploreEmbed
                       exploreUrl={exploreUrl}
-                      setExplore={setExplore}
+                      setExploreLoading={setExploreLoading}
                       submit={submit}
                       setSubmit={setSubmit}
                     />

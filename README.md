@@ -1,6 +1,6 @@
 # Looker Explore Assistant
 
-This is an extension or plugin for Looker that integrates LLM's hosted on Vertex AI into a natural language experience powered by Looker's modeling layer.
+This is an extension or API plugin for Looker that integrates LLM's hosted on Vertex AI into a natural language experience powered by Looker's modeling layer.
 
 ![explore assistant](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeTU2b2l1ajc5ZGk2Mnc3OGtqaXRyYW9jejUwa2NzdGhoMmV1cXI0NCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/TQvvei5kuc8uQgMqSw/giphy.gif)
 
@@ -40,7 +40,7 @@ Upcoming capabilities on the roadmap:
 - [Cloud Functions](https://cloud.google.com/functions)
 - ---
 
-## Setup
+## Setup Explore Assistant Extension
 ### 1. Generative AI Endpoint
 
 This section describes how to set up the Gen AI endpoint for the Explore Assistant. TLDR; We use a 2nd Gen Cloud Function to call the foundational model and return the results to the frontend.
@@ -59,7 +59,7 @@ This section describes how to set up the Gen AI endpoint for the Explore Assista
 2. Navigate (`cd`) to the template directory on your system
 
    ```bash
-   cd looker-explore-assistant/cloud-function/terraform
+   cd looker-explore-assistant/explore-assistant-extension/cloud-function/terraform
    ```
 
 3. Replace defaults in the `variables.tf` file for project and region.
@@ -108,7 +108,7 @@ jsonPayload.component="explore-assistant-metadata"
 1. Navigate (`cd`) to the template directory on your system
 
    ```bash
-   cd looker-explore-assistant
+   cd looker-explore-assistant/explore-assistant-extension
    ```
 
 1. Install the dependencies with [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
@@ -191,10 +191,80 @@ Note that the additional JavaScript files generated during the production build 
 
 ---
 
+# [Optional] Setup Looker Explore Assistant API
+## Description
+The Explore Assistant API is an API only version of the Explore Assistant intended to be integrated with your Backend to surface visualizations from natural language in a custom application. Below the requirements, setup and an example curl request is detailed:
+
+### 1. Setup Explore Assistant API and Run Locally
+
+```bash
+cd looker-explore-assistant/explore-assistant-api &&
+export PROJECT=<your GCP Project> &&
+export REGION=<your GCP region>
+```
+
+Ensure you have `venv` installed before running the following:
+```bash
+# Create a new virtualenv named "explore-assistant"
+python3 -m venv explore-assistant
+
+# Activate the virtualenv (OS X & Linux)
+source explore-assistant/bin/activate
+
+# Activate the virtualenv (Windows)
+explore-assistant\Scripts\activate
+```
+
+Run the following cURL command to ensure your the Explore Assistant API server is running and working:
+
+```bash
+curl --location 'http://localhost:8000/' --header 'Content-Type: application/json' --data '{
+    "model": "thelook",
+    "explore": "order_items",
+    "question": "total sales trending overtime as an area chart"
+}'
+```
+
+Before deploying, you will want to swap out the example LookML explore metadata text file and jsonl file for files that are customized for your Explore data. Please
+see [this Colab Notebook](./explore-assistant-training/looker_explore_assistant_training.ipynb) to automate this.
+
+### 2. Deployment
+
+1. Navigate (`cd`) to the template directory on your system
+
+   ```bash
+   cd looker-explore-assistant/explore-assistant-api/terraform
+   ```
+
+3. Replace defaults in the `variables.tf` file for project, region and endpoint name.
+
+4. Deploy resources.
+
+   ```terraform
+   terraform init
+
+   terraform plan
+
+   terraform apply
+   ```
+
+5. Save Deployed Cloud Run URL Endpoint and make authenticated cURL request (filling in the placeholders for your environment details):
+
+```bash
+curl --location '<CLOUD RUN URL>' -h 'Content-Type: application/json' -h 'Authorization: Bearer $(gcloud auth print-identity-token)' --data '{
+    "model": "YOUR LOOKML MODEL",
+    "explore": "YOUR LOOKML EXPLORE",
+    "question": "NATURAL LANGUAGE QUESTION"
+}'
+```
+The returned Cloud Run URL will be private, meaning an un-authorized and un-authenticated client won't be able to reach it. In the example above we are generating an identity token and passing it in the Authorization header of the request. Google Cloud provides a few options for authenticating request to a private Cloud Run service and the right one will vary depending on your setup. Please see [this doc](https://cloud.google.com/run/docs/authenticating/service-to-service) for more details
+
+---
+
 ### Recommendations for fine tuning the model
 
 This app uses a one shot prompt technique for fine tuning a model, meaning that all the metadata for the model is contained in the prompt. It's a good technique for a small dataset, but for a larger dataset, you may want to use a more traditional fine tuning approach. This is a simple implementation, but you can also use a more sophisticated approach that involves generating embeddings for explore metadata and leveraging a vector database for indexing.
 
 To best optimize the one shot prompt accuracy, please update the example input output jsonl file (`cloud_function/src/examples.jsonl`) in the Cloud Function code to be a representative sample of the data you are trying to model. For example, if you are trying to model a dataset of sales data, you may want to use a prompt like "What is the total sales for each region?" and follow that with the output using Looker's expanded url syntax. 20-100 examples is a good starting point for a one shot prompt and can drastically improve the accuracy of the model.
 
-We recommend using Looker System Activity, filtering queries for the model and explore you plan on using the assistant with, and then using the top 20-100 queries as your example input output string with their expanded url syntax.
+We recommend using Looker System Activity, filtering queries for the model and explore you plan on using the assistant with, and then using the top 20-100 queries as your example input output string with their expanded url syntax. Please see the [Explore Assistant Training Notebook](./explore-assistant-training/) for creating query examples for new datasets.

@@ -120,6 +120,7 @@ const ExploreAssistant = () => {
    */
   const fetchData = async (prompt: string | undefined, fields?: any): Promise<void> => {
     const question = prompt !== undefined ? prompt : query
+
     const responseData = await fetch(VERTEX_AI_ENDPOINT, {
       method: 'POST',
       headers: {
@@ -154,8 +155,6 @@ const ExploreAssistant = () => {
     // setDb(status)
     // await addData('chat', { message: query })
     // setData([...data, { message: prompt !== undefined ? prompt : query }])
-    console.log(prompt, query)
-    console.log(data)
     data[prompt !== undefined ? prompt : query] = { message: prompt !== undefined ? prompt : query}
     await extensionSDK.localStorageSetItem(`chat_history`,JSON.stringify(data))
     setData(data)
@@ -255,6 +254,9 @@ const ExploreAssistant = () => {
                   value={query}
                   onChange={handleChange}
                   onKeyDown={(e) => e.key === "Enter" && handleSubmit(undefined)}
+                  description="Trained on an Ecommerce Dataset. Try asking for your data output in a viz!"
+                  value={query}
+                  onChange={handleChange}
                   width={'100%'}
                 />
                 <div

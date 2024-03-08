@@ -120,7 +120,6 @@ const ExploreAssistant = () => {
    */
   const fetchData = async (prompt: string | undefined, fields?: any): Promise<void> => {
     const question = prompt !== undefined ? prompt : query
-    console.log('Question: ', prompt, query)
     const responseData = await fetch(VERTEX_AI_ENDPOINT, {
       method: 'POST',
       headers: {
@@ -133,6 +132,7 @@ const ExploreAssistant = () => {
         Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):\n 
         ${fields.measures.join(';')}`,
         question: question,
+        explore_label:'order_items'
       }),
     })
 
@@ -154,6 +154,7 @@ const ExploreAssistant = () => {
     // setDb(status)
     // await addData('chat', { message: query })
     // setData([...data, { message: prompt !== undefined ? prompt : query }])
+    console.log(prompt, query)
     console.log(data)
     data[prompt !== undefined ? prompt : query] = { message: prompt !== undefined ? prompt : query}
     await extensionSDK.localStorageSetItem(`chat_history`,JSON.stringify(data))
@@ -234,38 +235,26 @@ const ExploreAssistant = () => {
               className={styles.scrollbar}
               id={styles.subLayout}
             >
-              <span
-                style={{
-                  fontSize: '2rem',
-                  fontWeight: 'bold',
-                  fontFamily: 'sans-serif',
-                  letterSpacing: '-0.1rem',
-                  lineHeight: '2.5rem',
-                  marginBottom: '1rem',
-                  display: 'block',
-                  textAlign: 'left',
-                  width: 'auto',
-                  height: 'auto',
-                  border: 'none',
-                }}
-              >
+              <span className={styles.heading}>
                 Explore Assistant Demo
               </span>
-              <h3 style={{ color: 'rgb(26, 115, 232)' }}>
-                Powered by Generative AI with Google
-              </h3>
+              <span className={styles.text}>
+                Ask questions of a sample Ecommerce dataset powered by the Gemini model on Vertex AI.
+              </span>
               <div
                 style={{
                   width: '100%',
                   display: 'flex',
                   flexDirection: 'column',
+                  marginTop:'1.2rem'
                 }}
               >
                 <FieldTextArea
                   label="Type your prompt in here"
-                  description="Trained on an Ecommerce Dataset. Try asking for your data output in a viz!"
+                  description="💡 Tip: Try asking for your data output in a viz!"
                   value={query}
                   onChange={handleChange}
+                  onKeyDown={(e) => e.key === "Enter" && handleSubmit(undefined)}
                   width={'100%'}
                 />
                 <div
@@ -282,17 +271,18 @@ const ExploreAssistant = () => {
                   }}
                 >
                   <div style={{ width: 'auto' }}>
-                    <Button
+                    <button
                       disabled={submit}
                       onClick={() => handleSubmit(undefined)}
-                      style={{ width: '100%' }}
+                      className={styles.customButton}
+                      style={{ width: '100%', backgroundColor: 'rgb(26,115,232)', transition: 'background-color 0.2s cubic-bezier(0.3, 0, 0.5, 1)' }}
                     >
-                      {submit ? <BardLogo search={true} /> : 'Run Prompt'}
-                    </Button>
+                      Run Prompt
+                    </button>
                   </div>
                 </div>
                 <Tabs2 distributed>
-                  <Tab2 id="examples" label="Example Prompts">
+                  <Tab2 id="examples" label="Sample Prompts">
                     <div
                       className={styles.scrollbar}
                       style={{ overflowY: 'scroll', height: '40vh', display:'flex',flexDirection:'column',justifyContent:'flex-start',alignItems:'center' }}
@@ -305,22 +295,17 @@ const ExploreAssistant = () => {
                             handleExampleSubmit(item.prompt)
                           }}
                         >
-                          <span
-                            style={{
-                              color: `${item.color}`,
-                              fontSize: '1.3vh',
-                            }}
-                          >
+                          <span style={{ color: `${item.color}`}} className={styles.subHeading}>
                             {item.category}
                           </span>
-                          <span style={{ fontSize: '2vh' }} id="examplePrompt">
+                          <span className={styles.text} id="examplePrompt">
                             {item.prompt}
                           </span>
                         </div>
                       ))}
                     </div>
                   </Tab2>
-                  <Tab2 id="history" label="History">
+                  <Tab2 id="history" label="Your History">
                     <div
                       className={styles.scrollbar}
                       id="historyScroll"
@@ -338,7 +323,7 @@ const ExploreAssistant = () => {
                                 onClick={() => handleHistorySubmit(data[item].message)}
                                 className={styles.card}
                               >
-                                <span style={{ fontSize: '1.5vh' }}>
+                                <span className={styles.text}>
                                   {data[item].message}
                                 </span>
                               </div>
@@ -357,8 +342,6 @@ const ExploreAssistant = () => {
                 zIndex: 1,
               }}
             >
-              {!exploreLoading && <BardLogo />}
-              {exploreUrl && (
                 <div
                   style={{
                     position:'relative',
@@ -367,6 +350,17 @@ const ExploreAssistant = () => {
                     width: '100%',
                   }}
                 >
+                  <div style={{
+                    width:'100%',
+                    height:'100%',
+                    display:'flex',
+                    justifyContent:'center',
+                    alignItems:'center',
+                    position:'absolute',
+                    zIndex:!exploreLoading ? 1 : -1
+                  }}>
+                    <BardLogo />
+                  </div>
                   {exploreUrl && (
                     <ExploreEmbed
                       exploreUrl={exploreUrl}
@@ -376,7 +370,6 @@ const ExploreAssistant = () => {
                     />
                   )}
                 </div>
-              )}
             </div>
           </div>
         </SpaceVertical>
@@ -396,9 +389,9 @@ const LandingPage = ({ begin }: { begin: boolean }) => {
     },
     {
       title: 'Generate Text',
-      model: 'text-bison-001',
+      model: 'gemini-pro',
       description:
-        'Generative Text Model by Google. Used to Generate explore expanded url parameters. This is done based off 20 examples of question answer that is fed into the prompt context.',
+        'Multi-modal Model by Google. Used to generate the Explore query URL. This is done based off a minimal set of question answer examples that are fed into the prompt context.',
       doc: 'https://developers.generativeai.google/tutorials/text_quickstart',
     },
   ]
@@ -425,30 +418,18 @@ const LandingPage = ({ begin }: { begin: boolean }) => {
           }}
         >
           <span
-            style={{
-              fontSize: '4rem',
-              fontWeight: 'bold',
-              fontFamily: 'sans-serif',
-              letterSpacing: '-0.1rem',
-              lineHeight: '4.5rem',
-              marginBottom: '1rem',
-              display: 'block',
-              textAlign: 'left',
-              width: '100%',
-              border: 'none',
-            }}
-          >
+           className={styles.title}
+           >
             Explore Assistant Demo
           </span>
-          <h3 style={{ color: 'rgb(26, 115, 232)' }}>
+          <span className={styles.subTitle}>
             Powered by Generative AI with Google
-          </h3>
-          <Button onClick={() => begin(true)}>Begin</Button>
+          </span>
+          <button className={styles.customButton} style={{ backgroundColor: 'rgb(26,115,232)' }} onClick={() => begin(true)}>Begin</button>
           {docs.map((doc, index) => {
             return (
               <a
                 href={doc.doc}
-                style={{ textDecoration: 'none' }}
                 target="_blank"
                 rel="noreferrer"
                 key={index}
@@ -456,7 +437,7 @@ const LandingPage = ({ begin }: { begin: boolean }) => {
                 <div
                   style={{
                     cursor: 'pointer',
-                    width: '100%',
+                    width: '90%',
                     height: '18vh',
                     backgroundColor: 'white',
                     marginTop: '2rem',
@@ -474,12 +455,8 @@ const LandingPage = ({ begin }: { begin: boolean }) => {
                   >
                     <img
                       height="70%"
-                      width="70%"
-                      src={
-                        index === 0
-                          ? 'https://lh3.googleusercontent.com/-1brN-k2sapOWO4gfdJKGEH8kZbfFjrzEMjNs1dl4u64PBH-yxVmB5vG2aHDatRudSByL3lwViUg1w'
-                          : 'https://developers.generativeai.google/static/site-assets/images/marketing/home/icon-palm.webp'
-                      }
+                      width="auto"
+                      src={'https://lh3.googleusercontent.com/-1brN-k2sapOWO4gfdJKGEH8kZbfFjrzEMjNs1dl4u64PBH-yxVmB5vG2aHDatRudSByL3lwViUg1w'}
                     />
                   </div>
                   <div
@@ -492,27 +469,12 @@ const LandingPage = ({ begin }: { begin: boolean }) => {
                       flexDirection: 'column',
                     }}
                   >
-                    <span
-                      style={{
-                        height: 'auto',
-                        fontSize: '1.5rem',
-                        fontWeight: 'bold',
-                        fontFamily: 'sans-serif',
-                        letterSpacing: '-0.1rem',
-                        display: 'block',
-                        textAlign: 'left',
-                        width: '100%',
-                        color: 'black',
-                        border: 'none',
-                      }}
-                    >
+                    <span className={styles.heading}>
                       {doc.title}
                     </span>
-                    <p
-                      style={{ color: 'rgb(26, 115, 232)', fontSize: '0.8rem' }}
-                    >
+                    <span className={styles.subHeading}>
                       {doc.model}
-                    </p>
+                    </span>
                     <p
                       style={{
                         fontSize: '0.8rem',
@@ -541,67 +503,22 @@ export interface BardLogoProps {
 
 const BardLogo = ({ search }: BardLogoProps) => {
   const SVG = () => (
-    <svg
-      width="100%"
-      height="100%"
-      viewBox={search ? '-600 -300 9000 2500' : '0 -800 700 3000'}
-      fill="none"
-    >
-      <path
-        className={styles.bard}
-        d="M515.09 725.824L472.006 824.503C455.444 862.434 402.954 862.434 386.393 824.503L343.308 725.824C304.966 638.006 235.953 568.104 149.868 529.892L31.2779 477.251C-6.42601 460.515 -6.42594 405.665 31.2779 388.929L146.164 337.932C234.463 298.737 304.714 226.244 342.401 135.431L386.044 30.2693C402.239 -8.75637 456.159 -8.75646 472.355 30.2692L515.998 135.432C553.685 226.244 623.935 298.737 712.234 337.932L827.121 388.929C864.825 405.665 864.825 460.515 827.121 477.251L708.53 529.892C622.446 568.104 553.433 638.006 515.09 725.824Z"
-        fill="url(#paint0_radial_2525_777)"
-      />
-      <path
-        d="M915.485 1036.98L903.367 1064.75C894.499 1085.08 866.349 1085.08 857.481 1064.75L845.364 1036.98C823.765 987.465 784.862 948.042 736.318 926.475L698.987 909.889C678.802 900.921 678.802 871.578 698.987 862.61L734.231 846.951C784.023 824.829 823.623 783.947 844.851 732.75L857.294 702.741C865.966 681.826 894.882 681.826 903.554 702.741L915.997 732.75C937.225 783.947 976.826 824.829 1026.62 846.951L1061.86 862.61C1082.05 871.578 1082.05 900.921 1061.86 909.889L1024.53 926.475C975.987 948.042 937.083 987.465 915.485 1036.98Z"
-        fill="url(#paint1_radial_2525_777)"
-      />
-      <defs>
-        <radialGradient
-          id="paint0_radial_2525_777"
-          cx="0"
-          cy="0"
-          r="1"
-          gradientUnits="userSpaceOnUse"
-          gradientTransform="translate(670.447 474.006) rotate(78.858) scale(665.5 665.824)"
-        >
-          <stop stopColor="#1BA1E3" />
-          <stop offset="0.0001" stopColor="#1BA1E3" />
-          <stop offset="0.300221" stopColor="#5489D6" />
-          <stop offset="0.545524" stopColor="#9B72CB" />
-          <stop offset="0.825372" stopColor="#D96570" />
-          <stop offset="1" stopColor="#F49C46" />
-          <animate
-            attributeName="r"
-            dur="5000ms"
-            from="0"
-            to="1"
-            repeatCount="indefinite"
-          />
-        </radialGradient>
-        <radialGradient
-          id="paint1_radial_2525_777"
-          cx="0"
-          cy="0"
-          r="1"
-          gradientUnits="userSpaceOnUse"
-          gradientTransform="translate(670.447 474.006) rotate(78.858) scale(665.5 665.824)"
-        >
-          <stop stopColor="#1BA1E3" />
-          <stop offset="0.0001" stopColor="#1BA1E3" />
-          <stop offset="0.300221" stopColor="#5489D6" />
-          <stop offset="0.545524" stopColor="#9B72CB" />
-          <stop offset="0.825372" stopColor="#D96570" />
-          <stop offset="1" stopColor="#F49C46" />
-          <animate
-            attributeName="r"
-            dur="5000ms"
-            from="0"
-            to="1"
-            repeatCount="indefinite"
-          />
-        </radialGradient>
-      </defs>
+    <svg width={'30%'} height={'30%'} viewBox="0 -900 900 900" >
+      <path fill="url(#b)" className={styles.bard} d="M700-480q0-92-64-156t-156-64q92 0 156-64t64-156q0 92 64 156t156 64q-92 0-156 64t-64 156ZM80-80v-720q0-33 23.5-56.5T160-880h400v80H160v525l46-45h594v-241h80v241q0 33-23.5 56.5T800-240H240L80-80Zm160-320v-80h400v80H240Zm0-120v-80h360v80H240Zm0-120v-80h200v80H240Z"/>
+      <linearGradient id='b' gradientUnits='objectBoundingBox' x1='0' y1='1' x2='1' y2='1'>
+         <stop offset='0' stop-color='#1A73E8'>
+            <animate attributeName="stop-color"
+               values="blue;cyan;peach;yellow;orange;blue" dur="20s" repeatCount="indefinite">
+            </animate>
+         </stop>
+         <stop offset='1' stop-color='#FFDDB7' stop-opacity="0">
+            <animate attributeName="stop-color"
+               values="peach;orange;red;purple;cyan;blue;green;peach" dur="20s" repeatCount="indefinite">
+            </animate>
+         </stop>
+         <animateTransform attributeName="gradientTransform" type="rotate" values="360 .5 .5;0 .5 .5"
+            dur="10s" repeatCount="indefinite" />
+      </linearGradient>
     </svg>
   )
   return (

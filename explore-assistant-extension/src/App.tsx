@@ -132,7 +132,7 @@ const ExploreAssistant = () => {
         Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):\n 
         ${fields.measures.join(';')}`,
         question: question,
-        explore_label:'order_items'
+        explore_label:LOOKER_EXPLORE
       }),
     })
 

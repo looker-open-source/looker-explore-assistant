@@ -116,12 +116,6 @@ export const ExploreEmbed = ({
   return (
     <>
     <div style={{position:'absolute', display:'flex', flexDirection:'column', alignItems:'center',justifyContent:'center',width:'100%',height:'100%',backgroundColor:'rgb(214, 206, 195,0.4)',zIndex:submit ? 1 : -1}}>
-      <div style={{
-        height: '50%',
-        width:'50%'
-      }}>
-      <BardLogo />
-      </div>
     </div>
     <EmbedContainer id="embedcontainer" ref={ref} submit/>
     </>

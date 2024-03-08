@@ -24,6 +24,16 @@ SOFTWARE.
 
 */
 
+:root {
+    --heading-font-size: 2vh;
+    --subheading-font-size: 1vh;
+    --text-font-size: 1.4vh;
+    --title-font-size: 6vh;
+    --subtitle-font-size: 2vh;
+    --accent-color-primary: rgb(26,115,232);
+    --accent-color-secondary: rgba(47, 135, 249, 0.338);
+}
+
 .bard {
     animation: pulse 3s infinite;
     -webkit-animation: pulse 3s infinite;
@@ -32,6 +42,62 @@ SOFTWARE.
 .bard2 {
     animation: pulse2 3s infinite;
     -webkit-animation: pulse2 3s infinite;
+}
+
+span {
+    font-family: sans-serif;
+    /* letter-spacing: 0.2rem; */
+    display: block;
+    text-align: left;
+    width: auto;
+    height: auto;
+    border: none;
+}
+
+textarea {
+    font-size: --var(--text-font-size);
+}
+
+.title {
+    font-size: var(--title-font-size);
+    font-weight: bolder;
+    /* line-height: 4vh; */
+    margin-bottom: 1rem;
+}
+
+.subTitle {
+    font-size: var(--subtitle-font-size);
+    color: var(--accent-color-primary);
+    font-weight: bolder;
+    line-height: 2vh;
+    margin-bottom: 1rem;
+}
+
+.heading {
+    font-size: var(--heading-font-size);
+    color:black;
+    font-weight: bolder;
+    /* line-height: 1rem; */
+    margin-bottom: 0.2rem;
+}
+
+.subHeading {
+    font-size: var(--subheading-font-size);
+    color: var(--accent-color-primary);
+    font-weight: lighter;
+    /* line-height: 1vh; */
+    /* margin-bottom: 1rem; */
+}
+
+.text {
+    font-size: var(--text-font-size);
+}
+
+a {
+    text-decoration: none;
+    display: block;
+    width: auto;
+    height: auto;
 }
 
 .messageCard {
@@ -86,6 +152,53 @@ SOFTWARE.
   display: none; /* Chrome, Safari, Opera*/
 }
 
+.customButton {
+    appearance: none;
+    background-color: #FAFBFC;
+    border: 1px solid rgba(27, 31, 35, 0.15);
+    border-radius: 0.2rem;
+    box-shadow: rgba(27, 31, 35, 0.04) 0 1px 0, rgba(255, 255, 255, 0.25) 0 1px 0 inset;
+    box-sizing: border-box;
+    color: #fff;
+    cursor: pointer;
+    display: inline-block;
+    font-size: 14px;
+    font-weight: 500;
+    list-style: none;
+    position: relative;
+    transition: background-color 0.2s cubic-bezier(0.3, 0, 0.5, 1);
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    vertical-align: middle;
+    white-space: nowrap;
+    word-wrap: break-word;
+    height: 4vh;
+    width: 4vw;
+  }
+  
+  .customButton:hover {
+    background-color: #F3F4F6;
+    text-decoration: none;
+    transition-duration: 0.1s;
+  }
+  
+  @keyframes shimmer {
+    to {
+       background-position-x: 0%
+    }
+  }
+  
+  .customButton:disabled {
+    background: linear-gradient(-45deg, #eee 40%, #fafafa 50%, #eee 60%);
+    background-size: 300%;
+    background-position-x: 100%;
+    border-color: rgba(27, 31, 35, 0.15);
+    color: #959DA5;
+    cursor: default;
+    animation: shimmer 2s infinite linear;
+  }
+
 #layout {
     display: flex;
     flex-direction: row;
@@ -111,6 +224,15 @@ SOFTWARE.
         width:100%;
         border-right: 0px;
         border-bottom: 1px solid #ccc
+    }
+    .heading {
+        font-size: 0.8rem;
+    }
+    .subHeading {
+        font-size: 0.5rem;
+    }
+    .customButton {
+        width: 100%;
     }
 }
 

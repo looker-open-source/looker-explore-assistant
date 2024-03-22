@@ -226,7 +226,7 @@ const ExploreAssistant = () => {
               id={styles.subLayout}
             >
               <span className={styles.heading}>
-                Explore Assistant Demo
+                Explore Assistant
               </span>
               <span className={styles.text}>
                 Ask questions of a sample Ecommerce dataset powered by the Gemini model on Vertex AI.

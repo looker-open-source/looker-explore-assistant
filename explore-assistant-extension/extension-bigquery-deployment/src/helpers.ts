@@ -1,3 +1,29 @@
+/*
+
+MIT License
+
+Copyright (c) 2023 Looker Data Sciences, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
+
 interface GenerateText {
     model: string,
     explore: string,
@@ -26,7 +52,7 @@ const generateText = (request: GenerateTextRequest) => {
               MODEL ${request.model_id},
               (
                   SELECT FORMAT('Context: %s; LookML Metadata: %s; Examples: %s; input: %s, output: ',context,"${request.metadata}",examples.examples, "${request.input}") as prompt
-                  FROM explore_assistant_demo_logs.explore_assistant_examples as examples
+                  FROM explore_assistant.explore_assistant_examples as examples
                   WHERE examples.explore_id = "${request.model}:${request.explore}"
               ),
                   STRUCT(

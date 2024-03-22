@@ -75,6 +75,7 @@ export const ExploreEmbed = ({
     const el = ref.current
     if (el && hostUrl && exploreUrl) {
       const paramsObj: any = {
+        // For Looker Original use window.origin for Looker Core use hostUrl
         embed_domain: window.origin, //hostUrl,
         sdk: '2',
         _theme: JSON.stringify({

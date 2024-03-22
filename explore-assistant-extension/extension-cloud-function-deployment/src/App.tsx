@@ -74,7 +74,7 @@ const ExploreAssistant = () => {
       core40SDK.lookml_model_explore(LOOKER_MODEL, LOOKER_EXPLORE, 'fields')
     )
     const dimensions = fields.dimensions.map((field: any) => {
-      const { name, type, description } = field
+      const { name, type, description, tags } = field
       return (
         'name: ' +
         name +
@@ -82,11 +82,14 @@ const ExploreAssistant = () => {
         type +
         ', description: ' +
         description +
+        ', tags: ' +
+        tags +
         '\n'
+
       )
     })
     const measures = fields.measures.map((field: any) => {
-      const { name, type, description } = field
+      const { name, type, description, tags } = field
       return (
         'name: ' +
         name +
@@ -94,6 +97,8 @@ const ExploreAssistant = () => {
         type +
         ', description: ' +
         description +
+        ', tags: ' +
+        tags +
         '\n'
       )
     })
@@ -208,19 +213,6 @@ const ExploreAssistant = () => {
     },
   ]
 
-  const categorizedPromptsBilling = [
-    {
-      category: 'Billing Aggregate',
-      prompt: 'Top billed services in the past 2 years.',
-      color: 'blue'
-    },
-    {
-      category: 'Time Series',
-      prompt: 'Totaled Billed by month last year',
-      color: 'green'
-    }
-  ]
-
   return (
     <Page height="100%" className={styles.root}>
       {!begin && <LandingPage begin={setBegin} />}
@@ -235,7 +227,7 @@ const ExploreAssistant = () => {
               id={styles.subLayout}
             >
               <span className={styles.heading}>
-                Explore Assistant Demo
+                Explore Assistant
               </span>
               <span className={styles.text}>
                 Ask questions of a sample Ecommerce dataset powered by the Gemini model on Vertex AI.

@@ -82,8 +82,8 @@ const ExploreAssistant = () => {
         type +
         ', description: ' +
         description +
-        ', tags: ' +
-        tags +
+        ', tags (use tags to help inform what to do with this field when constructing the url): ' +
+        tags.join(',') +
         '\n'
 
       )
@@ -98,7 +98,7 @@ const ExploreAssistant = () => {
         ', description: ' +
         description +
         ', tags: ' +
-        tags +
+        tags.join(',') +
         '\n'
       )
     })
@@ -133,7 +133,7 @@ const ExploreAssistant = () => {
       },
       
       body: JSON.stringify({
-        explore: `Dimensions Used to group by information:\n 
+        explore: `Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):\n 
         ${fields.dimensions.join(';')},\n 
         Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):\n 
         ${fields.measures.join(';')}`,

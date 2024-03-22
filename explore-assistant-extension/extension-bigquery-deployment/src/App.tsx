@@ -83,9 +83,10 @@ const ExploreAssistant = () => {
         type +
         ', description: ' +
         description +
-        ', tags: ' + tags 
+        ', tags: ' + tags.join(',')
       )
     })
+    console.log(dimensions)
     const measures = fields.measures.map((field: any) => {
       const { name, type, description, tags } = field
       return (
@@ -95,7 +96,7 @@ const ExploreAssistant = () => {
         type +
         ', description: ' +
         description +
-        ', tags: ' + tags
+        ', tags: ' + tags.join(',')
       )
     })
     setExploreData({ dimensions: dimensions, measures: measures })
@@ -121,7 +122,7 @@ const ExploreAssistant = () => {
    */
   const fetchData = async (prompt: string | undefined, fields?: any): Promise<void> => {
     const question = prompt !== undefined ? prompt : query
-    const lookmlMetadata = `Dimensions Used to group by information (if map used include a location or lat long dimension): ${fields.dimensions.join(';')}  |  Measures are used to perform calculations (if top, bottom, total, sum, count, avg etc. are used include a measure): ${fields.measures.join(';')}`
+    const lookmlMetadata = `Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;): ${fields.dimensions.join(';')}  |  Measures are used to perform calculations (if top, bottom, total, sum, count, avg etc. are used include a measure): ${fields.measures.join(';')}`
 
     const createSQLQuery = await core40SDK.ok(
       core40SDK.create_sql_query(

@@ -9,6 +9,7 @@ explore-assistant-extension/extension-cloud-function-deployment/cloud-function/t
 explore-assistant-extension/extension-cloud-function-deployment/cloud-function/terraform/.terraform.lock.hcl
 explore-assistant-extension/extension-cloud-function-deployment/node_modules
 explore-assistant-extension/extension-cloud-function-deployment/dist
+explore-assistant-extension/extension-cloud-function-deployment/dist/*
 explore-assistant-extension/extension-cloud-function-deployment/.env
 explore-assistant-extension/extension-bigquery-deployment/bigquery/terraform/.terraform
 explore-assistant-extension/extension-bigquery-deployment/bigquery/terraform/terraform.tfstate
@@ -16,6 +17,7 @@ explore-assistant-extension/extension-bigquery-deployment/bigquery/terraform/ter
 explore-assistant-extension/extension-bigquery-deployment/bigquery/terraform/.terraform.lock.hcl
 explore-assistant-extension/extension-bigquery-deployment/node_modules
 explore-assistant-extension/extension-bigquery-deployment/dist
+explore-assistant-extension/extension-bigquery-deployment/dist/*
 explore-assistant-extension/extension-bigquery-deployment/.env
 explore-assistant-api/explore-assistant
 explore-assistant-api/explore-assistant/

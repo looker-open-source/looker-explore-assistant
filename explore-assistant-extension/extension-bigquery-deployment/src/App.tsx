@@ -39,11 +39,12 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import type { ChangeEvent } from 'react'
 import { ExploreEmbed } from './ExploreEmbed'
 import styles from './styles.module.css'
+import {generateText, insertResponse, insertResponseFeedback} from './helpers'
 // import { initDB, addData, getStoreData, updateData, getData } from './db'
 
-const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
 const LOOKER_MODEL = process.env.LOOKER_MODEL || ''
 const LOOKER_EXPLORE = process.env.LOOKER_EXPLORE || ''
+const MODEL_ID = process.env.BQML_MODEL_ID || ''
 
 const ExploreAssistant = () => {
   const { core40SDK, extensionSDK } = useContext(ExtensionContext)
@@ -74,7 +75,7 @@ const ExploreAssistant = () => {
       core40SDK.lookml_model_explore(LOOKER_MODEL, LOOKER_EXPLORE, 'fields')
     )
     const dimensions = fields.dimensions.map((field: any) => {
-      const { name, type, description } = field
+      const { name, type, description, tags } = field
       return (
         'name: ' +
         name +
@@ -82,11 +83,12 @@ const ExploreAssistant = () => {
         type +
         ', description: ' +
         description +
-        '\n'
+        ', tags: ' + tags.join(',')
       )
     })
+    console.log(dimensions)
     const measures = fields.measures.map((field: any) => {
-      const { name, type, description } = field
+      const { name, type, description, tags } = field
       return (
         'name: ' +
         name +
@@ -94,7 +96,7 @@ const ExploreAssistant = () => {
         type +
         ', description: ' +
         description +
-        '\n'
+        ', tags: ' + tags.join(',')
       )
     })
     setExploreData({ dimensions: dimensions, measures: measures })
@@ -120,29 +122,32 @@ const ExploreAssistant = () => {
    */
   const fetchData = async (prompt: string | undefined, fields?: any): Promise<void> => {
     const question = prompt !== undefined ? prompt : query
+    const lookmlMetadata = `Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;): ${fields.dimensions.join(';')}  |  Measures are used to perform calculations (if top, bottom, total, sum, count, avg etc. are used include a measure): ${fields.measures.join(';')}`
 
-    const responseData = await fetch(VERTEX_AI_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      
-      body: JSON.stringify({
-        explore: `Dimensions Used to group by information:\n 
-        ${fields.dimensions.join(';')},\n 
-        Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):\n 
-        ${fields.measures.join(';')}`,
-        question: question,
-        explore_label:LOOKER_EXPLORE
-      }),
-    })
-
-    const exploreData = await responseData.text()
-    console.log(exploreData)
-    setExploreUrl(exploreData.trim() + '&toggle=dat,pik,vis')
-    // await updateData('chat',question, { message: question, url: exploreData.trim() + '&toggle=dat,pik,vis'})
-    data[question] = { message: question, url: exploreData.trim() + '&toggle=dat,pik,vis'}
-    await extensionSDK.localStorageSetItem(`chat_history`,JSON.stringify(data))
+    const createSQLQuery = await core40SDK.ok(
+      core40SDK.create_sql_query(
+        {
+          model_name: LOOKER_MODEL,
+          sql: generateText({
+            model: LOOKER_MODEL,
+            explore: LOOKER_EXPLORE,
+            metadata: lookmlMetadata,
+            input: question,
+            model_id: MODEL_ID
+          })
+      }))
+    
+    if(createSQLQuery.slug) {
+      const runSQLQuery = await core40SDK.ok(core40SDK.run_sql_query(createSQLQuery.slug,'json'))
+      const exploreData = await runSQLQuery[0]['generated_content']
+      console.log(exploreData)
+      setExploreUrl(exploreData.trim() + '&toggle=dat,pik,vis')
+      // await updateData('chat',question, { message: question, url: exploreData.trim() + '&toggle=dat,pik,vis'})
+      data[question] = { message: question, url: exploreData.trim() + '&toggle=dat,pik,vis'}
+      await extensionSDK.localStorageSetItem(`chat_history`,JSON.stringify(data))
+    } else {
+      throw Error(`Failed to fetch Explore URL for ${question}. Check console for further details.`)
+    }
   }
 
   /**
@@ -208,19 +213,6 @@ const ExploreAssistant = () => {
     },
   ]
 
-  const categorizedPromptsBilling = [
-    {
-      category: 'Billing Aggregate',
-      prompt: 'Top billed services in the past 2 years.',
-      color: 'blue'
-    },
-    {
-      category: 'Time Series',
-      prompt: 'Totaled Billed by month last year',
-      color: 'green'
-    }
-  ]
-
   return (
     <Page height="100%" className={styles.root}>
       {!begin && <LandingPage begin={setBegin} />}
@@ -235,7 +227,7 @@ const ExploreAssistant = () => {
               id={styles.subLayout}
             >
               <span className={styles.heading}>
-                Explore Assistant Demo
+                Explore Assistant
               </span>
               <span className={styles.text}>
                 Ask questions of a sample Ecommerce dataset powered by the Gemini model on Vertex AI.
@@ -361,7 +353,7 @@ const ExploreAssistant = () => {
                     position:'absolute',
                     zIndex:!exploreLoading ? 1 : -1
                   }}>
-                    <BardLogo />
+                    <GenerativeLogo />
                   </div>
                   {exploreUrl && (
                     <ExploreEmbed
@@ -499,11 +491,11 @@ const LandingPage = ({ begin }: { begin: boolean }) => {
   )
 }
 
-export interface BardLogoProps {
+export interface GenerativeLogoProps {
   search?: boolean | undefined
 }
 
-const BardLogo = ({ search }: BardLogoProps) => {
+const GenerativeLogo = ({ search }: GenerativeLogoProps) => {
   const SVG = () => (
     <svg width={'30%'} height={'30%'} viewBox="0 -900 900 900" >
       <path fill="url(#b)" className={styles.bard} d="M700-480q0-92-64-156t-156-64q92 0 156-64t64-156q0 92 64 156t156 64q-92 0-156 64t-64 156ZM80-80v-720q0-33 23.5-56.5T160-880h400v80H160v525l46-45h594v-241h80v241q0 33-23.5 56.5T800-240H240L80-80Zm160-320v-80h400v80H240Zm0-120v-80h360v80H240Zm0-120v-80h200v80H240Z"/>
@@ -546,4 +538,4 @@ const BardLogo = ({ search }: BardLogoProps) => {
 }
 
 export const App = hot(ExploreAssistant)
-export { BardLogo }
+export { GenerativeLogo }

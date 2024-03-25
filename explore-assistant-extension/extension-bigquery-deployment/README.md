@@ -112,7 +112,7 @@ Terraform deployment coming soon!
 
    > You may need to update your Node version or use a [Node version manager](https://github.com/nvm-sh/nvm) to change your Node version.
 
-1. Ensure all the appropriate environment variables are set.
+2. Ensure all the appropriate environment variables are set.
 
    ```
    LOOKER_MODEL=<This is your Looker model name>
@@ -120,7 +120,7 @@ Terraform deployment coming soon!
    BQML_MODEL_ID=<This is your BQML model name from the prior step formatted as dataset.model_name>
    ```
 
-1. Start the development server
+3. [Optional] Start the development server
    **IMPORTANT** If you are running the extension from a VM or another remote machine, you will need to Port Forward to the machine where you are accessing the Looker Instance from (ie. if you are accessing Looker from your local machine, run the following command there). Here's a boilerplate example for port forwarding the remote port 8080 to the local port 8080:
    `ssh username@host -L 8080:localhost:8080`.
 
@@ -130,7 +130,7 @@ Terraform deployment coming soon!
 
    Great! Your extension is now running and serving the JavaScript at https://localhost:8080/bundle.js.
 
-1. Now log in to Looker and create a new project or use an existing project.
+4. Now log in to Looker and create a new project or use an existing project.
 
    This is found under **Develop** => **Manage LookML Projects** => **New LookML Project**.
 
@@ -138,8 +138,7 @@ Terraform deployment coming soon!
 
    1. In your copy of the extension project you have a `manifest.lkml` file.
 
-   You can either drag & upload this file into your Looker project, or create a `manifest.lkml` with the same content. Change the `id`, `label`, or `url` as needed. 
-   **IMPORTANT** please paste in the deployed Cloud Function URL into the `external_api_urls` list. This will allowlist it in Looker for fetch requests.
+   You can either drag & upload this file into your Looker project, or create a `manifest.lkml` with the same content. Change the `id`, `label`, or `url` as needed.
 
    ```lookml
    application: explore-assistant {
@@ -158,19 +157,19 @@ Terraform deployment coming soon!
     }
    ```
 
-1. Create a `model` LookML file in your project. The name doesn't matter. The model and connection won't be used, and in the future this step may be eliminated.
+5. Create a `model` LookML file in your project. The name doesn't matter. The model and connection won't be used, and in the future this step may be eliminated.
 
    - Add a connection in this model. It can be any connection, it doesn't matter which.
    - [Configure the model you created](https://docs.looker.com/data-modeling/getting-started/create-projects#configuring_a_model) so that it has access to some connection.
 
-1. Connect your new project to Git. You can do this multiple ways:
+6. Connect your new project to Git. You can do this multiple ways:
 
    - Create a new repository on GitHub or a similar service, and follow the instructions to [connect your project to Git](https://docs.looker.com/data-modeling/getting-started/setting-up-git-connection)
    - A simpler but less powerful approach is to set up git with the "Bare" repository option which does not require connecting to an external Git Service.
 
-1. Commit your changes and deploy your them to production through the Project UI.
+7. Commit your changes and deploy your them to production through the Project UI.
 
-1. Reload the page and click the `Browse` dropdown menu. You should see your extension in the list.
+8. Reload the page and click the `Browse` dropdown menu. You should see your extension in the list.
    - The extension will load the JavaScript from the `url` provided in the `application` definition. By default, this is https://localhost:8080/bundle.js. If you change the port your server runs on in the package.json, you will need to also update it in the manifest.lkml.
    - Refreshing the extension page will bring in any new code changes from the extension template, although some changes will hot reload.
 

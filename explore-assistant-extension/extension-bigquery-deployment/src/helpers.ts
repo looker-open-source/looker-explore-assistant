@@ -68,14 +68,14 @@ const generateText = (request: GenerateTextRequest) => {
 
 const insertResponse = (request: GenerateTextFeedback) => {
     return `
-        INSERT INTO explore_assistant_demo.explore_assistant_responses (explore_id,input,output,accurate,feedback)
+        INSERT INTO explore_assistant.explore_assistant_responses (explore_id,input,output,accurate,feedback)
         VALUES ('${request.model}:${request.explore}','${request.input}','${request.response}',,)
     `
 }
 
 const insertResponseFeedback = (request: GenerateTextFeedback) => {
     return `
-        UPDATE explore_assistant_demo.explore_assistant_responses SET accurate = ${request.accurate} AND feedback = '${request.feedback}'
+        UPDATE explore_assistant.explore_assistant_responses SET accurate = ${request.accurate} AND feedback = '${request.feedback}'
         WHERE explore_id = '${request.model}:${request.explore}'
     `
 }

@@ -139,6 +139,7 @@ Terraform deployment coming soon!
    1. In your copy of the extension project you have a `manifest.lkml` file.
 
    You can either drag & upload this file into your Looker project, or create a `manifest.lkml` with the same content. Change the `id`, `label`, or `url` as needed. 
+   **IMPORTANT** please paste in the deployed Cloud Function URL into the `external_api_urls` list. This will allowlist it in Looker for fetch requests.
 
    ```lookml
    application: explore-assistant {

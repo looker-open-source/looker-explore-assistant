@@ -48,17 +48,18 @@ Terraform deployment coming soon!
     gcloud projects add-iam-policy-binding 'PROJECT_NUMBER' --member='serviceAccount:MEMBER' --role='roles/aiplatform.user' --condition=None
     ```
 6.  From either the BigQuery console or your Looker Instance's SQL Runner Tab, execute the following commands:
-    Create a remote model connection to `gemini-pro`. Please replace the following variables with those for you environment (`PROJECT_ID`,`DATASET_ID`,`REGION`)
-    ```sql
-        CREATE OR REPLACE MODEL
-        `PROJECT_ID.DATASET_ID.explore_assistant_llm`
-        REMOTE WITH CONNECTION `PROJECT_ID.REGION.explore_assistant`
-        OPTIONS (ENDPOINT = 'gemini-pro');
-    ```
     Create a dataset in your BigQuery instance called `explore_assistant`. Please replace the following variables with those for you environment (`PROJECT_ID`,`REGION`)
     ```sql
         CREATE SCHEMA IF NOT EXISTS `PROJECT_ID.explore_assistant`
         OPTIONS(location = 'REGION')
+    ```
+    Create a remote model connection to `gemini-pro`. Please replace the following variables with those for you environment (`PROJECT_ID`,`REGION`). The remote model and connection will be named
+    the same (`explore_assistant_llm`) for simplicity.
+    ```sql
+        CREATE OR REPLACE MODEL
+        `PROJECT_ID.explore_assistant.explore_assistant_llm`
+        REMOTE WITH CONNECTION `PROJECT_ID.REGION.explore_assistant_llm`
+        OPTIONS (ENDPOINT = 'gemini-pro');
     ```
     Execute the following command to create a table in that dataset called `explore_assistant_examples` to hold the examples for each explore. This will serve as a lookup table.
     ```sql
@@ -67,7 +68,9 @@ Terraform deployment coming soon!
             examples STRING OPTIONS (description = 'Examples for Explore Assistant training. Multi line string of input: ,output: \n')
         )
     ```
-    Copy Stringified Examples and set them as variable in BQ. (**NOTE:** Examples below are standard ecomm examples, you will need to copy in those relevant to your environment. Please see [this notebook for more details on generating these](../../explore-assistant-training/looker_explore_assistant_training.ipynb))
+    Copy Stringified Examples and set them as variable in BQ. (**NOTE:** Examples below are standard ecomm examples used to illustrate the structure, you will need to copy in those relevant to your environment. Please see this notebook for more details on generating these: <a target="_blank" href="https://colab.research.google.com/github/LukaFontanilla/looker-explore-assistant/blob/main/explore-assistant-training/looker_explore_assistant_training.ipynb">
+    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+    </a>
     ```sql
         DECLARE examples STRING;
         SET examples = """
@@ -80,13 +83,12 @@ Terraform deployment coming soon!
         input: Orders that are still in Processing after 3 days, filtered by Distribution Center
         output:fields=order_items.created_date,order_items.order_id,products.item_name,order_items.status,users.email,order_items.average_days_to_process&f[distribution_centers.name]=Chicago IL&f[order_items.created_date]=before 3 days ago&f[order_items.status]=Processing&sorts=order_items.created_date desc&column_limit=50&vis={\"type\":\"looker_grid\"}"""
     ```
-    Insert these examples with the Looker explore id (ie. model:explore) into the `explore_assistant` table.
+    Insert these examples with the Looker explore id (ie. model:explore; replacing "model" with the lookml model and "explore" with the lookml explore) into the `explore_assistant` table.
     ```sql
-        INSERT INTO explore_assistant_demo_logs.explore_assistant_examples (explore_id,examples)
+        INSERT INTO explore_assistant.explore_assistant_examples (explore_id,examples)
         VALUES ('model:explore',examples);
     ```
 )
-
 
 
 
@@ -119,7 +121,7 @@ Terraform deployment coming soon!
    ```
 
 1. Start the development server
-   **IMPORTANT** If you are running the extension from a VM or another remote machine, you will need to Port Forward to the machine where you are accessing the Looker Instance from. Here's a boilerplate example for port forwarding the remote port 8080 to the local port 8080:
+   **IMPORTANT** If you are running the extension from a VM or another remote machine, you will need to Port Forward to the machine where you are accessing the Looker Instance from (ie. if you are accessing Looker from your local machine, run the following command there). Here's a boilerplate example for port forwarding the remote port 8080 to the local port 8080:
    `ssh username@host -L 8080:localhost:8080`.
 
    ```bash
@@ -142,7 +144,7 @@ Terraform deployment coming soon!
    ```lookml
    application: explore-assistant {
     label: "Explore Assistant"
-    # file: "explore-assistant.js"
+    # file: "bundle.js"
     url: "https://localhost:8000/bundle.js"
     entitlements: {
         core_api_methods: ["lookml_model_explore","run_inline_query","create_sql_query","run_sql_query"]

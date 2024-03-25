@@ -81,8 +81,9 @@ curl --location 'http://localhost:8000/' --header 'Content-Type: application/jso
 }'
 ```
 
-Before deploying, you will want to swap out the example LookML explore metadata text file and jsonl file for files that are customized for your Explore data. Please
-see [this Colab Notebook](./explore-assistant-training/looker_explore_assistant_training.ipynb) to automate this.
+Before deploying, you will want to swap out the example LookML explore metadata text file and jsonl file for files that are customized for your Explore data. Please see this notebook for more details on generating these: <a target="_blank" href="https://colab.research.google.com/github/LukaFontanilla/looker-explore-assistant/blob/main/explore-assistant-training/looker_explore_assistant_training.ipynb">
+    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+    </a>
 
 ### 2. Deployment
 

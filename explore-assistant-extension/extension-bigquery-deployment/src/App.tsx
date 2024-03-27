@@ -27,13 +27,11 @@ SOFTWARE.
 import React, { useContext, useEffect } from 'react'
 import { hot } from 'react-hot-loader/root'
 import {
-  Button,
   Page,
   SpaceVertical,
   FieldTextArea,
   Tabs2,
   Tab2,
-  Select,
 } from '@looker/components'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import type { ChangeEvent } from 'react'
@@ -47,7 +45,7 @@ const LOOKER_EXPLORE = process.env.LOOKER_EXPLORE || ''
 const MODEL_ID = process.env.BQML_MODEL_ID || ''
 
 const ExploreAssistant = () => {
-  const { core40SDK, extensionSDK } = useContext(ExtensionContext)
+  const { extensionSDK, core40SDK } = useContext(ExtensionContext)
   const [exploreUrl, setExploreUrl] = React.useState<any>('')
   const [exploreLoading, setExploreLoading] = React.useState<boolean>(false)
   const [query, setQuery] = React.useState<string>('')
@@ -72,7 +70,13 @@ const ExploreAssistant = () => {
     const responses = await extensionSDK.localStorageGetItem('chat_history')
     setData(responses === null ? {} : JSON.parse(responses))
     const { fields } = await core40SDK.ok(
-      core40SDK.lookml_model_explore(LOOKER_MODEL, LOOKER_EXPLORE, 'fields')
+      core40SDK.lookml_model_explore(
+        {
+          lookml_model_name: LOOKER_MODEL,
+          explore_name: LOOKER_EXPLORE,
+          fields: 'fields'
+        }
+      )
     )
     const dimensions = fields.dimensions.map((field: any) => {
       const { name, type, description, tags } = field

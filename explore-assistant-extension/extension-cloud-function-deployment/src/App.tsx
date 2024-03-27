@@ -71,7 +71,13 @@ const ExploreAssistant = () => {
     const responses = await extensionSDK.localStorageGetItem('chat_history')
     setData(responses === null ? {} : JSON.parse(responses))
     const { fields } = await core40SDK.ok(
-      core40SDK.lookml_model_explore(LOOKER_MODEL, LOOKER_EXPLORE, 'fields')
+      core40SDK.lookml_model_explore(
+        {
+          lookml_model_name: LOOKER_MODEL,
+          explore_name: LOOKER_EXPLORE,
+          fields: 'fields'
+        }
+      )
     )
     const dimensions = fields.dimensions.map((field: any) => {
       const { name, type, description, tags } = field

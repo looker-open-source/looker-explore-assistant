@@ -42,6 +42,7 @@ interface GenerateTextFeedback extends GenerateText {
 }
 
 const generateText = (request: GenerateTextRequest) => {
+    // concat sql string with model id so that backticks can be included for invalid path characters
     return `
           DECLARE context STRING;
           SET context = """Youre a developer who would transalate questions to a structured URL query based on the following dictionary - choose only the fileds in the below description
@@ -49,7 +50,7 @@ const generateText = (request: GenerateTextRequest) => {
 
           SELECT ml_generate_text_llm_result AS generated_content
           FROM ML.GENERATE_TEXT(
-              MODEL ${request.model_id},
+              MODEL` + '`' + request.model_id + '`' + `,
               (
                   SELECT FORMAT('Context: %s; LookML Metadata: %s; Examples: %s; input: %s, output: ',context,"${request.metadata}",examples.examples, "${request.input}") as prompt
                   FROM explore_assistant.explore_assistant_examples as examples

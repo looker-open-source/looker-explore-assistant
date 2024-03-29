@@ -21,41 +21,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
+import os
+import json
+from flask import Flask, request
+from flask_cors import CORS, cross_origin
 import functions_framework
 import vertexai
-import os
 from urllib.parse import urlparse, parse_qs
-import json
-import re
 
-@functions_framework.http
-def gen_looker_query(request):
-    """
-    Generate Looker query based on the given request.
+# Initialize the Vertex AI
+project = os.environ.get("PROJECT")
+location = os.environ.get("REGION")
+vertexai.init(project=project, location=location)
 
-    Args:
-        request (flask.Request): The HTTP request object.
+def generate_looker_query(request_json, explore_file):
 
-    Returns:
-        tuple: A tuple containing the response body, status code, and headers.
-    """
-
-    if request.method == "OPTIONS":
-        headers = {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Max-Age": "3600"
-        }
-
-        return ("", 204, headers)
-
-    project = os.environ.get("PROJECT")
-    location = os.environ.get("REGION")
-
-
-    vertexai.init(project=project, location=location)
     parameters = {
         "temperature": 0.2,
         "max_output_tokens": 100,### Reduce token to avoid having multiples results on the same request
@@ -70,15 +50,13 @@ def gen_looker_query(request):
     # in a production use case, reading from cloud storage would be recommended
     examples = """\n The examples here showcase how the url should be constructed. Only use the "dimensions" and "measures" above for fields, filters and sorts: \n"""
 
-    request_json = request.get_json(silent=True)
-
     with open("./examples.jsonl", "r") as f:
         lines = f.readlines()
 
         for line in lines:
             examples += (f"input: {json.loads(line)['input']} \n" + f"output: {json.loads(line)['output']} \n") 
 
-    
+
 
     if request_json and 'question' in request_json:
         llm = """
@@ -116,13 +94,58 @@ def gen_looker_query(request):
         print(json.dumps(entry))
         
 
-        # Set CORS headers for extension request
-        headers = {
-            "Access-Control-Allow-Origin": "*"
-        }
 
-        print("Response: ", response.text, "Headers: ", headers)
+# Flask app for running as a web server
+def create_flask_app():
+    app = Flask(__name__)
+    CORS(app)
 
-        return (response.text,200,headers)
+    @app.route("/", methods=["POST", "OPTIONS"])
+    def base():
+        if request.method == "OPTIONS":
+            return handle_options_request()
+        
+        incoming_request = request.get_json()
+        explore_file = f"./{incoming_request['model']}::{incoming_request['explore']}.jsonl"
+        response_text = generate_looker_query(incoming_request, explore_file)
+        
+        # Set CORS headers for the actual request
+        headers = {"Access-Control-Allow-Origin": "*"}
+        return response_text, 200, headers
+
+    return app
+
+
+# Function for Google Cloud Function
+@functions_framework.http
+def cloud_function_entrypoint(request):
+    if request.method == "OPTIONS":
+        return handle_options_request()
+
+    request_json = request.get_json(silent=True)
+    explore_file = "./examples.jsonl"
+    response_text = generate_looker_query(request_json, explore_file)
+
+    # Set CORS headers for the actual request
+    headers = {"Access-Control-Allow-Origin": "*"}
+    return response_text, 200, headers
+
+def handle_options_request():
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Max-Age": "3600"
+    }
+    return "", 204, headers
+
+
+# Determine the running environment and execute accordingly
+if __name__ == "__main__":
+    # Detect if running in a Google Cloud Function environment
+    if os.environ.get("FUNCTIONS_FRAMEWORK"):
+        # The Cloud Function entry point is defined by the decorator, so nothing is needed here
+        pass
     else:
-        return ('Bad Request',400)
+        app = create_flask_app()
+        app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))

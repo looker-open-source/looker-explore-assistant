@@ -17,3 +17,7 @@ variable "cloud_run_service_name" {
     type = string
     default = "explore-assistant-api"
 }
+
+variable "backend_type" {
+  type = string
+}

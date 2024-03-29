@@ -15,7 +15,6 @@ module "project-services" {
     "cloudapis.googleapis.com",
     "cloudbuild.googleapis.com",
     "run.googleapis.com",
-    "run.googleapis.com",
     "iam.googleapis.com",
     "serviceusage.googleapis.com",
     "storage-api.googleapis.com",
@@ -30,53 +29,22 @@ resource "time_sleep" "wait_after_apis_activate" {
   create_duration = "300s"
 }
 
+module "cloud_run_backend" {
+  count = var.backend_type != "cloud_run" ? 1 : 0
+  source = "./cloud_function"
+  project_id = var.project_id
+  deployment_region = var.deployment_region
+  docker_image = var.docker_image
+  cloud_run_service_name = var.cloud_run_service_name
 
-### Default Compute Engine Service Account Used; Will include permissions to call Vertex API's already
-
-resource "google_cloud_run_v2_service" "default" {
-  name     = var.cloud_run_service_name
-  location = var.deployment_region
-  ingress = "INGRESS_TRAFFIC_ALL"
-
-  template {
-    scaling {
-        max_instance_count = 20
-        min_instance_count = 1
-    }
-    timeout = "300s"
-    max_instance_request_concurrency = 200
-
-    containers {
-        image = var.docker_image
-
-        env {
-            name  = "project"
-            value = var.project_id
-        }
-        env {
-            name  = "region"
-            value = var.deployment_region
-        }
-
-        resources {
-            limits = {
-                cpu = 2
-                memory = "2000Mi"
-            }
-        }
-    }
-  }
+  depends_on = [ time_sleep.wait_after_apis_activate ]
 }
 
-resource "google_cloud_run_v2_service_iam_policy" "noauth" {
-  location    = var.deployment_region
-  project     = var.project_id
-  name        = var.cloud_run_service_name
+module "bigquery_backend" {
+  count = var.backend_type != "backend" ? 1 : 0
+  source = "./bigquery"
+  project_id = var.project_id
+  deployment_region = var.deployment_region
 
-  depends_on  = [google_cloud_run_v2_service.default]
-}
-
-# Return service URL
-output "url" {
-  value = "${google_cloud_run_v2_service.default.uri}"
+  depends_on = [ time_sleep.wait_after_apis_activate ]
 }

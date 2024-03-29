@@ -1,0 +1,5 @@
+functions-framework==3.*
+google-cloud-aiplatform>=1.38
+nltk
+Flask
+Flask-Cors

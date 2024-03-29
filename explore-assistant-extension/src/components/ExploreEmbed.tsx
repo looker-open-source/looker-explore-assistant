@@ -30,8 +30,6 @@ import { LookerEmbedSDK } from '@looker/embed-sdk'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store'
-const LOOKER_EXPLORE_ID =
-  `${process.env.LOOKER_MODEL}/${process.env.LOOKER_EXPLORE}` || ''
 
 export interface ExploreEmbedProps {}
 
@@ -39,7 +37,7 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
 
-  const { exploreUrl } = useSelector((state: RootState) => state.assistant)
+  const { exploreUrl, exploreId } = useSelector((state: RootState) => state.assistant)
 
   const canceller = (event: any) => {
     return { cancel: !event.modal }
@@ -75,7 +73,7 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
         .map((param) => (paramsObj[param.split('=')[0]] = param.split('=')[1]))
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
-      LookerEmbedSDK.createExploreWithId(LOOKER_EXPLORE_ID)
+      LookerEmbedSDK.createExploreWithId(exploreId)
         .appendTo(el)
         .withClassName('looker-embed')
         .withParams(paramsObj)

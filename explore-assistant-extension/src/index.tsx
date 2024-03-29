@@ -26,11 +26,10 @@ SOFTWARE.
 
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { ExtensionProvider } from '@looker/extension-sdk-react'
-import { ComponentsProvider, Spinner, Space } from '@looker/components'
+import { ComponentsProvider } from '@looker/components'
 import { App } from './App'
-import { store } from './store'
 import { Provider } from 'react-redux'
+import { store } from './store'
 
 const getRoot = () => {
   const id = 'extension-root'
@@ -47,28 +46,12 @@ const getRoot = () => {
 
 const render = (Component: typeof App) => {
   const root = getRoot()
-  const loading = (
-    <Space>
-      <Spinner color="black" />
-    </Space>
-  )
-
   ReactDOM.render(
-    <ComponentsProvider
-      themeCustomizations={{
-        colors: { key: '#1A73E8' },
-        defaults: { externalLabel: false },
-      }}
-    >
-      <ExtensionProvider
-        loadingComponent={loading}
-        requiredLookerVersion=">=21.0"
-      >
-        <Provider store={store}>
-          <Component />
-        </Provider>
-      </ExtensionProvider>
-    </ComponentsProvider>,
+    <>
+      <Provider store={store}>
+        <Component />
+      </Provider>
+    </>,
     root,
   )
 }

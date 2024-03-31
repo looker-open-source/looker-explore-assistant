@@ -8,4 +8,6 @@ terraform.tfstate*
 *.tfstate
 .venv
 node_modules
-dist/
+
+.vertex_cf_auth_token
+dist

@@ -43,7 +43,7 @@ To set up and run the function locally, follow these steps:
 3. Run the function locally by executing the main script:
 
     ```bash
-    PROJECT=XXX REGION=us-central1 python main.py
+    PROJECT=XXXX LOCATION=us-central-1 VERTEX_CF_AUTH_TOKEN=$(cat ../.vertex_cf_auth_token) python main.py
     ```
 
 4. Test calling the endpoint locally with a custom query and parameter declaration

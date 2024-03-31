@@ -31,6 +31,7 @@ import { RootState } from '../../store'
 import process from 'process'
 import { UtilsHelper } from '../../utils/Helper'
 import { useExampleData } from '../../hooks/useExampleData'
+import CryptoJS from 'crypto-js'
 
 interface ModelParameters {
   max_output_tokens?: number
@@ -42,8 +43,8 @@ const generateSQL = (
   parameters: ModelParameters,
 ) => {
   const escapedPrompt =  UtilsHelper.escapeQueryAll(prompt);        
-  var subselect = `SELECT '` + escapedPrompt + `' AS prompt`;
-
+  const subselect = `SELECT '` + escapedPrompt + `' AS prompt`;
+ 
   return `
 
   SELECT ml_generate_text_llm_result AS generated_content
@@ -68,7 +69,11 @@ const ExploreAssistantPage = () => {
   const LOOKER_MODEL = process.env.LOOKER_MODEL || ''
   const LOOKER_EXPLORE = process.env.LOOKER_EXPLORE || ''
 
+  // cloud function
   const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
+  const VERTEX_CF_AUTH_TOKEN = process.env.VERTEX_CF_AUTH_TOKEN || ''
+
+  // bigquery
   const VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME =
     process.env.VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME || ''
   const VERTEX_BIGQUERY_MODEL_ID = process.env.VERTEX_BIGQUERY_MODEL_ID || ''
@@ -274,16 +279,21 @@ Output
     contents: string,
     parameters: ModelParameters,
   ) => {
+    const body = JSON.stringify({
+      contents: contents,
+      parameters: parameters,
+    })
+
+    const signature = CryptoJS.HmacSHA256(body, VERTEX_CF_AUTH_TOKEN).toString()
+
     const responseData = await fetch(VERTEX_AI_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Signature': signature,
       },
 
-      body: JSON.stringify({
-        contents: contents,
-        parameters: parameters,
-      }),
+      body: body,
     })
     const response = await responseData.text()
     return response.trim()

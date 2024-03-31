@@ -21,7 +21,8 @@ module "project-services" {
     "storage-api.googleapis.com",
     "storage.googleapis.com",
     "aiplatform.googleapis.com",
-    "compute.googleapis.com"
+    "compute.googleapis.com",
+    "secretmanager.googleapis.com",
   ]
 }
 

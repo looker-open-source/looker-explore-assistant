@@ -22,8 +22,8 @@
 # SOFTWARE.
 
 import os
-import json
-from flask import Flask, request
+import hmac
+from flask import Flask, request, Response
 from flask_cors import CORS
 import functions_framework
 import vertexai
@@ -36,8 +36,30 @@ logging.basicConfig(level=logging.INFO)
 # Initialize the Vertex AI
 project = os.environ.get("PROJECT")
 location = os.environ.get("REGION")
+vertex_cf_auth_token = os.environ.get("VERTEX_CF_AUTH_TOKEN")
 vertexai.init(project=project, location=location)
 
+def get_response_headers(request):
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, X-Signature"
+    }
+    return headers
+
+
+def has_valid_signature(request):
+    signature = request.headers.get("X-Signature")
+    if signature is None:
+        return False
+
+    # Validate the signature
+    secret = vertex_cf_auth_token.encode("utf-8")
+    request_data = request.get_data()
+    hmac_obj = hmac.new(secret, request_data, "sha256")
+    expected_signature = hmac_obj.hexdigest()
+
+    return hmac.compare_digest(signature, expected_signature)
 
 def generate_looker_query(contents, parameters=None, model_name="gemini-1.0-pro-001"):
 
@@ -91,17 +113,20 @@ def create_flask_app():
     @app.route("/", methods=["POST", "OPTIONS"])
     def base():
         if request.method == "OPTIONS":
-            return handle_options_request()
+            return handle_options_request(request)
 
         incoming_request = request.get_json()
         contents = incoming_request.get("contents")
         parameters = incoming_request.get("parameters")
         if contents is None:
             return "Missing 'contents' parameter", 400
-        
+
+        if not has_valid_signature(request):
+            return "Invalid signature", 403
+
         response_text = generate_looker_query(contents, parameters)
-        
-        return response_text, 200, response_headers()
+
+        return response_text, 200, get_response_headers(request)
 
     return app
 
@@ -110,31 +135,26 @@ def create_flask_app():
 @functions_framework.http
 def cloud_function_entrypoint(request):
     if request.method == "OPTIONS":
-        return handle_options_request()
+        return handle_options_request(request)
 
     incoming_request = request.get_json()
     contents = incoming_request.get("contents")
     parameters = incoming_request.get("parameters")
     if contents is None:
         return "Missing 'contents' parameter", 400
-        
+
     response_text = generate_looker_query(contents, parameters)
 
-    return response_text, 200, response_headers()
+    return response_text, 200, get_response_headers(request)
 
 def response_headers():
     return {
         "Access-Control-Allow-Origin": "*"
     }
 
-def handle_options_request():
-    headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Max-Age": "3600"
-    }
-    return "", 204, headers
+def handle_options_request(request):
+    return "", 204, get_response_headers(request)
+
 
 # Determine the running environment and execute accordingly
 if __name__ == "__main__":

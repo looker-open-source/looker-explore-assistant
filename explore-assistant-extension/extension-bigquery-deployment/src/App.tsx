@@ -32,6 +32,7 @@ import {
   FieldTextArea,
   Tabs2,
   Tab2,
+  Select
 } from '@looker/components'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import type { ChangeEvent } from 'react'
@@ -54,6 +55,7 @@ const ExploreAssistant = () => {
   const [db, setDb] = React.useState<boolean>(false)
   const [data, setData] = React.useState<any>({})
   const [exploreData, setExploreData] = React.useState<any>(null)
+  const [selectedExplore, setSelectedExplore] = React.useState<any>('thelook:order_items')
 
   /**
    * Initializes the application by performing the following steps:
@@ -72,8 +74,8 @@ const ExploreAssistant = () => {
     const { fields } = await core40SDK.ok(
       core40SDK.lookml_model_explore(
         {
-          lookml_model_name: LOOKER_MODEL,
-          explore_name: LOOKER_EXPLORE,
+          lookml_model_name: selectedExplore.split(":")[0],
+          explore_name: selectedExplore.split(":")[1],
           fields: 'fields'
         }
       )
@@ -131,10 +133,10 @@ const ExploreAssistant = () => {
     const createSQLQuery = await core40SDK.ok(
       core40SDK.create_sql_query(
         {
-          model_name: LOOKER_MODEL,
+          model_name: selectedExplore.split(":")[0],
           sql: generateText({
-            model: LOOKER_MODEL,
-            explore: LOOKER_EXPLORE,
+            model: selectedExplore.split(":")[0],
+            explore: selectedExplore.split(":")[1],
             metadata: lookmlMetadata,
             input: question,
             model_id: MODEL_ID
@@ -197,29 +199,26 @@ const ExploreAssistant = () => {
     setExploreUrl(JSON.parse(res)[prompt].url)
   }
 
-  const categorizedPrompts = [
-    {
-      category: 'Cohorting',
-      prompt: 'Count of Users by first purchase date',
-      color: 'blue',
-    },
-    {
-      category: 'Audience Building',
-      prompt:
-        'Users who have purchased more than 100 dollars worth of Calvin Klein products and have purchased in the last 30 days',
-      color: 'green',
-    },
-    {
-      category: 'Period Comparison',
-      prompt:
-        'Total revenue by category this year compared to last year in a line chart with year pivoted',
-      color: 'red',
-    },
-  ]
+  const categorizedPrompts = {
+    "thelook:order_items": [
+      { category: 'Cohorting',prompt: 'Count of Users by first purchase date',color: 'blue'},
+      {category: 'Audience Building',prompt:'Users who have purchased more than 100 dollars worth of Calvin Klein products and have purchased in the last 30 days',color: 'green'},
+      {category: 'Period Comparison',prompt:'Total revenue by category this year compared to last year in a line chart with year pivoted',color: 'red'}
+    ],
+    "healthcare_operations:ortho_procedures": [
+      {category: 'Patient Groupings',prompt: 'count of patients by facility',color: 'blue'},
+      {category: 'Quality of Encounters',prompt:'encounters with an average wait time > 30 minutes because the staff was too busy',color: 'green'},
+      {category: 'Period Comparison',prompt:'Total procedural charges by payer July 2020 compared to August 2020 in a line chart with month pivoted',color: 'red'}
+    ],
+    "gcp_billing_demo:gcp_billing_export": [
+      {category: 'Billing Aggregate',prompt: 'Top billed services in the past 2 years.',color: 'blue'},
+      {category: 'Time Series',prompt: 'Totaled Billed by month last year',color: 'green'}
+    ]
+  }
 
   return (
     <Page height="100%" className={styles.root}>
-      {!begin && <LandingPage begin={setBegin} />}
+      {!begin && <LandingPage begin={setBegin} selectedExplore={selectedExplore} setSelectedExplore={setSelectedExplore}/>}
       {begin && (
         <SpaceVertical>
           <div
@@ -285,7 +284,7 @@ const ExploreAssistant = () => {
                       className={styles.scrollbar}
                       style={{ overflowY: 'scroll', height: '40vh', display:'flex',flexDirection:'column',justifyContent:'flex-start',alignItems:'center' }}
                     >
-                      {(categorizedPrompts).map((item, index: number) => (
+                      {(categorizedPrompts[selectedExplore]).map((item, index: number) => (
                         <div
                           key={index}
                           className={styles.card}
@@ -362,6 +361,7 @@ const ExploreAssistant = () => {
                   {exploreUrl && (
                     <ExploreEmbed
                       exploreUrl={exploreUrl}
+                      selectedExplore={selectedExplore}
                       setExploreLoading={setExploreLoading}
                       submit={submit}
                       setSubmit={setSubmit}
@@ -376,7 +376,7 @@ const ExploreAssistant = () => {
   )
 }
 
-const LandingPage = ({ begin }: { begin: boolean }) => {
+const LandingPage = ({ begin, selectedExplore, setSelectedExplore }: { begin: boolean, selectedExplore: any, setSelectedExplore: any }) => {
   const docs = [
     {
       title: 'No Code Prompt Tuning',
@@ -423,7 +423,17 @@ const LandingPage = ({ begin }: { begin: boolean }) => {
           <span className={styles.subTitle}>
             Powered by Generative AI with Google
           </span>
-          <button className={styles.customButton} style={{ backgroundColor: 'rgb(26,115,232)' }} onClick={() => begin(true)}>Begin</button>
+          <Select
+            placeholder="Select your Explore"
+            onChange={(e) => setSelectedExplore(e)}
+            value={selectedExplore}
+            options={[
+              { label: 'Ecommerce', value: 'thelook:order_items' },
+              { label: 'GCP Billing', value: 'gcp_billing_demo:gcp_billing_export' },
+              { label: 'Healthcare Operations', value: 'healthcare_operations:ortho_procedures' },
+            ]}
+          />
+          <button className={styles.customButton} style={{ marginTop:'1.2rem', backgroundColor: 'rgb(26,115,232)' }} onClick={() => begin(true)}>Begin</button>
           {docs.map((doc, index) => {
             return (
               <a

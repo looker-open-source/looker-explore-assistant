@@ -49,9 +49,10 @@ const generateText = (request: GenerateTextRequest) => {
 
           SELECT ml_generate_text_llm_result AS generated_content
           FROM ML.GENERATE_TEXT(
-              MODEL ${request.model_id},
+              MODEL` + "`" + request.model_id + "`," +
+              `
               (
-                  SELECT FORMAT('Context: %s; LookML Metadata: %s; Examples: %s; input: %s, output: ',context,"${request.metadata}",examples.examples, "${request.input}") as prompt
+                  SELECT FORMAT('Context: %s; LookML Metadata: %s; Examples: %s; input: %s, output: ',context,"${request.metadata}",examples.examples, "${request.input.split("\n").join(" ")}") as prompt
                   FROM explore_assistant.explore_assistant_examples as examples
                   WHERE examples.explore_id = "${request.model}:${request.explore}"
               ),

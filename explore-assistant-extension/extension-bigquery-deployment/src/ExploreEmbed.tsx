@@ -34,7 +34,8 @@ export interface ExploreEmbedProps {
   exploreUrl: string
   setExploreLoading: any,
   submit: any
-  setSubmit: any
+  setSubmit: any,
+  selectedExplore: string
 }
 
 /**
@@ -50,6 +51,7 @@ export const ExploreEmbed = ({
   setExploreLoading,
   submit,
   setSubmit,
+  selectedExplore
 }: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
@@ -88,7 +90,7 @@ export const ExploreEmbed = ({
         .map((param) => (paramsObj[param.split('=')[0]] = param.split('=')[1]))
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
-      LookerEmbedSDK.createExploreWithId(LOOKER_EXPLORE_ID)
+      LookerEmbedSDK.createExploreWithId(`${selectedExplore.split(":")[0]}/${selectedExplore.split(":")[1]}`)
         .appendTo(el)
         .withClassName('looker-embed')
         .withParams(paramsObj)

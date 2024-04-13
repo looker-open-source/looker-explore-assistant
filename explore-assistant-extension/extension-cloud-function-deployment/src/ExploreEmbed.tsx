@@ -63,7 +63,7 @@ export const ExploreEmbed = ({
   const ref = useRef<HTMLDivElement>(null)
 
   const handleQueryError = () => {
-    setTimeout(() => !exploreRunStart && animateExploreLoad(), 10)
+    setTimeout(() => !exploreRunStart && animateExploreLoad(),10)
   }
 
   const animateExploreLoad = () => {
@@ -76,10 +76,9 @@ export const ExploreEmbed = ({
     const hostUrl = extensionSDK?.lookerHostData?.hostUrl
     const el = ref.current
     if (el && hostUrl && exploreUrl) {
-      hostUrl.endsWith('looker.com') ? window.origin : hostUrl
       const paramsObj: any = {
         // For Looker Original use window.origin for Looker Core use hostUrl
-        embed_domain: hostUrl.endsWith('looker.com') ? window.origin : hostUrl,
+        embed_domain: window.origin, //hostUrl,
         sdk: '2',
         _theme: JSON.stringify({
           key_color: '#174ea6',
@@ -95,7 +94,7 @@ export const ExploreEmbed = ({
         .appendTo(el)
         .withClassName('looker-embed')
         .withParams(paramsObj)
-        .on('explore:ready', () => handleQueryError())
+        .on('explore:ready',() => handleQueryError())
         .on('drillmenu:click', canceller)
         .on('drillmodal:explore', canceller)
         .on('explore:run:start', () => {
@@ -117,14 +116,14 @@ export const ExploreEmbed = ({
 
   return (
     <>
-      <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', backgroundColor: 'rgb(214, 206, 195,0.4)', zIndex: submit ? 1 : -1 }}>
-      </div>
-      <EmbedContainer id="embedcontainer" ref={ref} submit />
+    <div style={{position:'absolute', display:'flex', flexDirection:'column', alignItems:'center',justifyContent:'center',width:'100%',height:'100%',backgroundColor:'rgb(214, 206, 195,0.4)',zIndex:submit ? 1 : -1}}>
+    </div>
+    <EmbedContainer id="embedcontainer" ref={ref} submit/>
     </>
   )
 }
 
-const EmbedContainer = styled.div<{ submit: boolean }>`
+const EmbedContainer = styled.div<{ submit: boolean}>`
   backgroundcolor: #f7f7f7;
   height: 100%;
   opacity: ${props => props.submit === true ? 0.2 : 1};

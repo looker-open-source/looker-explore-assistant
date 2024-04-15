@@ -112,6 +112,13 @@ The deployed Cloud Function will be public by default. This is because historica
    LOOKER_EXPLORE=<This is your Looker explore name>
    ```
 
+1. If you're utilizing Looker Core (Looker instance hosted in Google Cloud), adjust the `embed_domain` variable within the `useEffect()` function in ExploreEmbed.tsx to reflect the `hostUrl` instead of `window.origin`.
+
+   ```typescript
+   //embed.domain: window.origin // Looker Original
+   embed_domain: hostUrl, // Looker Core
+   ```
+
 1. Start the development server
    **IMPORTANT** If you are running the extension from a VM or another remote machine, you will need to Port Forward to the machine where you are accessing the Looker Instance from (ie. If you are accessing Looker from your local machine, run the following command there.). Here's a boilerplate example for port forwarding the remote port 8080 to the local port 8080:
    `ssh username@host -L 8080:localhost:8080`.

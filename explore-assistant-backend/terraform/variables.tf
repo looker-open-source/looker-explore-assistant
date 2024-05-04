@@ -39,5 +39,5 @@ variable "cloud_run_service_name" {
 
 variable "dataset_id_name" {
     type = string
-    default = "llm"
+    default = "explore_assistant"
 }

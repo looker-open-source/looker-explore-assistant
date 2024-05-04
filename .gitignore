@@ -8,3 +8,4 @@ terraform.tfstate*
 *.tfstate
 .venv
 node_modules
+dist/

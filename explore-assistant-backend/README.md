@@ -12,12 +12,19 @@ This Terraform configuration establishes a backend for the Looker Explore Assist
 
 ## Configuration and Deployment
 
+Start by initiatlizing terraform with:
+
+```bash
+
+cd terraform
+terraform init
+```
+
 ### Cloud Function Backend
 
 To deploy the Cloud Function backend:
 
 ```bash
-cd terraform 
 export TF_VAR_project_id=XXX
 export TF_VAR_use_bigquery_backend=0
 export TF_VAR_use_cloud_function_backend=1
@@ -30,7 +37,6 @@ terraform apply
 To deploy the BigQuery backend:
 
 ```bash
-cd terraform 
 export TF_VAR_project_id=XXX
 export TF_VAR_use_bigquery_backend=1
 export TF_VAR_use_cloud_function_backend=0

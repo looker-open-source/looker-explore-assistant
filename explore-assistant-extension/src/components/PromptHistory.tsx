@@ -10,7 +10,7 @@ const PromptHistory = ({ handleSubmit }: PromptHistoryProps) => {
   const { history } = useSelector((state: RootState) => state.assistant)
 
   return (
-    <Section scrollWithin>
+    <Section>
       <SpaceVertical gap="u2">
         {Object.values(history).reverse().map((item: any, index: number) => {
           return (

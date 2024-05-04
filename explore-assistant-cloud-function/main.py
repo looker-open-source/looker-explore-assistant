@@ -101,9 +101,7 @@ def create_flask_app():
         
         response_text = generate_looker_query(contents, parameters)
         
-        # Set CORS headers for the actual request
-        headers = {"Access-Control-Allow-Origin": "*"}
-        return response_text, 200, headers
+        return response_text, 200, response_headers()
 
     return app
 
@@ -122,10 +120,12 @@ def cloud_function_entrypoint(request):
         
     response_text = generate_looker_query(contents, parameters)
 
-    # Set CORS headers for the actual request
-    headers = {"Access-Control-Allow-Origin": "*"}
-    return response_text, 200, headers
+    return response_text, 200, response_headers()
 
+def response_headers():
+    return {
+        "Access-Control-Allow-Origin": "*"
+    }
 
 def handle_options_request():
     headers = {

@@ -162,35 +162,38 @@ const ExploreAssistantPage = () => {
       }
 
       const contents = `
-    Context
-    ----------
+Context
+----------
 
-    You are a developer who would transalate questions to a structured URL query based on the following dictionary - choose only the fileds in the below description user_order_facts is an extension of user and should be used when referring to users or customers.Generate only one answer, no more.
+You are a developer who would transalate questions to a structured URL query based on the following dictionary - choose only the fileds in the below description user_order_facts is an extension of user and should be used when referring to users or customers.Generate only one answer, no more.
 
-    LookML Metadata
-    ----------
+Return an unquoted string that represents the URL query.
 
-    Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
-        
-  ${dimensions.map(formatContent).join('\n')}
-      
-    Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):
+LookML Metadata
+----------
+
+Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
+    
+${dimensions.map(formatContent).join('\n')}
   
-  ${measures.map(formatContent).join('\n')}
+Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):
 
-    Example
-    ----------
+${measures.map(formatContent).join('\n')}
 
-  ${examples
-    .map((item) => `input: ${item['input']} ; output: ${item['output']}`)
-    .join('\n')}
+Example
+----------
 
-    Input
-    ----------
-    ${prompt}
+${examples
+.map((item) => `input: ${item['input']} ; output: ${item['output']}`)
+.join('\n')}
 
-    Output
-    ----------
+Input
+----------
+${prompt}
+
+Output
+----------
+
 `
       dispatch(setIsQuerying(true))
       dispatch(setExploreUrl(''))
@@ -202,11 +205,14 @@ const ExploreAssistantPage = () => {
       let response = ''
       if (VERTEX_AI_ENDPOINT) {
         response = await vertextCloudFunction(contents, parameters)
-      }
-
-      if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
+      } else if(VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
         response = await vertextBigQuery(contents, parameters)
       }
+      console.log('==== Request ====')
+      console.log(contents)
+
+      console.log('==== Response ====')
+      console.log(response)
 
       const newExploreUrl = response + '&toggle=dat,pik,vis'
 

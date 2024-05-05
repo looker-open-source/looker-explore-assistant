@@ -216,7 +216,11 @@ Output
       console.log('==== Response ====')
       console.log(response)
 
-      const newExploreUrl = response + '&toggle=dat,pik,vis'
+      const unquoteResponse = (response: string) => {
+        return response.substring(response.indexOf("fields=")).replace(/^`+|`+$/g, '').trim()
+      }
+
+      const newExploreUrl = unquoteResponse(response) + '&toggle=dat,pik,vis'
 
       dispatch(setExploreUrl(newExploreUrl))
       dispatch(setIsQuerying(false))

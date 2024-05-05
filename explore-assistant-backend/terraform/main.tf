@@ -45,7 +45,7 @@ module "bigquery_backend" {
   source = "./bigquery"
   project_id = var.project_id
   deployment_region = var.deployment_region
-  dataset_id_name = var.dataset_id_name
+  dataset_id = var.dataset_id_name
 
-  depends_on = [ time_sleep.wait_after_apis_activate ]
+  depends_on = [ time_sleep.wait_after_apis_activate, google_bigquery_dataset.dataset]
 }

@@ -37,15 +37,17 @@ Upcoming capabilities on the roadmap:
 - [Google Cloud Platform](https://cloud.google.com/)
 - [Vertex AI](https://cloud.google.com/vertex-ai)
 - [Cloud Functions](https://cloud.google.com/functions)
-- ---
 
-## Setup Explore Assistant Extension
-The Explore Assistant Extension involves the setup of a Looker Extension Framework Applications (the Frontend) & and a Backend to integrate Looker with an LLM. Please follow [these instructions](./explore-assistant-extension/README.md) for deployment.
+## Setup
 
-## [Optional] Setup Looker Explore Assistant API
-The Explore Assistant API is an API only version of the Explore Assistant intended to be integrated with your Backend to surface visualizations from natural language in a custom application. See [here for the Deployment & Development instructions.](./explore-assistant-backend/README.md)
+Getting started involves:
 
-### Recommendations for fine tuning the model
+- Frontend Setup - setup Looker Extension Framework Applications by following [these instructions](./explore-assistant-extension/README.md).
+- Backend Setup - setup the GCP backend for communicating with the Vertex API [using these instructions.](./explore-assistant-backend/README.md)
+- Example generation - generate a list of examples and upload them to BigQuery
+
+
+## Recommendations for fine tuning the model
 
 This app uses a one shot prompt technique for fine tuning a model, meaning that all the metadata for the model is contained in the prompt. It's a good technique for a small dataset, but for a larger dataset, you may want to use a more traditional fine tuning approach. This is a simple implementation, but you can also use a more sophisticated approach that involves generating embeddings for explore metadata and leveraging a vector database for indexing.
 

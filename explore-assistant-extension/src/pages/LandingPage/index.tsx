@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Heading,
+  Link,
   Paragraph,
   Space,
   SpaceVertical,
@@ -19,7 +20,7 @@ interface DocCardProps {
 
 const DocCard = ({ title, model, description, doc }: DocCardProps) => {
   return (
-    <a href={doc} target="_blank" rel="noreferrer">
+    <Link href={doc} target="_blank" rel="noreferrer">
       <Card p={'u2'} border={'none'}>
         <Space justify={'center'}>
           <Box borderRight={'ui2'}>
@@ -43,7 +44,7 @@ const DocCard = ({ title, model, description, doc }: DocCardProps) => {
           </SpaceVertical>
         </Space>
       </Card>
-    </a>
+    </Link>
   )
 }
 

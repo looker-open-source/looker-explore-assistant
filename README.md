@@ -43,7 +43,6 @@ Upcoming capabilities on the roadmap:
 The Explore Assistant Extension involves the setup of a Looker Extension Framework Applications (the Frontend) & and a Backend to integrate Looker with an LLM. Please follow [these instructions](./explore-assistant-extension/README.md) for deployment.
 
 ## [Optional] Setup Looker Explore Assistant API
-## Description
 The Explore Assistant API is an API only version of the Explore Assistant intended to be integrated with your Backend to surface visualizations from natural language in a custom application. See [here for the Deployment & Development instructions.](./explore-assistant-backend/README.md)
 
 ### Recommendations for fine tuning the model

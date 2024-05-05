@@ -10,18 +10,16 @@ The Explore Assistant allows a user to generate a Looker Explore Query via natur
 
 Additionally, the extension provides:
 
- - Question History (*this is stored in the browser with IndexDB*)
+ - Question History (*this is stored in the browser's localstorage*)
  - Categorized Prompts (*these can be customized by the use cases of your organization*)
  - Cached Explore URL's when clicking from History
  - Structured Logging with Input & Output Token Counts (*enables a workflow of log sink to BQ for cost estimation & tracking*)
- - Gemini Pro Update in Cloud Function
- - **NEW** BigQuery Deployment Workflow
+ - Flexible Deployment Options
 
 Upcoming capabilities on the roadmap:
 
- - Historical questions (*broken down by user, ranked by popularity/frequency, and categorized by type*)
- - LLM suggested questions (*iterative suggestions for follow up queries*)
- - Refinement (*refining the visualization returned by the LLM through natural language*)
+- Multi-turn
+- Insight Summarization
 
 ### Technologies Used
 #### Frontend
@@ -42,88 +40,11 @@ Upcoming capabilities on the roadmap:
 - ---
 
 ## Setup Explore Assistant Extension
-There are two options for deployment this repository provides, please choose the deployment model that fits your use case:
-* [Cloud Function Deployment](./explore-assistant-extension/extension-cloud-function-deployment/README.md): This deployment model is great if you are an application developer and plan on either leveraging an LLM deployed on infrastructure outside of the Vertex AI Platform or using the Looker + LLM integration as a standalone API in your own application.
-* [BigQuery Deployment](./explore-assistant-extension//extension-bigquery-deployment/README.md): This deployment model is great if you want to manage training data and the integration itself through BigQuery and plan on using a model deployed on Vertex AI Platform infrastructure.
+The Explore Assistant Extension involves the setup of a Looker Extension Framework Applications (the Frontend) & and a Backend to integrate Looker with an LLM. Please follow [these instructions](./explore-assistant-extension/README.md) for deployment.
 
 ## [Optional] Setup Looker Explore Assistant API
 ## Description
-The Explore Assistant API is an API only version of the Explore Assistant intended to be integrated with your Backend to surface visualizations from natural language in a custom application. Below the requirements, setup and an example curl request is detailed:
-
-### 1. Setup Explore Assistant API and Run Locally
-
-From the root of the directory (ie. `looker-explore-assistant/`)
-```bash
-cd explore-assistant-api &&
-export PROJECT=<your GCP Project> &&
-export REGION=<your GCP region>
-```
-
-Ensure you have `venv` installed before running the following:
-```bash
-# Create a new virtualenv named "explore-assistant"
-python3 -m venv explore-assistant &&
-
-# Activate the virtualenv (OS X & Linux)
-source explore-assistant/bin/activate &&
-
-# Activate the virtualenv (Windows)
-explore-assistant\Scripts\activate
-```
-
-Run the following cURL command to ensure your the Explore Assistant API server is running and working:
-
-```bash
-curl --location 'http://localhost:8000/' --header 'Content-Type: application/json' --data '{
-    "model": "thelook",
-    "explore": "order_items",
-    "question": "total sales trending overtime as an area chart"
-}'
-```
-
-Before deploying, you will want to swap out the example LookML explore metadata text file and jsonl file for files that are customized for your Explore data. Please see this notebook for more details on generating these: <a target="_blank" href="https://colab.research.google.com/github/LukaFontanilla/looker-explore-assistant/blob/main/explore-assistant-training/looker_explore_assistant_training.ipynb">
-    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-    </a>
-
-### 2. Deployment
-
-1. From the Explore Assistant root directory (`cd`) to the Explore Assistant API folder.
-
-   ```bash
-   cd explore-assistant-api/terraform
-   ```
-
-3. Replace defaults in the `variables.tf` file for project, region and endpoint name.
-
-4. Ensure that [Terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli) is installed on your machine. Then Deploy resources.
-
-   Initialize Terraform
-   ```terraform
-   terraform init
-   ```
-
-   Plan resource provisioning
-   ```
-   terraform plan
-   ```
-
-   Provision Resources
-   ```
-   terraform apply
-   ```
-
-5. Save Deployed Cloud Run URL Endpoint and make authenticated cURL request (filling in the placeholders for your environment details):
-
-```bash
-curl --location '<CLOUD RUN URL>' -h 'Content-Type: application/json' -h 'Authorization: Bearer $(gcloud auth print-identity-token)' --data '{
-    "model": "YOUR LOOKML MODEL",
-    "explore": "YOUR LOOKML EXPLORE",
-    "question": "NATURAL LANGUAGE QUESTION"
-}'
-```
-The returned Cloud Run URL will be private, meaning an un-authorized and un-authenticated client won't be able to reach it. In the example above we are generating an identity token and passing it in the Authorization header of the request. Google Cloud provides a few options for authenticating request to a private Cloud Run service and the right one will vary depending on your setup. Please see [this doc](https://cloud.google.com/run/docs/authenticating/service-to-service) for more details
-
----
+The Explore Assistant API is an API only version of the Explore Assistant intended to be integrated with your Backend to surface visualizations from natural language in a custom application. See [here for the Deployment & Development instructions.](./explore-assistant-backend/README.md)
 
 ### Recommendations for fine tuning the model
 

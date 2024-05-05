@@ -15,7 +15,6 @@ import { ExploreEmbed } from '../../components/ExploreEmbed'
 import GeminiLogo from '../../components/GeminiLogo'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 
-import examples from '../../../examples.json'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   setDimensions,
@@ -30,6 +29,7 @@ import PromptHistory from '../../components/PromptHistory'
 import { RootState } from '../../store'
 import process from 'process'
 import { UtilsHelper } from '../../utils/Helper'
+import { useExampleData } from '../../hooks/useExampleData'
 
 interface ModelParameters {
   max_output_tokens?: number
@@ -79,6 +79,8 @@ const ExploreAssistantPage = () => {
   const { exploreUrl, isQuerying, dimensions, measures, history } = useSelector(
     (state: RootState) => state.assistant,
   )
+
+  const { examples } = useExampleData()
 
   // fetch the chat history from local storage on startup
   useEffect(() => {
@@ -227,7 +229,7 @@ Output
         JSON.stringify(updatedHistory),
       )
     },
-    [dimensions, measures],
+    [dimensions, measures, examples],
   )
 
   const handleSubmit = useCallback(async () => {

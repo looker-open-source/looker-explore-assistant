@@ -81,7 +81,7 @@ const ExploreAssistantPage = () => {
   )
 
   const { examples } = useExampleData()
-
+  
   // fetch the chat history from local storage on startup
   useEffect(() => {
     extensionSDK.localStorageGetItem('chat_history').then((responses) => {
@@ -186,7 +186,7 @@ Example
 ----------
 
 ${examples
-.map((item) => `input: ${item['input']} ; output: ${item['output']}`)
+.map((item: any) => `input: ${item['input']} ; output: ${item['output']}`)
 .join('\n')}
 
 Input

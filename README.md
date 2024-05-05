@@ -44,8 +44,16 @@ Getting started involves:
 
 - Frontend Setup - setup Looker Extension Framework Applications by following [these instructions](./explore-assistant-extension/README.md).
 - Backend Setup - setup the GCP backend for communicating with the Vertex API [using these instructions.](./explore-assistant-backend/README.md)
-- Example generation - generate a list of examples and upload them to BigQuery
+- Example generation - generate a list of examples and upload them to BigQuery [using these instructions.](./explore-assistant-examples/README.md)
 
+The local cloud function backend and example generation require some python packages. It is recommended to create a python virtual environment and install the dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate 
+pip3 install -r ./explore-assistant-examples/requirements.txt
+pip3 install -r ./explore-assistant-cloud-function/requirements.txt 
+```
 
 ## Recommendations for fine tuning the model
 

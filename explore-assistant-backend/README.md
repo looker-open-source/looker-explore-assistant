@@ -53,7 +53,8 @@ terraform apply
 ## Resources Created
 
 - Google Cloud Functions or Cloud Run services, based on the selected backend.
-- Google BigQuery dataset and connection, if using the BigQuery backend.
+- Google BigQuery dataset and table to store the examples
+- Google BigQuery connection and gemini pro model, if using the BigQuery backend.
 - Necessary IAM roles and permissions for the Looker Explore Assistant to operate.
 - Storage buckets for deploying cloud functions or storing data.
 - Artifact Registry for storing Docker images, if required.

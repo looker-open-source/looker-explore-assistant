@@ -5,7 +5,6 @@ import { UtilsHelper } from '../utils/Helper'
 import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
 import process from 'process'
-import examples from '../../examples.json'
 
 interface ModelParameters {
   max_output_tokens?: number
@@ -133,14 +132,10 @@ const useSendVertexMessage = () => {
 
 ${exploreRefinementExamples
   .map((item) => {
-    const inputText = '"' + item.prompt_list.join('", "') + '"'
-    return `- The sequence of prompts from the user: ${inputText}. The summarized prompts: "${item.output_prompt}"`
+    const inputText = '"' + item.input.join('", "') + '"'
+    return `- The sequence of prompts from the user: ${inputText}. The summarized prompts: "${item.output}"`
   })
   .join('\n')}
-
-  ${examples
-    .map((item) => `input: ${item['input']} ; output: ${item['output']}`)
-    .join('\n')}
 
       Conversation so far
       ----------
@@ -338,11 +333,9 @@ ${exploreRefinementExamples
       ${exploreGenerationExamples
         .map(
           (item) =>
-            `input: "${item.input_prompt}" ; output: ${item.output_query_args}`,
+            `input: "${item.input}" ; output: ${item.output}`,
         )
         .join('\n')}
-    
-        ${examples.map((item) => `input: "${item['input']}" ; output: ${item['output']}`).join('\n')}
 
         Input
         ----------

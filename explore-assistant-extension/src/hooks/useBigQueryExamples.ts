@@ -10,7 +10,11 @@ import process from 'process'
 export const useBigQueryExamples = () => {
   const connectionName =
     process.env.BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME || ''
-  const datasetName = process.env.BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME || ''
+  const LOOKER_MODEL = process.env.LOOKER_MODEL || ''
+  const LOOKER_EXPLORE = process.env.LOOKER_EXPLORE || ''
+  const datasetName =
+    process.env.BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME || 'explore_assistant'
+
   const dispatch = useDispatch()
 
   const { core40SDK } = useContext(ExtensionContext)
@@ -35,33 +39,30 @@ export const useBigQueryExamples = () => {
 
   const getExamplePrompts = async () => {
     const sql = `
-   SELECT
-       input_prompt
-     , output_query_args
-   FROM
-     \`${datasetName}.explore_generation_example_prompts\`
- `
-    const examples = await runExampleQuery(sql)
-    dispatch(setExploreGenerationExamples(examples))
+      SELECT
+          examples
+      FROM
+        \`${datasetName}.explore_assistant_examples\`
+        WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
+    `
+    return runExampleQuery(sql).then((response) => {
+      const generationExamples = JSON.parse(response[0]['examples'])
+      dispatch(setExploreGenerationExamples(generationExamples))
+    })
   }
 
   const getRefinementPrompts = async () => {
     const sql = `
     SELECT
-        TO_JSON_STRING(prompt_list) as prompt_list
-      , output_prompt
+        examples
     FROM
-      \`${datasetName}.explore_refinement_example_prompts\`
+      \`${datasetName}.explore_assistant_refinement_examples\`
+      WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
   `
-     const examples = await runExampleQuery(sql)
-     const parsedExamples = examples.map((example: any) => {
-
-         return {
-            prompt_list: JSON.parse(example.prompt_list),
-            output_prompt: example.output_prompt
-         }
-      })
-     dispatch(setExploreRefinementExamples(parsedExamples))
+    return runExampleQuery(sql).then((response) => {
+      const refinementExamples = JSON.parse(response[0]['examples'])
+      dispatch(setExploreRefinementExamples(refinementExamples))
+    })
   }
 
   // get the example prompts

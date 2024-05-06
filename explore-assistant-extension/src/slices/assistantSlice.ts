@@ -50,12 +50,12 @@ interface AssistantState {
   modelName: string
   examples: {
     exploreGenerationExamples: {
-      input_prompt: string
-      output_query_args: string
+      input: string
+      output: string
     }[]
     exploreRefinementExamples: {
-      prompt_list: string[]
-      output_prompt: string
+      input: string[]
+      output: string
     }[]
   }
 }

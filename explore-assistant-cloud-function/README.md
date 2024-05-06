@@ -22,6 +22,8 @@ The cloud function integrates with Vertex AI and utilizes the `GenerativeModel` 
 
 8. **Execution Environment**: When executed, the script checks if it's running in a Google Cloud Function environment and acts accordingly; otherwise, it starts a Flask web server for local development or testing.
 
+9. **Endpoint securizaty**: We are using a simple shared secret approach to securing the endpoint. The request body is checked against the supplied signature in the X-Signature header. We aren't yet guarding against replay attacks with nonces.
+
 ## Local Development
 
 To set up and run the function locally, follow these steps:

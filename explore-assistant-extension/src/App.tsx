@@ -12,19 +12,19 @@ import ExploreAssistantPage from './pages/ExploreAssistantPage'
 
 const ExploreApp = () => {
   return (
-    <Router>
-      <Switch>
-        <Route path="/" exact>
-          <LandingPage />
-        </Route>
-        <Route path="/assistant">
-          <ExploreAssistantPage />
-        </Route>
-        <Route>
-          <Redirect to="/" />
-        </Route>
-      </Switch>
-    </Router>
+      <Router>
+        <Switch>
+          <Route path="/" exact>
+            <LandingPage />
+          </Route>
+          <Route path="/assistant">
+            <ExploreAssistantPage />
+          </Route>
+          <Route>
+            <Redirect to="/" />
+          </Route>
+        </Switch>
+      </Router>
   )
 }
 

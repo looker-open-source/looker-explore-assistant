@@ -22,6 +22,8 @@ The cloud function integrates with Vertex AI and utilizes the `GenerativeModel` 
 
 8. **Execution Environment**: When executed, the script checks if it's running in a Google Cloud Function environment and acts accordingly; otherwise, it starts a Flask web server for local development or testing.
 
+9. **Endpoint Security**: We are using a simple shared secret approach to securing the endpoint. The request body is checked against the supplied signature in the X-Signature header. We aren't yet guarding against replay attacks with nonces.
+
 ## Local Development
 
 To set up and run the function locally, follow these steps:
@@ -43,13 +45,13 @@ To set up and run the function locally, follow these steps:
 3. Run the function locally by executing the main script:
 
     ```bash
-    PROJECT=XXX REGION=us-central1 python main.py
+    PROJECT=XXXX LOCATION=us-central-1 VERTEX_CF_AUTH_TOKEN=$(cat ../.vertex_cf_auth_token) python main.py
     ```
 
 4. Test calling the endpoint locally with a custom query and parameter declaration
    
    ```bash
-     curl -X POST -H "Content-Type: application/json" -d '{"contents":"how are you doing?", "parameters":{"max_output_tokens": 1000}}' http://localhost:8000
+     python test.py
    ```
 
 This setup allows developers to test and modify the function in a local environment before deploying it to a cloud function service.

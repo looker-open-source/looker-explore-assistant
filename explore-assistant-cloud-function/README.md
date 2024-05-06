@@ -49,7 +49,7 @@ To set up and run the function locally, follow these steps:
 4. Test calling the endpoint locally with a custom query and parameter declaration
    
    ```bash
-     curl -X POST -H "Content-Type: application/json" -d '{"contents":"how are you doing?", "parameters":{"max_output_tokens": 1000}}' http://localhost:8000
+     python test.py
    ```
 
 This setup allows developers to test and modify the function in a local environment before deploying it to a cloud function service.

@@ -24,7 +24,7 @@ terraform init
 
 ### Cloud Function Backend
 
-First create a file that will contain the LOOKER_AUTH_TOKEN and place it at the root. This will be used my the cloud function locally, as well as the extension framework app.
+First create a file that will contain the LOOKER_AUTH_TOKEN and place it at the root. This will be used my the cloud function locally, as well as the extension framework app. The value of this token will uplaoded to the GCP project as secret to be used by the Cloud Function.
 
 ```bash
 openssl rand -base64 32 > .vertex_cf_auth_token
@@ -38,6 +38,7 @@ export TF_VAR_project_id=XXX
 export TF_VAR_use_bigquery_backend=0
 export TF_VAR_use_cloud_function_backend=1
 export TF_VAR_looker_auth_token=$(cat ../../.vertex_cf_auth_token)
+terraform init
 terraform plan
 terraform apply
 ```

@@ -116,6 +116,7 @@ def create_flask_app():
             return handle_options_request(request)
 
         incoming_request = request.get_json()
+        print(incoming_request)
         contents = incoming_request.get("contents")
         parameters = incoming_request.get("parameters")
         if contents is None:

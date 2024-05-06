@@ -50,7 +50,7 @@ resource "google_bigquery_job" "create_explore_assistant_examples_table" {
     query              = <<EOF
     CREATE OR REPLACE TABLE `${google_bigquery_dataset.dataset.dataset_id}.explore_assistant_examples` (
         explore_id STRING OPTIONS (description = 'Explore id of the explore to pull examples for in a format of -> lookml_model:lookml_explore'),
-        examples STRING OPTIONS (description = 'Examples for Explore Assistant training. Multi line string of input: ,output: \n')
+        examples STRING OPTIONS (description = 'Examples for Explore Assistant training. JSON document with list hashes each with input and output keys.')
     )
   EOF  
     create_disposition = ""
@@ -63,5 +63,6 @@ resource "google_bigquery_job" "create_explore_assistant_examples_table" {
   }
 
   location = var.deployment_region
+  depends_on = [ time_sleep.wait_after_apis_activate]
 }
 

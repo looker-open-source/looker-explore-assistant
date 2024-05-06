@@ -7,6 +7,7 @@ import {
   Paragraph,
   Section,
   Space,
+  Spinner,
   Tab2,
   Tabs2,
 } from '@looker/components'
@@ -286,6 +287,10 @@ Output
     })
     const response = await responseData.text()
     return response.trim()
+  }
+
+  if(!examples.length) {
+    return <Spinner />
   }
 
   return (

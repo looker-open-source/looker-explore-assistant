@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.0
+
+### Added
+- Multi-turn chat experience with:
+  - summarization requests
+  - multiple turns for updating an existing explore
+  - refine the question asked to gemini
+  - conversation with markdown support
+- Example loader for generation and refinement examples
+- Extension app loads examples on the main page to speed up querying
+
 ## v2.1
 
 ### Added

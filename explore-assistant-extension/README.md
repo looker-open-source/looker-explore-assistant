@@ -78,10 +78,11 @@ jsonPayload.component="explore-assistant-metadata"
    VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME=<This is the connection name where we can find the Explore URL examples>
    ```
 
-   If you're using the Cloud Function backend, replace the default:
+   If you're using the Cloud Function backend, replace the defaults:
 
    ```
    VERTEX_AI_ENDPOINT=<This is your Deployed Cloud Function Endpoint>
+   VERTEX_CF_AUTH_TOKEN=<This is the token used to communicate with the cloud function>
    ```
 
    If you're using the BigQuery Backend replace the default:

@@ -350,7 +350,13 @@ ${exploreRefinementExamples
       }
       console.log(contents)
       const response = await sendMessage(contents, parameters)
-      const newExploreUrl = response + '&toggle=dat,pik,vis'
+
+      const unquoteResponse = (response: string) => {
+        return response.substring(response.indexOf("fields=")).replace(/^`+|`+$/g, '').trim()
+      }
+      const cleanResponse = unquoteResponse(response)
+      console.log(cleanResponse)
+      const newExploreUrl = cleanResponse + '&toggle=dat,pik,vis'
 
       return newExploreUrl
     },

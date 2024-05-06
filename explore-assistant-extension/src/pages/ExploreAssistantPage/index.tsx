@@ -118,7 +118,6 @@ const ExploreAssistantPage = () => {
             value={textAreaValue}
             onKeyDown={(e) => {
               // nativeEvent.code check to determine if enter press is for submission or for accepting japanese kanji character
-              // console.log(e.nativeEvent)
               if(e.key === 'Enter' && e.keyCode !== 229 ) {
                 handleSubmit()
               }

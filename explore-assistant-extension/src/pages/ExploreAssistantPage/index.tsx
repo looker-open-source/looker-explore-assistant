@@ -308,7 +308,13 @@ Output
             label="Type your prompt in here"
             description="💡 Tip: Try asking for your data output in a viz!"
             value={textAreaValue}
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            onKeyDown={(e) => {
+              // nativeEvent.code check to determine if enter press is for submission or for accepting japanese kanji character
+              // console.log(e.nativeEvent)
+              if(e.key === 'Enter' && e.keyCode !== 229 ) {
+                handleSubmit()
+              }
+            }}
             onChange={handleChange}
             disabled={isQuerying}
           />

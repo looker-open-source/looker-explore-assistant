@@ -1,28 +1,26 @@
-# Explore Assistant Extension Cloud Function Deployment
-This documentation outlines the steps required to deploy the Explore Assistant Extension with Cloud Functions as the backend for generating Explore URL's based on Natural Language. It assumes a Looker Instance is available with a suitable LookML Model and Explore configured. **To Note:** The Cloud Function is going to be deployed as public endpoint by default. However it will only be accessible in the browser by users with permissions to your Looker instance. For different options for securing the endpoint, please see the **Security** section below.
+# Explore Assistant Extension Frontend Deployment
+This documentation outlines the steps required to deploy the Explore Assistant Extension with the desired backend for generating Explore URL's based on Natural Language. It assumes a Looker Instance is available with a suitable LookML Model and Explore configured.
 
 ## 1. LLM Integration
 
-This section describes how to set up the LLM Integration for the Explore Assistant. TLDR; We use a 2nd Gen Cloud Function to call the foundational model and return the results to the frontend.
+This section describes how to set up the LLM Integration for the Explore Assistant.
 
 ### Getting Started for Development
-
-![simple-architecture](../static/simple-architecture.png)
 
 1. Clone or download a copy of this repository to your development machine.
    If you have a git ssh_config:
    ```bash
    # cd ~/ Optional. your user directory is usually a good place to git clone to.
-   git clone git@github.com:LukaFontanilla/looker-explore-assistant.git
+   git clone git@github.com:looker-open-source/looker-explore-assistant.git
    ```
 
    If not:
    ```bash
    # cd ~/ Optional. your user directory is usually a good place to git clone to.
-   git clone https://github.com/LukaFontanilla/looker-explore-assistant.git
+   git clone https://github.com/looker-open-source/looker-explore-assistant.git
    ```
    Alternatively, open up this repository in: &nbsp;
-   [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/LukaFontanilla/looker-explore-assistant.git&cloudshell_workspace=explore-assistant-extension/extension-cloud-function-deployment)
+   [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/looker-open-source/looker-explore-assistant.git&cloudshell_workspace=explore-assistant-extension)
 
 2. Install a backend using terraform by [following the instructions](../explore-assistant-backend/README.md)
 
@@ -32,13 +30,7 @@ This section describes how to set up the LLM Integration for the Explore Assista
    * If you're using the BigQuery backend, the model id that allows communication with Gemini
    * If you're using the Cloud Function backend, the url of the endpoint
 
-### Optional: Deploy regional endpoints and load balance traffic from Looker
-
-![global-architecture](../static/global-architecture.png)
-
-Please see this resource for more information on how to deploy regional endpoints and load balance traffic from Looker: https://cloud.google.com/load-balancing/docs/https/setting-up-https-serverless
-
-### Optional: Setup Log Sink to BQ for LLM Cost Estimation and Request Logging
+### Optional: Setup Log Sink to BQ for LLM Cost Estimation and Request Logging (used for Cloud Function Backend)
 
 Please see [Google Cloud's docs](https://cloud.google.com/logging/docs/export/configure_export_v2#creating_sink) on setting up a log sink to BQ, using the below filter for Explore Assistant Logs:
 
@@ -54,23 +46,13 @@ resource.labels.location = "<Insert location>")
 jsonPayload.component="explore-assistant-metadata"
 ```
 
-### Security
-
-The deployed Cloud Function will be public by default. This is because historically a Looker instance hasn't had a mechanism to authenticate to GCP services. To secure this endpoint there will be a few options and they will be dependent on your environment and needs:
-
-* [Low Lift] Keep public and allowlist the extension URL in the [function via CORS](https://flask-cors.readthedocs.io/en/latest/)
-* [Low Lift] Simple [access token](https://flask-cors.readthedocs.io/en/latest/) based authentication (store token in Looker check in the function)
-* [Medium Lift] Use proxy, either load balancer or api gateway and keep function private (ie. [internal traffic only](https://cloud.google.com/functions/docs/networking/network-settings#:~:text=Traffic%20to%20a%20Cloud%20Functions,Shared%20VPC%20networks%20is%20denied.)).
-
-
-
 ## 2. Looker Extension Framework Setup
 **Important** If you are not familiar with the Looker Extension Framework, please review [this documentation](https://developers.looker.com/extensions/overview/) first before moving forward.
 
 
 ### Getting Started for Development
 
-1. From the Explore Assistant root directory (`cd`) to the Explore Assistant Extension Cloud Function Deployment folder.
+1. From the Explore Assistant root directory (`cd`) to the Explore Assistant Extension folder. *If deploying from Cloudshell, you should already be in this folder*.
 
    ```bash
    cd explore-assistant-extension
@@ -84,38 +66,38 @@ The deployed Cloud Function will be public by default. This is because historica
 
    > You may need to update your Node version or use a [Node version manager](https://github.com/nvm-sh/nvm) to change your Node version.
 
-1. Create a new BigQuery connection in Looker that will allow us to get the examples from the database. You will use that in the VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME below.
+2. Create a new BigQuery connection in Looker that will allow us to get the examples from the database. You will use that in the VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME below.
 
-1. Ensure all the appropriate environment variables are set in the `.env` file
+3. Ensure all the appropriate environment variables are set in the `.env` file
 
    Regardless of the backend, you're going to need:
 
    ```
    LOOKER_MODEL=<This is your Looker model name>
    LOOKER_EXPLORE=<This is your Looker explore name>
-   VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME=<This is the connection name where we can find the examples>
+   VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME=<This is the connection name where we can find the Explore URL examples>
    ```
 
-   If you're using the Cloud Function backend:
+   If you're using the Cloud Function backend, replace the default:
 
    ```
    VERTEX_AI_ENDPOINT=<This is your Deployed Cloud Function Endpoint>
    ```
 
-   If you're using the BigQuery Backend:
+   If you're using the BigQuery Backend replace the default:
 
    ```
    VERTEX_BIGQUERY_MODEL_ID=<This is the model id that you want to use for prediction>
    ```
 
-1. If you're utilizing Looker Core (Looker instance hosted in Google Cloud), adjust the `embed_domain` variable within the `useEffect()` function in ExploreEmbed.tsx to reflect the `hostUrl` instead of `window.origin`.
+4. If you're utilizing Looker Core (Looker instance hosted in Google Cloud), adjust the `embed_domain` variable within the `useEffect()` function in ExploreEmbed.tsx to reflect the `hostUrl` instead of `window.origin`.
 
    ```typescript
    //embed.domain: window.origin // Looker Original
    embed_domain: hostUrl, // Looker Core
    ```
 
-1. Start the development server
+5. Start the development server
    **IMPORTANT** If you are running the extension from a VM or another remote machine, you will need to Port Forward to the machine where you are accessing the Looker Instance from (ie. If you are accessing Looker from your local machine, run the following command there.). Here's a boilerplate example for port forwarding the remote port 8080 to the local port 8080:
    `ssh username@host -L 8080:localhost:8080`.
 
@@ -125,7 +107,7 @@ The deployed Cloud Function will be public by default. This is because historica
 
    Great! Your extension is now running and serving the JavaScript at https://localhost:8080/bundle.js.
 
-1. Now log in to Looker and create a new project or use an existing project.
+6. Now log in to Looker and create a new project or use an existing project.
 
    This is found under **Develop** => **Manage LookML Projects** => **New LookML Project**.
 
@@ -134,7 +116,7 @@ The deployed Cloud Function will be public by default. This is because historica
    1. In your copy of the extension project you have a `manifest.lkml` file.
 
    You can either drag & upload this file into your Looker project, or create a `manifest.lkml` with the same content. Change the `id`, `label`, or `url` as needed. 
-   **IMPORTANT** please paste in the deployed Cloud Function URL into the `external_api_urls` list. This will allowlist it in Looker for fetch requests.
+   **IMPORTANT** please paste in the deployed Cloud Function URL into the `external_api_urls` list and uncomment that line if you are using the Cloud Function backend deployment. This will allowlist it in Looker for fetch requests.
 
    ```lookml
    application: explore_assistant {
@@ -142,31 +124,31 @@ The deployed Cloud Function will be public by default. This is because historica
     url: "https://localhost:8080/bundle.js"
     # file: "bundle.js"
     entitlements: {
-      core_api_methods: ["lookml_model_explore"]
+      core_api_methods: ["lookml_model_explore","create_sql_query","run_sql_query"]
       navigation: yes
       use_embeds: yes
       use_iframes: yes
       new_window: yes
       new_window_external_urls: ["https://developers.generativeai.google/*"]
       local_storage: yes
-      external_api_urls: ["cloud function url"]
+      # external_api_urls: ["cloud function url"]
     }
    }
    ```
 
-1. Create a `model` LookML file in your project. The name doesn't matter. The model and connection won't be used, and in the future this step may be eliminated.
+7. Create a `model` LookML file in your project. The name doesn't matter. The model and connection won't be used, and in the future this step may be eliminated.
 
    - Add a connection in this model. It can be any connection, it doesn't matter which.
    - [Configure the model you created](https://docs.looker.com/data-modeling/getting-started/create-projects#configuring_a_model) so that it has access to some connection.
 
-1. Connect your new project to Git. You can do this multiple ways:
+8. Connect your new project to Git. You can do this multiple ways:
 
    - Create a new repository on GitHub or a similar service, and follow the instructions to [connect your project to Git](https://docs.looker.com/data-modeling/getting-started/setting-up-git-connection)
    - A simpler but less powerful approach is to set up git with the "Bare" repository option which does not require connecting to an external Git Service.
 
-1. Commit your changes and deploy your them to production through the Project UI.
+9. Commit your changes and deploy your them to production through the Project UI.
 
-1. Reload the page and click the `Browse` dropdown menu. You should see your extension in the list.
+10. Reload the page and click the `Browse` dropdown menu. You should see your extension in the list.
    - The extension will load the JavaScript from the `url` provided in the `application` definition. By default, this is https://localhost:8080/bundle.js. If you change the port your server runs on in the package.json, you will need to also update it in the manifest.lkml.
    - Refreshing the extension page will bring in any new code changes from the extension template, although some changes will hot reload.
 

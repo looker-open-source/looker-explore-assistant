@@ -63,7 +63,7 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
     if (el && hostUrl && exploreUrl) {
       const paramsObj: any = {
         // For Looker Original use window.origin for Looker Core use hostUrl
-        embed_domain: window.origin, //hostUrl,
+        embed_domain: hostUrl, //window.origin, //hostUrl,
         sdk: '2',
         _theme: JSON.stringify({
           key_color: '#174ea6',

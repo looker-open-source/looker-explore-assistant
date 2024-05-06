@@ -39,7 +39,7 @@ location = os.environ.get("REGION")
 vertexai.init(project=project, location=location)
 
 
-def generate_looker_query(contents, parameters=None, model_name="gemini-1.5-pro-preview-0409"):
+def generate_looker_query(contents, parameters=None, model_name="gemini-1.0-pro-001"):
 
    # Define default parameters
     default_parameters = {

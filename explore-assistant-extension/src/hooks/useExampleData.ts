@@ -32,12 +32,12 @@ export const useExampleData = () => {
 
   const getExamplePrompts = async () => {
     const sql = `
-   SELECT
-       examples
-   FROM
-     \`${datasetName}.explore_assistant_examples\`
-    WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
- `
+      SELECT
+          examples
+      FROM
+        \`${datasetName}.explore_assistant_examples\`
+        WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
+    `
     return runExampleQuery(sql).then((response) => {
         return response[0]['examples']
     })

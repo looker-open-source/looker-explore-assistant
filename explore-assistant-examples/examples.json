@@ -17,7 +17,7 @@
   },
   {
     "input": "What's my sales for the last two years ? plot as bar chart",
-    "output": "fields=order_items.total_sale_price&f[order_items.created_date]=2 years&sorts=order_items.total_sale_price descvis={\"type\":\"looker_bar\"}"
+    "output": "fields=order_items.total_sale_price&f[order_items.created_date]=2 years&sorts=order_items.total_sale_price desc&vis={\"type\":\"looker_bar\"}"
   },
   {
     "input": "Severely delayed orders in Chicaco",
@@ -69,11 +69,11 @@
   },
   {
     "input": "Sales performance by state, on a map",
-    "output": "fields=order_items.order_count,users.count,order_items.total_sale_price,order_items.average_spend_per_user,users.state&f[order_items.created_date]=90 days&sorts=order_items.total_sale_price desc&limit=500&column_limit=50&vis={\"type\" "
+    "output": "fields=order_items.order_count,users.count,order_items.total_sale_price,order_items.average_spend_per_user,users.state&f[order_items.created_date]=90 days&sorts=order_items.total_sale_price desc&limit=500&column_limit=50&vis={\"type\":\"looker_map\"}"
   },
   {
     "input": "Who are the customer with highest revenue in New York?",
-    "output": "fields=users.email,user_order_facts.lifetime_revenue&f[users.state]=New York&sorts=user_order_facts.lifetime_revenue desc 0&limit=500=vis_config={\"type\" "
+    "output": "fields=users.email,user_order_facts.lifetime_revenue&f[users.state]=New York&sorts=user_order_facts.lifetime_revenue desc 0&limit=500"
   },
   {
     "input": "Show monthly profit for the last year. Pivot on product category.Include only jeans vs. accessories.Display as an area chart.",

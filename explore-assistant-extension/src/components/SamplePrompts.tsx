@@ -34,7 +34,7 @@ const SamplePrompts = ({ handleSubmit }: SamplePromptsProps) => {
             handleSubmit(item.prompt)
           }}
         >
-          <Card border={'ui1'} fontSize={'small'} m="u1" px="u2" py="u4">
+          <Card border={'ui1'} fontSize={'small'} m="u1" px="u2" py="u4" style={{height:'auto'}}>
             <Heading
               fontSize={'small'}
               fontWeight={'semiBold'}

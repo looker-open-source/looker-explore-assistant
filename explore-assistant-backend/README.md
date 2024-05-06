@@ -16,15 +16,6 @@ The Explore Assistant also uses a set of examples to improve the quality of its 
 
 ### Cloud Function Backend
 
-First create a file that will contain the LOOKER_AUTH_TOKEN and place it at the root. This will be used my the cloud function locally, as well as the extension framework app.
-
-```bash
-openssl rand -base64 32 > .vertex_cf_auth_token
-
-```
-
-### Cloud Function Backend
-
 First create a file that will contain the LOOKER_AUTH_TOKEN and place it at the root. This will be used my the cloud function locally, as well as the extension framework app. The value of this token will uploaded to the GCP project as secret to be used by the Cloud Function.
 
 ```bash

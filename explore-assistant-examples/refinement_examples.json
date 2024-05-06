@@ -1,0 +1,10 @@
+[
+  {
+    "input": ["make a chart of sales by region", "make it a an area chart", "make it a table"],
+    "output": "make a chart of sales by region make it a table"
+  },
+  {
+    "input": ["show me sales by region", "by product"],
+    "output": "show me sales by region and product"
+  }
+]

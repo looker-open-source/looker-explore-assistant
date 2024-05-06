@@ -26,10 +26,11 @@ SOFTWARE.
 
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { ComponentsProvider } from '@looker/components'
 import { App } from './App'
 import { Provider } from 'react-redux'
 import { store } from './store'
+import { ExtensionProvider } from '@looker/extension-sdk-react'
+import { Spinner } from '@looker/components'
 
 const getRoot = () => {
   const id = 'extension-root'
@@ -49,7 +50,12 @@ const render = (Component: typeof App) => {
   ReactDOM.render(
     <>
       <Provider store={store}>
-        <Component />
+        <ExtensionProvider
+          loadingComponent={<Spinner />}
+          requiredLookerVersion=">=21.0"
+        >
+          <Component />
+        </ExtensionProvider>
       </Provider>
     </>,
     root,

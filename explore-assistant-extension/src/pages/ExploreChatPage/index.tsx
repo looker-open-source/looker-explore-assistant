@@ -28,8 +28,6 @@ import Chat from '../../components/Chat'
 import { ArrowBackIosSharp } from '@material-ui/icons'
 import GeminiLogo from '../../components/GeminiLogo'
 import { ExploreEmbed } from '../../components/ExploreEmbed'
-import { useLookerFields } from '../../hooks/useLookerFields'
-import { useBigQueryExamples } from '../../hooks/useBigQueryExamples'
 
 const ExploreChatPage = () => {
   const dispatch = useDispatch()
@@ -40,10 +38,6 @@ const ExploreChatPage = () => {
   const [textAreaValue, setTextAreaValue] = React.useState<string>(query)
 
   const { generateExploreUrl } = useSendVertexMessage()
-
-  // load dimensions, measures and examples into the state
-  useLookerFields()
-  useBigQueryExamples()
 
   useEffect(() => {
     if (

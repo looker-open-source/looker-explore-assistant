@@ -26,8 +26,6 @@ import SamplePrompts from '../../components/SamplePrompts'
 import PromptHistory from '../../components/PromptHistory'
 import { RootState } from '../../store'
 import useFetchData from '../../hooks/useSendVertexMessage'
-import { useLookerFields } from '../../hooks/useLookerFields'
-import { useBigQueryExamples } from '../../hooks/useBigQueryExamples'
 
 const ExploreAssistantPage = () => {
   const dispatch = useDispatch()
@@ -38,10 +36,6 @@ const ExploreAssistantPage = () => {
   const { exploreUrl, isQuerying, history } = useSelector(
     (state: RootState) => state.assistant,
   )
-
-  // load dimensions and measures into the state
-  useLookerFields()
-  useBigQueryExamples()
 
   // fetch the chat history from local storage on startup
   useEffect(() => {

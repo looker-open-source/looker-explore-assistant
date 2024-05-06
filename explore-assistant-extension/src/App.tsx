@@ -13,6 +13,8 @@ import {
   setExploreName,
   setModelName,
 } from './slices/assistantSlice'
+import { useLookerFields } from './hooks/useLookerFields'
+import { useBigQueryExamples } from './hooks/useBigQueryExamples'
 
 const ExploreApp = () => {
   const dispatch = useDispatch()
@@ -23,11 +25,13 @@ const ExploreApp = () => {
     dispatch(setModelName(process.env.LOOKER_MODEL || ''))
     dispatch(setExploreName(process.env.LOOKER_EXPLORE || ''))
   }, [])
+
+  // load dimensions and measures into the state
+  useLookerFields()
+  useBigQueryExamples()
+
   return (
-    <ExtensionProvider
-      loadingComponent={<Spinner />}
-      requiredLookerVersion=">=21.0"
-    >
+    <>
       <ComponentsProvider
         themeCustomizations={{
           colors: { key: '#1A73E8' },
@@ -51,7 +55,7 @@ const ExploreApp = () => {
           </Switch>
         </Router>
       </ComponentsProvider>
-    </ExtensionProvider>
+    </>
   )
 }
 

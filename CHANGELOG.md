@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.1
+
+### Added
+- Shared secret for the cloud function and explore assistant extension
+- Terraform code for managing the token in the GCP Secrets Manager
+
 ## v2.0
 
 There are many breaking changes in this version.

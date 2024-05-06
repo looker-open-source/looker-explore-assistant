@@ -5,8 +5,7 @@ import { HashRouter as Router, Route, Switch, Redirect } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import ExploreAssistantPage from './pages/ExploreAssistantPage'
 import ExploreChatPage from './pages/ExploreChatPage'
-import { ExtensionProvider } from '@looker/extension-sdk-react'
-import { ComponentsProvider, Spinner } from '@looker/components'
+import { ComponentsProvider } from '@looker/components'
 import { useDispatch } from 'react-redux'
 import {
   setExploreId,

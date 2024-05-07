@@ -116,7 +116,7 @@ const ExploreAssistantPage = () => {
             label="Type your prompt in here"
             description="💡 Tip: Try asking for your data output in a viz!"
             value={textAreaValue}
-            onKeyDown={(e) => {
+            onKeyDown={(e:any) => {
               // nativeEvent.code check to determine if enter press is for submission or for accepting japanese kanji character
               if(e.key === 'Enter' && e.keyCode !== 229 ) {
                 handleSubmit()

@@ -78,6 +78,12 @@ jsonPayload.component="explore-assistant-metadata"
    VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME=<This is the connection name where we can find the Explore URL examples>
    ```
 
+   Optionally, include and specify the below variable if your BQ project housing the example prompts for Explore Assistant (see [Examples folder](../explore-assistant-examples/README.md)) is different than the project set by default in your BQ connection to Looker. If unspecified, it defaults to the current BigQuery project in your Looker connection & `explore_assistant` as the dataset name.
+
+   ```
+   BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME=<This is the dataset and/or project that contain the Example prompt data, assuming that differs from the dataset and/or project specified as default in the Looker connection above>
+   ```
+
    If you're using the Cloud Function backend, replace the defaults:
 
    ```
@@ -125,7 +131,7 @@ jsonPayload.component="explore-assistant-metadata"
     url: "https://localhost:8080/bundle.js"
     # file: "bundle.js"
     entitlements: {
-      core_api_methods: ["lookml_model_explore","create_sql_query","run_sql_query"]
+      core_api_methods: ["lookml_model_explore","create_sql_query","run_sql_query","run_query","create_query"]
       navigation: yes
       use_embeds: yes
       use_iframes: yes

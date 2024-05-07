@@ -122,7 +122,12 @@ const Chat = () => {
       <div className={styles.chatInput}>
         <div className={styles.inputContainer}>
           <textarea
-            onKeyDown={(e) => e.key === 'Enter' && onSubmitMessage()}
+            onKeyDown={(e) => {
+              // nativeEvent.code check to determine if enter press is for submission or for accepting japanese kanji character
+              if(e.key === 'Enter' && e.keyCode !== 229 ) {
+                onSubmitMessage()
+              }
+            }}
             disabled={isSendingMessage}
             value={textAreaValue}
             onChange={handleChange}

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { hot } from 'react-hot-loader/root'
-import { HashRouter as Router, Route, Switch, Redirect } from 'react-router-dom'
+import { Route, Switch, Redirect } from 'react-router-dom'
 
 import LandingPage from './pages/LandingPage'
 import ExploreAssistantPage from './pages/ExploreAssistantPage'
@@ -37,22 +37,20 @@ const ExploreApp = () => {
           defaults: { externalLabel: false },
         }}
       >
-        <Router>
-          <Switch>
-            <Route path="/" exact>
-              <LandingPage />
-            </Route>
-            <Route path="/assistant">
-              <ExploreAssistantPage />
-            </Route>
-            <Route path="/chat">
-              <ExploreChatPage />
-            </Route>
-            <Route>
-              <Redirect to="/" />
-            </Route>
-          </Switch>
-        </Router>
+        <Switch>
+          <Route path="/index" exact>
+            <LandingPage />
+          </Route>
+          <Route path="/assistant">
+            <ExploreAssistantPage />
+          </Route>
+          <Route path="/chat">
+            <ExploreChatPage />
+          </Route>
+          <Route>
+            <Redirect to="/index" />
+          </Route>
+        </Switch>
       </ComponentsProvider>
     </>
   )

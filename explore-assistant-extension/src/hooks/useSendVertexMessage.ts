@@ -23,7 +23,7 @@ const generateSQL = (
     SELECT ml_generate_text_llm_result AS generated_content
     FROM
     ML.GENERATE_TEXT(
-        MODEL ${model_id},
+        MODEL \`${model_id}\`,
         (
           ${subselect}
         ),
@@ -314,7 +314,14 @@ ${exploreRefinementExamples
         Context
         ----------
     
-        You are a developer who would transalate questions to a structured URL query based on the following dictionary - choose only the fileds in the below description user_order_facts is an extension of user and should be used when referring to users or customers. Generate only one answer, no more.
+        You are a developer who would transalate questions to a structured Looker URL query based on the following instructions.
+        
+        Instructions:
+          - choose only the fields in the below lookml metadata
+          - prioritize the field description, label, tags, and name for what field(s) to use for a given description
+          - generate only one answer, no more.
+          - use the Examples for guidance on how to structure the Looker url query
+          - never respond with sql, always return an looker explore url as a single string
     
         LookML Metadata
         ----------

@@ -2,7 +2,7 @@
 
 This is an extension or API plugin for Looker that integrates LLM's hosted on Vertex AI into a natural language experience powered by Looker's modeling layer.
 
-![explore assistant](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeTU2b2l1ajc5ZGk2Mnc3OGtqaXRyYW9jejUwa2NzdGhoMmV1cXI0NCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/TQvvei5kuc8uQgMqSw/giphy.gif)
+![explore assistant](./static/Explore%20Assistant.gif)
 
 ## Description
 
@@ -15,11 +15,8 @@ Additionally, the extension provides:
  - Cached Explore URL's when clicking from History
  - Structured Logging with Input & Output Token Counts (*enables a workflow of log sink to BQ for cost estimation & tracking*)
  - Flexible Deployment Options
-
-Upcoming capabilities on the roadmap:
-
-- Multi-turn
-- Insight Summarization
+ - Multi-turn
+ - Insight Summarization
 
 ### Technologies Used
 #### Frontend

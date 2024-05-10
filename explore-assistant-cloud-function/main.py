@@ -148,10 +148,6 @@ def cloud_function_entrypoint(request):
 
     return response_text, 200, get_response_headers(request)
 
-def response_headers():
-    return {
-        "Access-Control-Allow-Origin": "*"
-    }
 
 def handle_options_request(request):
     return "", 204, get_response_headers(request)

@@ -1,0 +1,97 @@
+.chatInput {
+  width: 100%;
+
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  min-height: 48px;
+  padding: 10px 0px;
+  box-shadow: rgb(196, 199, 197);
+  display: flex;
+  background: #faf8f8;
+  
+  .inputContainer {
+    position: relative;
+    background: #fff;
+
+    align-items: center;
+
+    background-color: var(--postbar-bg-color);
+    display: flex;
+    flex-grow: 1;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+    padding-right: 50px; // Leave space for the button
+
+    textarea {
+      width: 100%;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      outline: none;
+      resize: none;
+      background: white;
+      overflow: hidden; // Hide overflow to grow with content
+      margin: 5px 10px 5px 10px;
+      padding-top: 4px;
+    }
+
+    button {
+      position: absolute;
+      bottom: 5px;
+      right: 10px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      align-self: flex-end; // Align the button to the right
+      margin-top: auto; // Push the button to the bottom of the container
+      padding: 0;
+      display: flex;
+      align-items: middle; // Center align the icon inside the button
+      justify-content: center;
+
+      border-radius: 24px;
+      padding: 5px;
+      color: #1a73e8;
+
+      &disabled {
+        cursor: not-allowed;
+        color: lightgray;
+      }
+
+      &:hover {
+        background: #edebeb;
+      }
+    }
+  }
+}
+
+.chatBubble {
+  display: flex;
+  flex-direction: row;
+  &.user {
+      color: #000;
+      margin-left: 50px;
+      text-align: right;
+      float: right;
+      .chatBubbleContent {
+        background: rgb(236, 243, 254);
+      }
+  }
+
+  &.system {
+      color: #000;
+      margin-right: 50px;
+      text-align: left;
+      float: left;
+      .chatBubbleContent {
+        background: rgb(242, 242, 242);
+      }
+  }
+}
+
+.chatBubbleContent {
+  border-radius: 10px;
+  display: inline-flex;
+  flex-direction: column;
+  max-width: 100%;
+  padding: 0px 20px;
+}

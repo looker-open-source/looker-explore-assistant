@@ -12,6 +12,31 @@ interface Field {
   tags: string[]
 }
 
+interface Message {
+  message: string
+  actor: 'user' | 'system'
+  createdAt: number
+  type: 'text'
+  intent: 'exploreRefinement' | 'summarize' | 'dataQuestion'
+}
+
+interface ExploreMessage {
+  exploreUrl: string
+  actor: 'system'
+  createdAt: number
+  type: 'explore'
+  summarizedPrompt: string
+}
+
+interface SummarizeMesage {
+  exploreUrl: string
+  actor: 'system'
+  createdAt: number
+  type: 'summarize'
+}
+
+type ChatMessage = Message | ExploreMessage | SummarizeMesage
+
 interface AssistantState {
   isQuerying: boolean
   history: HistoryItem[]
@@ -19,6 +44,20 @@ interface AssistantState {
   measures: Field[]
   exploreUrl: string
   query: string
+  messageThread: ChatMessage[]
+  exploreId: string
+  exploreName: string
+  modelName: string
+  examples: {
+    exploreGenerationExamples: {
+      input: string
+      output: string
+    }[]
+    exploreRefinementExamples: {
+      input: string[]
+      output: string
+    }[]
+  }
 }
 
 const initialState: AssistantState = {
@@ -28,6 +67,14 @@ const initialState: AssistantState = {
   measures: [],
   exploreUrl: '',
   query: '',
+  messageThread: [],
+  exploreId: '',
+  exploreName: '',
+  modelName: '',
+  examples: {
+    exploreGenerationExamples: [],
+    exploreRefinementExamples: [],
+  }
 }
 
 export const assistantSlice = createSlice({
@@ -41,7 +88,7 @@ export const assistantSlice = createSlice({
       state.history.push(action.payload)
     },
     setHistory: (state, action: PayloadAction<HistoryItem[]>) => {
-        state.history = action.payload
+      state.history = action.payload
     },
     setDimensions: (state, action: PayloadAction<Field[]>) => {
       state.dimensions = action.payload
@@ -55,9 +102,47 @@ export const assistantSlice = createSlice({
     setQuery: (state, action: PayloadAction<string>) => {
       state.query = action.payload
     },
+    resetChat: (state) => {
+      state.messageThread = []
+      state.query = ''
+      state.exploreUrl = ''
+    },
+    addMessage: (state, action: PayloadAction<ChatMessage>) => {
+      state.messageThread.push(action.payload)
+    },
+    setExploreId: (state, action: PayloadAction<string>) => {
+      state.exploreId = action.payload
+    },
+    setExploreName: (state, action: PayloadAction<string>) => {
+      state.exploreName = action.payload
+    },
+    setModelName: (state, action: PayloadAction<string>) => {
+      state.modelName = action.payload  
+    },
+    setExploreGenerationExamples(state, action: PayloadAction<AssistantState['examples']['exploreGeneration']>) {
+      state.examples.exploreGenerationExamples = action.payload
+    },
+    setExploreRefinementExamples(state, action: PayloadAction<AssistantState['examples']['exploreRefinement']>) {
+      state.examples.exploreRefinementExamples = action.payload
+    },
   },
 })
 
-export const { setIsQuerying, addToHistory, setHistory, setDimensions, setMeasures, setExploreUrl, setQuery } = assistantSlice.actions
+export const {
+  setIsQuerying,
+  addToHistory,
+  setHistory,
+  setDimensions,
+  setMeasures,
+  setExploreUrl,
+  setQuery,
+  resetChat,
+  addMessage,
+  setExploreId,
+  setExploreName,
+  setModelName,
+  setExploreGenerationExamples,
+  setExploreRefinementExamples,
+} = assistantSlice.actions
 
 export default assistantSlice.reducer

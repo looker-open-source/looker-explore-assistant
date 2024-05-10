@@ -9,7 +9,7 @@ import {
   Space,
   SpaceVertical,
 } from '@looker/components'
-import { useHistory } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 
 interface DocCardProps {
   title: string
@@ -49,7 +49,6 @@ const DocCard = ({ title, model, description, doc }: DocCardProps) => {
 }
 
 const LandingPage = () => {
-  const history = useHistory()
   const docs = [
     {
       title: 'No Code Prompt Tuning',
@@ -67,10 +66,6 @@ const LandingPage = () => {
     },
   ]
 
-  const handleBegin = () => {
-    history.push('/assistant')
-  }
-
   return (
     <SpaceVertical>
       <SpaceVertical
@@ -85,9 +80,14 @@ const LandingPage = () => {
         <Heading color={'inform'} fontSize={'large'} fontWeight={'semiBold'}>
           Powered by Generative AI with Google
         </Heading>
-        <Button marginTop={'u8'} onClick={handleBegin}>
-          Begin
-        </Button>
+        <Space>
+          <NavLink to="/assistant">
+            <Button marginTop={'u8'}>Assistant</Button>
+          </NavLink>
+          <NavLink to="/chat">
+            <Button marginTop={'u8'}>Chat</Button>
+          </NavLink>
+        </Space>
 
         <SpaceVertical marginTop={'u8'} gap={'u14'}>
           {docs.map((doc, index) => {

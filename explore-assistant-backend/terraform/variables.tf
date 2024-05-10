@@ -41,3 +41,4 @@ variable "dataset_id_name" {
     type = string
     default = "explore_assistant"
 }
+

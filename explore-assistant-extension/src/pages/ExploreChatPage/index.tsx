@@ -5,12 +5,10 @@ import {
   FieldTextArea,
   Heading,
   Icon,
-  Layout,
   Section,
   Space,
   SpaceVertical,
   Span,
-  Spinner,
 } from '@looker/components'
 import React, { FormEvent, useCallback, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
@@ -28,6 +26,7 @@ import Chat from '../../components/Chat'
 import { ArrowBackIosSharp } from '@material-ui/icons'
 import GeminiLogo from '../../components/GeminiLogo'
 import { ExploreEmbed } from '../../components/ExploreEmbed'
+import ExploreBasePage from '../ExploreBasePage/'
 
 const ExploreChatPage = () => {
   const dispatch = useDispatch()
@@ -104,10 +103,7 @@ const ExploreChatPage = () => {
   }
 
   return (
-    <Layout height={'100%'} hasAside={true}>
-      {loading ? (
-        <Spinner color="key" />
-      ) : (
+    <ExploreBasePage>
         <>
           <Section>
             {exploreUrl != '' ? (
@@ -176,8 +172,7 @@ const ExploreChatPage = () => {
             )}
           </Aside>
         </>
-      )}
-    </Layout>
+    </ExploreBasePage>
   )
 }
 

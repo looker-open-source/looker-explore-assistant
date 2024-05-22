@@ -3,7 +3,6 @@ import {
   Button,
   FieldTextArea,
   Heading,
-  Layout,
   Paragraph,
   Section,
   Space,
@@ -26,6 +25,7 @@ import SamplePrompts from '../../components/SamplePrompts'
 import PromptHistory from '../../components/PromptHistory'
 import { RootState } from '../../store'
 import useFetchData from '../../hooks/useSendVertexMessage'
+import ExploreBasePage from '../ExploreBasePage/'
 
 const ExploreAssistantPage = () => {
   const dispatch = useDispatch()
@@ -33,7 +33,7 @@ const ExploreAssistantPage = () => {
   const [textAreaValue, setTextAreaValue] = React.useState<string>('')
   const { extensionSDK } = useContext(ExtensionContext)
 
-  const { exploreUrl, isQuerying, history } = useSelector(
+  const { exploreUrl, isQuerying, history, examples} = useSelector(
     (state: RootState) => state.assistant,
   )
 
@@ -80,7 +80,7 @@ const ExploreAssistantPage = () => {
         JSON.stringify(updatedHistory),
       )
     },
-    [history],
+    [history, examples],
   )
 
   const handleSubmit = useCallback(async () => {
@@ -97,8 +97,7 @@ const ExploreAssistantPage = () => {
   }
 
   return (
-    <>
-      <Layout height={'100%'} hasAside={true}>
+      <ExploreBasePage>
         <Aside
           paddingX={'u8'}
           paddingY={'u4'}
@@ -157,8 +156,7 @@ const ExploreAssistantPage = () => {
             </Space>
           )}
         </Section>
-      </Layout>
-    </>
+      </ExploreBasePage>
   )
 }
 

@@ -69,8 +69,8 @@ const initialState: AssistantState = {
   query: '',
   messageThread: [],
   exploreId: '',
-  exploreName: '',
-  modelName: '',
+  exploreName: 'order_items',
+  modelName: 'thelook',
   examples: {
     exploreGenerationExamples: [],
     exploreRefinementExamples: [],

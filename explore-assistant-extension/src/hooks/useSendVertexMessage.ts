@@ -203,6 +203,8 @@ ${exploreRefinementExamples
       - data summary
       - tell me more about it
       - explain to me what's going on
+      - summarize
+      - summarize this
       
       The user said:
 
@@ -213,7 +215,9 @@ ${exploreRefinementExamples
       Return "data summary" if the user is asking for a data summary, and "refining question" if the user is continuing to refine their question. Only output one answer, no more. Only return one those two options. If you're not sure, return "refining question".
 
     `
+    // console.log("Contents: ", contents)
     const response = await sendMessage(contents, {})
+    // console.log("Response: ",response)
     return response === 'data summary'
   }
 
@@ -245,7 +249,9 @@ ${exploreRefinementExamples
         } else if (key.startsWith('f[')) {
           const filterKey = key.match(/\[(.*?)\]/)?.[1]
           if (filterKey) {
-            queryParams.filters[filterKey] = value
+            const stripOperatorFromFilter = key.split(/(?=[><])|(?<=[><])/g)
+            console.log(stripOperatorFromFilter)
+            queryParams.filters[filterKey] = stripOperatorFromFilter.length > 1 ? decodeURI(stripOperatorFromFilter[1] + value) : decodeURI(value)
           }
         } else if (key === 'sorts') {
           queryParams.sorts = value.split(',')
@@ -255,6 +261,15 @@ ${exploreRefinementExamples
       })
 
       // get the contents of the explore query
+      // console.log("From Query: ", {
+      //   model: modelName,
+      //   view: exploreName,
+
+      //   fields: queryParams.fields || [],
+      //   filters: queryParams.filters || {},
+      //   sorts: queryParams.sorts || [],
+      //   limit: queryParams.limit || '1000',
+      // })
       const createQuery = await core40SDK.ok(
         core40SDK.create_query({
           model: modelName,
@@ -291,8 +306,9 @@ ${exploreRefinementExamples
       Task
       ----------
       Summarize the data above
-    
-    `
+      `
+
+      // console.log(contents)
       const response = await sendMessage(contents, {})
 
       const refinedContents = `

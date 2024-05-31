@@ -8,8 +8,12 @@ import {
   Paragraph,
   Space,
   SpaceVertical,
+  Select
 } from '@looker/components'
 import { NavLink } from 'react-router-dom'
+import { useDispatch,useSelector } from 'react-redux'
+import { RootState } from '../../store'
+import { setExploreName, setExploreId, setModelName } from '../../slices/assistantSlice'
 
 interface DocCardProps {
   title: string
@@ -49,6 +53,10 @@ const DocCard = ({ title, model, description, doc }: DocCardProps) => {
 }
 
 const LandingPage = () => {
+  const dispatch = useDispatch()
+  const { exploreId} = useSelector(
+    (state: RootState) => state.assistant,
+  )
   const docs = [
     {
       title: 'No Code Prompt Tuning',
@@ -66,6 +74,14 @@ const LandingPage = () => {
     },
   ]
 
+  const setSelectedExplore = (e) => {
+    const parsedExploreID = e.split("/")
+    console.log(parsedExploreID)
+    dispatch(setExploreName(parsedExploreID[1]))
+    dispatch(setModelName(parsedExploreID[0]))
+    dispatch(setExploreId(e))
+  }
+
   return (
     <SpaceVertical>
       <SpaceVertical
@@ -80,6 +96,23 @@ const LandingPage = () => {
         <Heading color={'inform'} fontSize={'large'} fontWeight={'semiBold'}>
           Powered by Generative AI with Google
         </Heading>
+        <SpaceVertical
+          paddingTop={'2rem'}
+        >
+          <SpaceVertical>
+            <span style={{fontSize:'1rem',opacity:'0.8'}}>Select Explore</span>
+            <Select
+                placeholder="Select your Explore"
+                onChange={(e) => setSelectedExplore(e)}
+                value={exploreId}
+                options={[
+                  { label: 'Ecommerce', value: 'thelook/order_items' },
+                  { label: 'GCP Billing', value: 'gcp_billing_demo/gcp_billing_export' },
+                  { label: 'Healthcare Operations', value: 'healthcare_operations/ortho_procedures' },
+                ]}
+            />
+          </SpaceVertical>
+        </SpaceVertical>
         <Space>
           <NavLink to="/assistant">
             <Button marginTop={'u8'}>Assistant</Button>
@@ -88,7 +121,6 @@ const LandingPage = () => {
             <Button marginTop={'u8'}>Chat</Button>
           </NavLink>
         </Space>
-
         <SpaceVertical marginTop={'u8'} gap={'u14'}>
           {docs.map((doc, index) => {
             return (

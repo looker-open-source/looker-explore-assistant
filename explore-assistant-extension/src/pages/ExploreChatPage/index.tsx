@@ -32,7 +32,7 @@ const ExploreChatPage = () => {
   const dispatch = useDispatch()
   const [loading, setLoading] = React.useState<boolean>(true)
   const [isQueryPending, setIsQueryPending] = React.useState<boolean>(false)
-  const { isQuerying, exploreUrl, query, dimensions, measures, examples } =
+  const { isQuerying, exploreUrl, query, dimensions, measures, examples, exploreId } =
     useSelector((state: RootState) => state.assistant)
   const [textAreaValue, setTextAreaValue] = React.useState<string>(query)
 
@@ -146,7 +146,7 @@ const ExploreChatPage = () => {
                 <Section width={'100%'}>
                   <FieldTextArea
                     label="Type your prompt in here"
-                    description="💡 Tip: Try asking for your data output in a viz!"
+                    description="Tip: Try asking for your data output in a viz!"
                     value={textAreaValue}
                     onKeyDown={(e:any) => {
                       // nativeEvent.code check to determine if enter press is for submission or for accepting japanese kanji character
@@ -167,7 +167,7 @@ const ExploreChatPage = () => {
                   </Button>
                 </Section>
 
-                <SamplePrompts handleSubmit={handlePromptSubmit} />
+                <SamplePrompts exploreId={exploreId} handleSubmit={handlePromptSubmit} />
               </SpaceVertical>
             )}
           </Aside>

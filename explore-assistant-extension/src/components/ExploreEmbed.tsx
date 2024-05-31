@@ -61,16 +61,28 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
     if (el && hostUrl && exploreUrl) {
       const paramsObj: any = {
         // For Looker Original use window.origin for Looker Core use hostUrl
-        embed_domain: hostUrl, //window.origin, //hostUrl,
+        embed_domain: window.origin, //window.origin, //hostUrl,
         sdk: '2',
         _theme: JSON.stringify({
           key_color: '#174ea6',
           background_color: '#f4f6fa',
         }),
       }
-      exploreUrl
-        .split('&')
-        .map((param) => (paramsObj[param.split('=')[0]] = param.split('=')[1]))
+      new URLSearchParams(exploreUrl)
+        .forEach((value,key) => {
+          if (key.startsWith('f[')) {
+            /**
+             * urlsearchparams on a filter that starts with  >= or <= instead of = will split the param like this
+             * f[somefilter]> where instead we want that operator as part of the value instead of the key
+             */
+            const stripOperatorFromFilter = key.split(/(?=[><])|(?<=[><])/g)
+            console.log(stripOperatorFromFilter)
+            paramsObj[stripOperatorFromFilter[0]] = stripOperatorFromFilter.length > 1 ? decodeURI(stripOperatorFromFilter[1] + value) : decodeURI(value)
+          } else {
+            paramsObj[key] = value
+          }
+        })
+      console.log(paramsObj)
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
       LookerEmbedSDK.createExploreWithId(exploreId)

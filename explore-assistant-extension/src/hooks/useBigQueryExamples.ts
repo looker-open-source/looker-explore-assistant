@@ -1,5 +1,6 @@
 import { useContext, useEffect } from 'react'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
+import { RootState } from '../store'
 import {
   setExploreGenerationExamples,
   setExploreRefinementExamples,
@@ -8,10 +9,13 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import process from 'process'
 
 export const useBigQueryExamples = () => {
+  const { exploreName, modelName} = useSelector(
+    (state: RootState) => state.assistant,
+  )
   const connectionName =
     process.env.BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME || ''
-  const LOOKER_MODEL = process.env.LOOKER_MODEL || ''
-  const LOOKER_EXPLORE = process.env.LOOKER_EXPLORE || ''
+  // const LOOKER_MODEL = process.env.LOOKER_MODEL || ''
+  // const LOOKER_EXPLORE = process.env.LOOKER_EXPLORE || ''
   const datasetName =
     process.env.BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME || 'explore_assistant'
 
@@ -43,10 +47,11 @@ export const useBigQueryExamples = () => {
           examples
       FROM
         \`${datasetName}.explore_assistant_examples\`
-        WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
+        WHERE explore_id = '${modelName}:${exploreName}'
     `
     return runExampleQuery(sql).then((response) => {
       const generationExamples = JSON.parse(response[0]['examples'])
+      console.log("GenExamples: ", generationExamples[0])
       dispatch(setExploreGenerationExamples(generationExamples))
     })
   }
@@ -57,7 +62,7 @@ export const useBigQueryExamples = () => {
         examples
     FROM
       \`${datasetName}.explore_assistant_refinement_examples\`
-      WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
+      WHERE explore_id = '${modelName}:${exploreName}'
   `
     return runExampleQuery(sql).then((response) => {
       const refinementExamples = JSON.parse(response[0]['examples'])
@@ -69,5 +74,5 @@ export const useBigQueryExamples = () => {
   useEffect(() => {
     getExamplePrompts()
     getRefinementPrompts()
-  }, [])
+  }, [modelName,exploreName])
 }

@@ -1,12 +1,16 @@
 import { useContext, useEffect } from 'react'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
+import { RootState } from '../store'
 import { setDimensions, setMeasures } from '../slices/assistantSlice'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import process from 'process'
 
 export const useLookerFields = () => {
-  const lookerModel = process.env.LOOKER_MODEL || ''
-  const lookerExplore = process.env.LOOKER_EXPLORE || ''
+  const { exploreName, modelName} = useSelector(
+    (state: RootState) => state.assistant,
+  )
+  // const lookerModel = process.env.LOOKER_MODEL || ''
+  // const lookerExplore = process.env.LOOKER_EXPLORE || ''
   const dispatch = useDispatch()
 
   const { core40SDK } = useContext(ExtensionContext)
@@ -15,8 +19,8 @@ export const useLookerFields = () => {
     core40SDK
       .ok(
         core40SDK.lookml_model_explore({
-          lookml_model_name: lookerModel,
-          explore_name: lookerExplore,
+          lookml_model_name: modelName,
+          explore_name: exploreName,
           fields: 'fields',
         }),
       )
@@ -45,6 +49,6 @@ export const useLookerFields = () => {
         dispatch(setDimensions(dimensions))
         dispatch(setMeasures(measures))
       })
-  }, [dispatch, lookerModel, lookerExplore]) // Dependencies array to avoid unnecessary re-executions
+  }, [dispatch, modelName, exploreName]) // Dependencies array to avoid unnecessary re-executions
 }
 

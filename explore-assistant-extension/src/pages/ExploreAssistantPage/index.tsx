@@ -33,7 +33,7 @@ const ExploreAssistantPage = () => {
   const [textAreaValue, setTextAreaValue] = React.useState<string>('')
   const { extensionSDK } = useContext(ExtensionContext)
 
-  const { exploreUrl, isQuerying, history, examples} = useSelector(
+  const { exploreUrl, isQuerying, history, examples,exploreId } = useSelector(
     (state: RootState) => state.assistant,
   )
 
@@ -113,7 +113,7 @@ const ExploreAssistantPage = () => {
           </Paragraph>
           <FieldTextArea
             label="Type your prompt in here"
-            description="💡 Tip: Try asking for your data output in a viz!"
+            description="Tip: Try asking for your data output in a viz!"
             value={textAreaValue}
             onKeyDown={(e:any) => {
               // nativeEvent.code check to determine if enter press is for submission or for accepting japanese kanji character
@@ -134,7 +134,7 @@ const ExploreAssistantPage = () => {
           <Section>
             <Tabs2 defaultTabId="prompts" distributed>
               <Tab2 id="prompts" label="Sample Prompts">
-                <SamplePrompts handleSubmit={handlePromptSubmit} />
+                <SamplePrompts exploreId={exploreId} handleSubmit={handlePromptSubmit} />
               </Tab2>
               <Tab2 id="history" label="Your History">
                 <PromptHistory handleSubmit={handlePromptSubmit} />

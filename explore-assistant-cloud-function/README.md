@@ -55,3 +55,15 @@ To set up and run the function locally, follow these steps:
    ```
 
 This setup allows developers to test and modify the function in a local environment before deploying it to a cloud function service.
+
+## Model configuration
+
+By default, the cloud function will use a default model. However, you may want to test out different Gemini models are they are released. We have made the model name configurable via an environment variable. 
+
+In development, you can run the main script with a new MODEL_NAME variable:
+
+```bash
+PROJECT=XXXX LOCATION=us-central-1 VERTEX_CF_AUTH_TOKEN=$(cat ../.vertex_cf_auth_token) MODEL_NAME=XXXXX python main.py
+```
+
+In production, on the cloud function, you can manually set a variable in the GCP UI. Updating the variable will re-deploy the cloud function.

@@ -63,7 +63,7 @@ def has_valid_signature(request):
 
     return hmac.compare_digest(signature, expected_signature)
 
-def generate_looker_query(contents, parameters=None):
+def generate_looker_query(contents, parameters=None, model_name="gemini-1.5-flash"):
 
    # Define default parameters
     default_parameters = {

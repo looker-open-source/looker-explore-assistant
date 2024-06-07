@@ -38,31 +38,43 @@ export const useBigQueryExamples = () => {
   }
 
   const getExamplePrompts = async () => {
-    const sql = `
+    if (!process.env.BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME) {
+      const generationExamples = require('../../../explore-assistant-examples/examples.json')
+      return dispatch(setExploreGenerationExamples(generationExamples))
+    }
+    else {
+      const sql = `
       SELECT
           examples
       FROM
         \`${datasetName}.explore_assistant_examples\`
         WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
     `
-    return runExampleQuery(sql).then((response) => {
-      const generationExamples = JSON.parse(response[0]['examples'])
-      dispatch(setExploreGenerationExamples(generationExamples))
-    })
+      return runExampleQuery(sql).then((response) => {
+        const generationExamples = JSON.parse(response[0]['examples'])
+        dispatch(setExploreGenerationExamples(generationExamples))
+      })
+    }
   }
 
   const getRefinementPrompts = async () => {
-    const sql = `
+    if (!process.env.BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME) {
+      const refinementExamples = require('../../../explore-assistant-examples/refinement_examples.json')
+      return dispatch(setExploreRefinementExamples(refinementExamples))
+    }
+    else {
+      const sql = `
     SELECT
         examples
     FROM
       \`${datasetName}.explore_assistant_refinement_examples\`
       WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
   `
-    return runExampleQuery(sql).then((response) => {
-      const refinementExamples = JSON.parse(response[0]['examples'])
-      dispatch(setExploreRefinementExamples(refinementExamples))
-    })
+      return runExampleQuery(sql).then((response) => {
+        const refinementExamples = JSON.parse(response[0]['examples'])
+        dispatch(setExploreRefinementExamples(refinementExamples))
+      })
+    }
   }
 
   // get the example prompts
@@ -71,3 +83,4 @@ export const useBigQueryExamples = () => {
     getRefinementPrompts()
   }, [])
 }
+

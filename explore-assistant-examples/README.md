@@ -45,7 +45,7 @@ python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_I
 
 Load the refinement examples
 ```bash
- python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_refinement_examples --json_file refinement_examples.json 
+ python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_refinement_examples --json_file refinement_examples.json
  ```
 ### Description
 
@@ -68,3 +68,7 @@ This Python script is designed to manage data uploads from a JSON file into a Go
 
 6. **Error Handling**:
    - Throughout the data deletion and insertion processes, the script checks for and reports any errors that occur. This is vital for debugging and ensuring data integrity.
+
+### Add examples directly to the extension bundle
+
+If examples need to be added directly to the extension bundle, leave out the connection parameter blank in the `.env` file. This will be check at build time and both example files in this directory will be added to the extension bundle.

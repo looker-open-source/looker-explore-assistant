@@ -30,7 +30,7 @@ resource "google_bigquery_job" "create_bq_model_llm" {
     query              = <<EOF
 CREATE OR REPLACE MODEL `${var.dataset_id}.explore_assistant_llm` 
 REMOTE WITH CONNECTION `${google_bigquery_connection.connection.name}` 
-OPTIONS (endpoint = 'gemini-pro')
+OPTIONS (endpoint = 'gemini-1.5-flash')
 EOF  
     create_disposition = ""
     write_disposition  = ""

@@ -64,6 +64,10 @@ resource "google_bigquery_job" "create_explore_assistant_examples_table" {
 
   location = var.deployment_region
   depends_on = [ time_sleep.wait_after_apis_activate]
+
+  lifecycle {
+    ignore_changes  = [query, job_id]
+  }
 }
 
 
@@ -87,4 +91,7 @@ resource "google_bigquery_job" "create_explore_assistant_refinement_examples_tab
 
   location = var.deployment_region
   depends_on = [ time_sleep.wait_after_apis_activate]
+  lifecycle {
+    ignore_changes  = [query, job_id]
+  }
 }

@@ -24,27 +24,26 @@ export const useLookerFields = () => {
         if (!fields || !fields.dimensions || !fields.measures) {
           return
         }
-        const dimensions = fields.dimensions.map(
-          ({ name, type, description, tags }: any) => ({
+        const dimensions = fields.dimensions
+          .filter(({ hidden }: any) => !hidden)
+          .map(({ name, type, description, tags }: any) => ({
             name,
             type,
             description,
             tags,
-          }),
-        )
+          }))
 
-        const measures = fields.measures.map(
-          ({ name, type, description, tags }: any) => ({
+        const measures = fields.measures
+          .filter(({ hidden }: any) => !hidden)
+          .map(({ name, type, description, tags }: any) => ({
             name,
             type,
             description,
             tags,
-          }),
-        )
+          }))
 
         dispatch(setDimensions(dimensions))
         dispatch(setMeasures(measures))
       })
   }, [dispatch, lookerModel, lookerExplore]) // Dependencies array to avoid unnecessary re-executions
 }
-

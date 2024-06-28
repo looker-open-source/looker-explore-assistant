@@ -1,0 +1,83 @@
+.errorContainer {
+    min-height: 100vh;
+    min-width: 100vw;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(243 244 246 / 1);    ;
+    font-family: Arial, sans-serif;
+  }
+  
+  .errorBackdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    backdrop-filter: blur(8px);
+  }
+  
+  .errorCard {
+    width: 100%;
+    max-width: 400px;
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    z-index: 10;
+    position: relative;
+  }
+  
+  .errorHeader {
+    background: rgb(247, 95, 95);
+    color: white;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+  }
+  
+  .errorIcon {
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+  }
+  
+  .errorHeader h2 {
+    margin: 0;
+    font-size: 18px;
+  }
+  
+  .errorContent {
+    padding: 24px;
+  }
+  
+  .errorSection {
+    margin-bottom: 16px;
+  }
+  
+  .errorSection h3 {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+  
+  .errorSection p {
+    color: #4b5563;
+    margin: 0;
+  }
+  
+  .errorSection ul {
+    list-style-type: disc;
+    padding-left: 20px;
+    color: #4b5563;
+    margin: 0;
+  }
+
+  .messageContainer {
+    height:6rem;
+    overflow-y:scroll;
+  }
+
+  .troubleshootingList {
+    height: 12rem;
+    overflow: scroll;
+  }

@@ -11,3 +11,4 @@ node_modules
 
 .vertex_cf_auth_token
 dist
+.idea

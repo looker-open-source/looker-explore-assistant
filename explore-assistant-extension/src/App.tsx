@@ -1,11 +1,9 @@
 import React, { useEffect } from 'react'
 import { hot } from 'react-hot-loader/root'
 import { Route, Switch, Redirect } from 'react-router-dom'
-
 import LandingPage from './pages/LandingPage'
 import ExploreAssistantPage from './pages/ExploreAssistantPage'
 import ExploreChatPage from './pages/ExploreChatPage'
-import { ComponentsProvider } from '@looker/components'
 import { useDispatch } from 'react-redux'
 import {
   setExploreId,
@@ -25,33 +23,27 @@ const ExploreApp = () => {
     dispatch(setExploreName(process.env.LOOKER_EXPLORE || ''))
   }, [])
 
+
   // load dimensions and measures into the state
   useLookerFields()
   useBigQueryExamples()
 
   return (
     <>
-      <ComponentsProvider
-        themeCustomizations={{
-          colors: { key: '#1A73E8' },
-          defaults: { externalLabel: false },
-        }}
-      >
         <Switch>
           <Route path="/index" exact>
-            <LandingPage />
+              <LandingPage />
           </Route>
           <Route path="/assistant">
-            <ExploreAssistantPage />
+              <ExploreAssistantPage />
           </Route>
           <Route path="/chat">
-            <ExploreChatPage />
+              <ExploreChatPage />
           </Route>
           <Route>
             <Redirect to="/index" />
           </Route>
         </Switch>
-      </ComponentsProvider>
     </>
   )
 }

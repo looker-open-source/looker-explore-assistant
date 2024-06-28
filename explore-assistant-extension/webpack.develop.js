@@ -45,6 +45,9 @@ module.exports = {
   },
   devServer: {
     webSocketServer: 'sockjs',
+    client: {
+      overlay: false
+    },
     host: 'localhost',
     allowedHosts: 'all',
     headers: {

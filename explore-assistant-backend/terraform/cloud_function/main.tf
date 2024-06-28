@@ -12,33 +12,13 @@ variable "project_id" {
 }
 
 resource "google_service_account" "explore-assistant-sa" {
-  account_id   = "explore-assistant-sa"
-  display_name = "Looker Explore Assistant SA"
-}
-
-# TODO: Remove Editor and apply right permissions
-resource "google_project_iam_member" "iam_permission_looker_bq" {
-  project = var.project_id
-  role    = "roles/editor"
-  member  = format("serviceAccount:%s", google_service_account.explore-assistant-sa.email)
+  account_id   = "explore-assistant-cf-sa"
+  display_name = "Looker Explore Assistant Cloud Function SA"
 }
 
 resource "google_project_iam_member" "iam_permission_looker_aiplatform" {
   project = var.project_id
   role    = "roles/aiplatform.user"
-  member  = format("serviceAccount:%s", google_service_account.explore-assistant-sa.email)
-}
-
-resource "google_project_iam_member" "iam_service_account_act_as" {
-  project = var.project_id
-  role    = "roles/iam.serviceAccountUser"
-  member  = format("serviceAccount:%s", google_service_account.explore-assistant-sa.email)
-}
-
-# IAM permission as Editor
-resource "google_project_iam_member" "iam_looker_service_usage" {
-  project = var.project_id
-  role    = "roles/serviceusage.serviceUsageConsumer"
   member  = format("serviceAccount:%s", google_service_account.explore-assistant-sa.email)
 }
 
@@ -54,9 +34,17 @@ resource "google_secret_manager_secret" "vertex_cf_auth_token" {
   }
 }
 
+locals {
+  auth_token_file_path = "${path.module}/../../../.vertex_cf_auth_token"
+  auth_token_file_exists = fileexists(local.auth_token_file_path)
+  auth_token_file_content = local.auth_token_file_exists ? file(local.auth_token_file_path) : ""
+}
+
 resource "google_secret_manager_secret_version" "vertex_cf_auth_token_version" {
+  count       = local.auth_token_file_exists ? 1 : 0
   secret      = google_secret_manager_secret.vertex_cf_auth_token.name
-  secret_data = file("${path.module}/../../../.vertex_cf_auth_token")
+  secret_data = local.auth_token_file_content
+
 }
 
 resource "google_secret_manager_secret_iam_binding" "vertex_cf_auth_token_accessor" {

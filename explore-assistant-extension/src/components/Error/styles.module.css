@@ -76,3 +76,8 @@
     height:6rem;
     overflow-y:scroll;
   }
+
+  .troubleshootingList {
+    height: 12rem;
+    overflow: scroll;
+  }

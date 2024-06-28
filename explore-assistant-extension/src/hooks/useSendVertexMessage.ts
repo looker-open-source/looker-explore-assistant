@@ -5,6 +5,7 @@ import { UtilsHelper } from '../utils/Helper'
 import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
 import process from 'process'
+import { useErrorBoundary } from 'react-error-boundary'
 
 interface ModelParameters {
   max_output_tokens?: number
@@ -56,6 +57,7 @@ function formatContent(field: {
 }
 
 const useSendVertexMessage = () => {
+  const { showBoundary } = useErrorBoundary();
   // cloud function
   const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
   const VERTEX_CF_AUTH_TOKEN = process.env.VERTEX_CF_AUTH_TOKEN || ''
@@ -371,16 +373,21 @@ ${exploreRefinementExamples
   )
 
   const sendMessage = async (message: string, parameters: ModelParameters) => {
-    let response = ''
-    if (VERTEX_AI_ENDPOINT) {
-      response = await vertextCloudFunction(message, parameters)
-    }
+    try {
 
-    if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
-      response = await vertextBigQuery(message, parameters)
+      let response = ''
+      if (VERTEX_AI_ENDPOINT) {
+        response = await vertextCloudFunction(message, parameters)
+      }
+      
+      if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
+        response = await vertextBigQuery(message, parameters)
+      }
+      
+      return response
+    } catch(error) {
+        showBoundary(error)
     }
-
-    return response
   }
 
   return {

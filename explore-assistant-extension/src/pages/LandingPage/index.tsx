@@ -66,6 +66,12 @@ const LandingPage = () => {
     },
   ]
 
+  const logError = (error: Error, info: { componentStack: string }) => {
+    // Do something with the error, e.g. log to an external API
+    console.log("Error: ", error)
+    console.log("Info: ", info)
+  };
+
   return (
     <SpaceVertical>
       <SpaceVertical
@@ -73,7 +79,7 @@ const LandingPage = () => {
         maxWidth={'30rem'}
         margin={'auto'}
         gap={'none'}
-      >
+        >
         <Heading fontSize={'xxxxlarge'} fontWeight={'bold'}>
           Explore Assistant Demo
         </Heading>
@@ -98,9 +104,9 @@ const LandingPage = () => {
                 model={doc.model}
                 description={doc.description}
                 doc={doc.doc}
-              />
-            )
-          })}
+                />
+                )
+              })}
         </SpaceVertical>
       </SpaceVertical>
     </SpaceVertical>

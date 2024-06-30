@@ -5,6 +5,7 @@ import { UtilsHelper } from '../utils/Helper'
 import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
 import process from 'process'
+import { useErrorBoundary } from 'react-error-boundary'
 
 interface ModelParameters {
   max_output_tokens?: number
@@ -56,6 +57,7 @@ function formatContent(field: {
 }
 
 const useSendVertexMessage = () => {
+  const { showBoundary } = useErrorBoundary();
   // cloud function
   const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
   const VERTEX_CF_AUTH_TOKEN = process.env.VERTEX_CF_AUTH_TOKEN || ''
@@ -91,7 +93,10 @@ const useSendVertexMessage = () => {
       const exploreData = await runSQLQuery[0]['generated_content']
 
       // clean up the data by removing backticks
-      const cleanExploreData = exploreData.replace(/```json/g, '').replace(/```/g, '').trim()
+      const cleanExploreData = exploreData
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim()
 
       return cleanExploreData
     }
@@ -121,8 +126,9 @@ const useSendVertexMessage = () => {
     return response.trim()
   }
 
-  const summarizePrompts = useCallback(async (promptList: string[]) => {
-    const contents = `
+  const summarizePrompts = useCallback(
+    async (promptList: string[]) => {
+      const contents = `
     
       Primer
       ----------
@@ -149,10 +155,12 @@ ${exploreRefinementExamples
       ----------
     
     `
-    const response = await sendMessage(contents, {})
+      const response = await sendMessage(contents, {})
 
-    return response
-  }, [exploreRefinementExamples])
+      return response
+    },
+    [exploreRefinementExamples],
+  )
 
   const sendMessageWithThread = useCallback(
     async (prompt: string) => {
@@ -320,8 +328,10 @@ ${exploreRefinementExamples
           - choose only the fields in the below lookml metadata
           - prioritize the field description, label, tags, and name for what field(s) to use for a given description
           - generate only one answer, no more.
-          - use the Examples for guidance on how to structure the Looker url query
+          - use the Examples (at the bottom) for guidance on how to structure the Looker url query
+          - try to avoid adding dynamic_fields, provide them when very similar example is found in the bottom
           - never respond with sql, always return an looker explore url as a single string
+          - response should start with fields= , as in the Examples section at the bottom  
     
         LookML Metadata
         ----------
@@ -338,10 +348,7 @@ ${exploreRefinementExamples
         ----------
     
       ${exploreGenerationExamples
-        .map(
-          (item) =>
-            `input: "${item.input}" ; output: ${item.output}`,
-        )
+        .map((item) => `input: "${item.input}" ; output: ${item.output}`)
         .join('\n')}
 
         Input
@@ -359,7 +366,10 @@ ${exploreRefinementExamples
       const response = await sendMessage(contents, parameters)
 
       const unquoteResponse = (response: string) => {
-        return response.substring(response.indexOf("fields=")).replace(/^`+|`+$/g, '').trim()
+        return response
+          .substring(response.indexOf('fields='))
+          .replace(/^`+|`+$/g, '')
+          .trim()
       }
       const cleanResponse = unquoteResponse(response)
       console.log(cleanResponse)
@@ -371,16 +381,21 @@ ${exploreRefinementExamples
   )
 
   const sendMessage = async (message: string, parameters: ModelParameters) => {
-    let response = ''
-    if (VERTEX_AI_ENDPOINT) {
-      response = await vertextCloudFunction(message, parameters)
-    }
+    try {
 
-    if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
-      response = await vertextBigQuery(message, parameters)
+      let response = ''
+      if (VERTEX_AI_ENDPOINT) {
+        response = await vertextCloudFunction(message, parameters)
+      }
+      
+      if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
+        response = await vertextBigQuery(message, parameters)
+      }
+      
+      return response
+    } catch(error) {
+        showBoundary(error)
     }
-
-    return response
   }
 
   return {

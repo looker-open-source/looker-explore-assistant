@@ -31,6 +31,9 @@ import { Provider } from 'react-redux'
 import { store } from './store'
 import { ExtensionProvider } from '@looker/extension-sdk-react'
 import { Spinner } from '@looker/components'
+import { ErrorBoundary } from 'react-error-boundary'
+import Fallback from './components/Error/ErrorFallback'
+import { ComponentsProvider } from '@looker/components'
 
 const getRoot = () => {
   const id = 'extension-root'
@@ -47,6 +50,11 @@ const getRoot = () => {
 
 const render = (Component: typeof App) => {
   const root = getRoot()
+  const logError = (error: Error, info: { componentStack: string }) => {
+    // Do something with the error, e.g. log to an external API
+    console.log("Error: ", error.name, error.message, error.stack)
+    console.log("Info: ", info)
+  };
   ReactDOM.render(
     <>
       <Provider store={store}>
@@ -54,7 +62,18 @@ const render = (Component: typeof App) => {
           loadingComponent={<Spinner />}
           requiredLookerVersion=">=21.0"
         >
-          <Component />
+          <ComponentsProvider
+            themeCustomizations={{
+              colors: { key: '#1A73E8' },
+              defaults: { externalLabel: false },
+            }}
+          >
+           <ErrorBoundary 
+            FallbackComponent={Fallback} 
+            onError={logError}>
+            <Component />
+           </ErrorBoundary>
+          </ComponentsProvider>
         </ExtensionProvider>
       </Provider>
     </>,

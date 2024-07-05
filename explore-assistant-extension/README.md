@@ -1,4 +1,5 @@
 # Explore Assistant Extension Frontend Deployment
+
 This documentation outlines the steps required to deploy the Explore Assistant Extension with the desired backend for generating Explore URL's based on Natural Language. It assumes a Looker Instance is available with a suitable LookML Model and Explore configured.
 
 ## 1. LLM Integration
@@ -9,26 +10,29 @@ This section describes how to set up the LLM Integration for the Explore Assista
 
 1. Clone or download a copy of this repository to your development machine.
    If you have a git ssh_config:
+
    ```bash
    # cd ~/ Optional. your user directory is usually a good place to git clone to.
    git clone git@github.com:looker-open-source/looker-explore-assistant.git
    ```
 
    If not:
+
    ```bash
    # cd ~/ Optional. your user directory is usually a good place to git clone to.
    git clone https://github.com/looker-open-source/looker-explore-assistant.git
    ```
+
    Alternatively, open up this repository in: &nbsp;
    [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/looker-open-source/looker-explore-assistant.git&cloudshell_workspace=explore-assistant-extension)
 
 2. Install a backend using terraform by [following the instructions](../explore-assistant-backend/README.md)
 
 3. Save the backend details for use by the extension framework:
-   
-   * The BigQuery example dataset and table name
-   * If you're using the BigQuery backend, the model id that allows communication with Gemini
-   * If you're using the Cloud Function backend, the url of the endpoint
+
+   - The BigQuery example dataset and table name
+   - If you're using the BigQuery backend, the model id that allows communication with Gemini
+   - If you're using the Cloud Function backend, the url of the endpoint
 
 ### Optional: Setup Log Sink to BQ for LLM Cost Estimation and Request Logging (used for Cloud Function Backend)
 
@@ -38,7 +42,7 @@ Please see [Google Cloud's docs](https://cloud.google.com/logging/docs/export/co
 (resource.type = "cloud_function"
 resource.labels.function_name = "Insert service name"
 resource.labels.region = "<Insert location>")
- OR 
+ OR
 (resource.type = "cloud_run_revision"
 resource.labels.service_name = "<Insert service name>"
 resource.labels.location = "<Insert location>")
@@ -47,18 +51,18 @@ jsonPayload.component="explore-assistant-metadata"
 ```
 
 ## 2. Looker Extension Framework Setup
-**Important** If you are not familiar with the Looker Extension Framework, please review [this documentation](https://developers.looker.com/extensions/overview/) first before moving forward.
 
+**Important** If you are not familiar with the Looker Extension Framework, please review [this documentation](https://developers.looker.com/extensions/overview/) first before moving forward.
 
 ### Getting Started for Development
 
-1. From the Explore Assistant root directory (`cd`) to the Explore Assistant Extension folder. *If deploying from Cloudshell, you should already be in this folder*.
+1. From the Explore Assistant root directory (`cd`) to the Explore Assistant Extension folder. _If deploying from Cloudshell, you should already be in this folder_.
 
    ```bash
    cd explore-assistant-extension
    ```
 
-1. Install the dependencies with [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). *Please follow the hyperlinked directions for installing node and npm on your machine. Skip this step if deploying from Cloud Shell method above.* Additionally if you need to work across multiple Node versions, `nvm` can be used switch between and install different node versions.
+1. Install the dependencies with [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). _Please follow the hyperlinked directions for installing node and npm on your machine. Skip this step if deploying from Cloud Shell method above._ Additionally if you need to work across multiple Node versions, `nvm` can be used switch between and install different node versions.
 
    ```bash
    npm install
@@ -66,15 +70,16 @@ jsonPayload.component="explore-assistant-metadata"
 
    > You may need to update your Node version or use a [Node version manager](https://github.com/nvm-sh/nvm) to change your Node version.
 
-2. Create a new BigQuery connection in Looker that will allow us to get the examples from the database. You will use that in the VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME below.
+1. Create a new BigQuery connection in Looker that will allow us to get the examples from the database. You will use that in the VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME below.
 
-3. Ensure all the appropriate environment variables are set in the `.env` file
+1. Ensure all the appropriate environment variables are set in the `.env` file
 
    Regardless of the backend, you're going to need:
 
    ```
    LOOKER_MODEL=<This is your Looker model name>
    LOOKER_EXPLORE=<This is your Looker explore name>
+   LOOKER_EXPLORE_LABEL=<This is your Looker explore label>
    VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME=<This is the connection name in Looker with the BQ project that has access to the remote connection and model>
    BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME=<The BQ connection name in Looker that has query access to example prompts. This may be the same as the Vertex Connection Name if using just one gcp project>
    BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME=<This is the dataset and project that contain the Example prompt data, assuming that differs from the Looker connection>
@@ -99,14 +104,14 @@ jsonPayload.component="explore-assistant-metadata"
    VERTEX_BIGQUERY_MODEL_ID=<This is the model id that you want to use for prediction>
    ```
 
-4. If you're utilizing Looker Core (Looker instance hosted in Google Cloud), adjust the `embed_domain` variable within the `useEffect()` function in ExploreEmbed.tsx to reflect the `hostUrl` instead of `window.origin`.
+1. If you're utilizing Looker Core (Looker instance hosted in Google Cloud), adjust the `embed_domain` variable within the `useEffect()` function in ExploreEmbed.tsx to reflect the `hostUrl` instead of `window.origin`.
 
    ```typescript
    //embed.domain: window.origin // Looker Original
    embed_domain: hostUrl, // Looker Core
    ```
 
-5. Start the development server
+1. Start the development server
    **IMPORTANT** If you are running the extension from a VM or another remote machine, you will need to Port Forward to the machine where you are accessing the Looker Instance from (ie. If you are accessing Looker from your local machine, run the following command there.). Here's a boilerplate example for port forwarding the remote port 8080 to the local port 8080:
    `ssh username@host -L 8080:localhost:8080`.
 
@@ -116,7 +121,7 @@ jsonPayload.component="explore-assistant-metadata"
 
    Great! Your extension is now running and serving the JavaScript at https://localhost:8080/bundle.js.
 
-6. Now log in to Looker and create a new project or use an existing project.
+1. Now log in to Looker and create a new project or use an existing project.
 
    This is found under **Develop** => **Manage LookML Projects** => **New LookML Project**.
 
@@ -124,7 +129,7 @@ jsonPayload.component="explore-assistant-metadata"
 
    1. In your copy of the extension project you have a `manifest.lkml` file.
 
-   You can either drag & upload this file into your Looker project, or create a `manifest.lkml` with the same content. Change the `id`, `label`, or `url` as needed. 
+   You can either drag & upload this file into your Looker project, or create a `manifest.lkml` with the same content. Change the `id`, `label`, or `url` as needed.
    **IMPORTANT** please paste in the deployed Cloud Function URL into the `external_api_urls` list and uncomment that line if you are using the Cloud Function backend deployment. This will allowlist it in Looker for fetch requests.
 
    ```lookml
@@ -133,7 +138,7 @@ jsonPayload.component="explore-assistant-metadata"
     url: "https://localhost:8080/bundle.js"
     # file: "bundle.js"
     entitlements: {
-      core_api_methods: ["lookml_model_explore","create_sql_query","run_sql_query","run_query","create_query"]
+      core_api_methods: ["lookml_model_explore","lookml_model","create_sql_query","run_sql_query","run_query","create_query"]
       navigation: yes
       use_embeds: yes
       use_iframes: yes
@@ -145,21 +150,22 @@ jsonPayload.component="explore-assistant-metadata"
    }
    ```
 
-7. Create a `model` LookML file in your project. The name doesn't matter. The model and connection won't be used, and in the future this step may be eliminated.
+1. Create a `model` LookML file in your project. The name doesn't matter. The model and connection won't be used, and in the future this step may be eliminated.
 
    - Add a connection in this model. It can be any connection, it doesn't matter which.
    - [Configure the model you created](https://docs.looker.com/data-modeling/getting-started/create-projects#configuring_a_model) so that it has access to some connection.
 
-8. Connect your new project to Git. You can do this multiple ways:
+1. Connect your new project to Git. You can do this multiple ways:
 
    - Create a new repository on GitHub or a similar service, and follow the instructions to [connect your project to Git](https://docs.looker.com/data-modeling/getting-started/setting-up-git-connection)
    - A simpler but less powerful approach is to set up git with the "Bare" repository option which does not require connecting to an external Git Service.
 
-9. Commit your changes and deploy your them to production through the Project UI.
+1. Commit your changes and deploy your them to production through the Project UI.
 
-10. Reload the page and click the `Browse` dropdown menu. You should see your extension in the list.
-   - The extension will load the JavaScript from the `url` provided in the `application` definition. By default, this is https://localhost:8080/bundle.js. If you change the port your server runs on in the package.json, you will need to also update it in the manifest.lkml.
-   - Refreshing the extension page will bring in any new code changes from the extension template, although some changes will hot reload.
+1. Reload the page and click the `Browse` dropdown menu. You should see your extension in the list.
+
+- The extension will load the JavaScript from the `url` provided in the `application` definition. By default, this is https://localhost:8080/bundle.js. If you change the port your server runs on in the package.json, you will need to also update it in the manifest.lkml.
+- Refreshing the extension page will bring in any new code changes from the extension template, although some changes will hot reload.
 
 ### Deployment
 

@@ -53,7 +53,7 @@ Load the refinement examples
 Load the samples
 
 ```bash
- python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_samples --json_file samples.json
+ python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_samples --column_name samples --json_file samples.json
 ```
 
 ### Description

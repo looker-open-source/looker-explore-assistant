@@ -74,7 +74,7 @@ def main():
 
     # load data from file and insert into BigQuery
     data = load_data_from_file(args.json_file)
-    insert_data_into_bigquery(client, args.dataset_id, args.table_id, args.explore_id, data)
+    insert_data_into_bigquery(client, args.dataset_id, args.table_id, args.column_name, args.explore_id, data)
 
 if __name__ == '__main__':
     main()

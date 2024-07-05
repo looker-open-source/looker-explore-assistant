@@ -41,7 +41,7 @@ const ExploreSelect = ({ handleSelect }: ExploreSelectProps) => {
         options={options}
         defaultValue={options[0]?.value}
         onChange={(value) => handleSelect(value)}
-        placeholder="Select Canon data domain"
+        placeholder="Select data domain"
       />
     </Box>
   )

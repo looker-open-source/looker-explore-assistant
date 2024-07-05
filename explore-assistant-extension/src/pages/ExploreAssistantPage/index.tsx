@@ -134,7 +134,7 @@ const ExploreAssistantPage = () => {
         borderRight={'key'}
       >
         <Heading fontSize={'xxlarge'} fontWeight={'semiBold'}>
-          Canon AI Analytics
+          Explore Assistant
         </Heading>
         <Paragraph fontSize={'small'} marginBottom={'u4'}>
           Select data domain and ask questions of a sample Ecommerce dataset

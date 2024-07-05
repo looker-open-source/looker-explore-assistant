@@ -10,6 +10,7 @@ import {
   SpaceVertical,
 } from '@looker/components'
 import { NavLink } from 'react-router-dom'
+import process from 'process'
 
 interface DocCardProps {
   title: string
@@ -49,6 +50,7 @@ const DocCard = ({ title, model, description, doc }: DocCardProps) => {
 }
 
 const LandingPage = () => {
+  const APPLICATION_NAME = process.env.APPLICATION_NAME || 'Explore Assistant'
   const docs = [
     {
       title: 'No Code Prompt Tuning',
@@ -68,9 +70,9 @@ const LandingPage = () => {
 
   const logError = (error: Error, info: { componentStack: string }) => {
     // Do something with the error, e.g. log to an external API
-    console.log("Error: ", error)
-    console.log("Info: ", info)
-  };
+    console.log('Error: ', error)
+    console.log('Info: ', info)
+  }
 
   return (
     <SpaceVertical>
@@ -79,9 +81,9 @@ const LandingPage = () => {
         maxWidth={'30rem'}
         margin={'auto'}
         gap={'none'}
-        >
+      >
         <Heading fontSize={'xxxxlarge'} fontWeight={'bold'}>
-          Explore Assistant Demo
+          {APPLICATION_NAME}
         </Heading>
         <Heading color={'inform'} fontSize={'large'} fontWeight={'semiBold'}>
           Powered by Generative AI with Google
@@ -104,9 +106,9 @@ const LandingPage = () => {
                 model={doc.model}
                 description={doc.description}
                 doc={doc.doc}
-                />
-                )
-              })}
+              />
+            )
+          })}
         </SpaceVertical>
       </SpaceVertical>
     </SpaceVertical>

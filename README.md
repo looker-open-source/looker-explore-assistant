@@ -10,27 +10,31 @@ The Explore Assistant allows a user to generate a Looker Explore Query via natur
 
 Additionally, the extension provides:
 
- - Question History (*this is stored in the browser's localstorage*)
- - Categorized Prompts (*these can be customized by the use cases of your organization*)
- - Cached Explore URL's when clicking from History
- - Structured Logging with Input & Output Token Counts (*enables a workflow of log sink to BQ for cost estimation & tracking*)
- - Flexible Deployment Options
- - Multi-turn
- - Insight Summarization
+- Question History (_this is stored in the browser's localstorage_)
+- Categorized Prompts (_these can be customized by the use cases of your organization_)
+- Cached Explore URL's when clicking from History
+- Structured Logging with Input & Output Token Counts (_enables a workflow of log sink to BQ for cost estimation & tracking_)
+- Flexible Deployment Options
+- Multi-turn
+- Insight Summarization
 
 ### Technologies Used
+
 #### Frontend
+
 - [React](https://reactjs.org/)
 - [TypeScript](https://www.typescriptlang.org/)
 - [Webpack](https://webpack.js.org/).
 - [Styled components](https://www.styled-components.com/docs)
 
 #### Looker
+
 - [Looker Extension SDK](https://github.com/looker-open-source/sdk-codegen/tree/main/packages/extension-sdk-react)
 - [Looker Embed SDK](https://cloud.google.com/looker/docs/embed-sdk)
 - [Looker Components](https://cloud.google.com/looker/docs/components)
 
 #### Backend API
+
 - [Google Cloud Platform](https://cloud.google.com/)
 - [Vertex AI](https://cloud.google.com/vertex-ai)
 - [Cloud Functions](https://cloud.google.com/functions)
@@ -39,17 +43,17 @@ Additionally, the extension provides:
 
 Getting started involves:
 
-- Frontend Setup - setup Looker Extension Framework Applications by following [these instructions](./explore-assistant-extension/README.md).
 - Backend Setup - setup the GCP backend for communicating with the Vertex API [using these instructions.](./explore-assistant-backend/README.md)
 - Example generation - generate a list of examples and upload them to BigQuery [using these instructions.](./explore-assistant-examples/README.md)
+- Frontend Setup - setup Looker Extension Framework Applications by following [these instructions](./explore-assistant-extension/README.md).
 
 The local cloud function backend and example generation require some python packages. It is recommended to create a python virtual environment and install the dependencies:
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate 
+source .venv/bin/activate
 pip3 install -r ./explore-assistant-examples/requirements.txt
-pip3 install -r ./explore-assistant-cloud-function/requirements.txt 
+pip3 install -r ./explore-assistant-cloud-function/requirements.txt
 ```
 
 ## Recommendations for fine tuning the model

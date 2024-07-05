@@ -1,32 +1,42 @@
-import { Box, Card, Heading, Paragraph } from '@looker/components'
+import {
+  Box,
+  Card,
+  Heading,
+  Paragraph,
+  Space,
+  SpaceVertical,
+  Spinner,
+} from '@looker/components'
 import React from 'react'
+import { useSelector } from 'react-redux'
+import { RootState } from '../store'
 
 interface SamplePromptsProps {
   handleSubmit: (prompt: string) => void
 }
+
 const SamplePrompts = ({ handleSubmit }: SamplePromptsProps) => {
-  const categorizedPrompts = [
-    {
-      category: 'Cohorting',
-      prompt: 'Count of Users by first purchase date',
-      color: 'blue',
-    },
-    {
-      category: 'Audience Building',
-      prompt:
-        'Users who have purchased more than 100 dollars worth of Calvin Klein products and have purchased in the last 30 days',
-      color: 'green',
-    },
-    {
-      category: 'Period Comparison',
-      prompt:
-        'Total revenue by category this year compared to last year in a line chart with year pivoted',
-      color: 'red',
-    },
-  ]
+  const {
+    exploreId, // Added exploreId to selector
+  } = useSelector((state: RootState) => state.assistant)
+  // console.log('exploreId: ', exploreId)
+  const samples = useSelector(
+    (state: any) => state.assistant.exploreSamplesById[exploreId],
+  )
+
+  if (!samples) {
+    return (
+      <Space>
+        <SpaceVertical align={'center'}>
+          <Spinner color="key" />
+        </SpaceVertical>
+      </Space>
+    )
+  }
+
   return (
     <div>
-      {categorizedPrompts.map((item, index: number) => (
+      {samples.map((item: any, index: number) => (
         <Box
           cursor="pointer"
           key={index}
@@ -34,7 +44,14 @@ const SamplePrompts = ({ handleSubmit }: SamplePromptsProps) => {
             handleSubmit(item.prompt)
           }}
         >
-          <Card border={'ui1'} fontSize={'small'} m="u1" px="u2" py="u4" style={{height:'auto'}}>
+          <Card
+            border={'ui1'}
+            fontSize={'small'}
+            m="u1"
+            px="u2"
+            py="u4"
+            style={{ height: 'auto' }}
+          >
             <Heading
               fontSize={'small'}
               fontWeight={'semiBold'}

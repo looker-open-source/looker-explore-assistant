@@ -1,10 +1,12 @@
 import {
   Aside,
+  Box,
   Button,
   ButtonTransparent,
   FieldTextArea,
   Heading,
   Icon,
+  Paragraph,
   Section,
   Space,
   SpaceVertical,
@@ -12,19 +14,25 @@ import {
 } from '@looker/components'
 import React, { FormEvent, useCallback, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import process from 'process'
 import { RootState } from '../../store'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
 import SamplePrompts from '../../components/SamplePrompts'
 import {
   addMessage,
   resetChat,
+  setExploreId,
+  setExploreName,
   setExploreUrl,
+  setHistory,
   setIsQuerying,
+  setModelName,
   setQuery,
 } from '../../slices/assistantSlice'
 import Chat from '../../components/Chat'
 import { ArrowBackIosSharp } from '@material-ui/icons'
 import GeminiLogo from '../../components/GeminiLogo'
+import ExploreSelect from '../../components/ExploreSelect'
 import { ExploreEmbed } from '../../components/ExploreEmbed'
 import ExploreBasePage from '../ExploreBasePage/'
 
@@ -35,8 +43,8 @@ const ExploreChatPage = () => {
   const { isQuerying, exploreUrl, query, dimensions, measures, examples } =
     useSelector((state: RootState) => state.assistant)
   const [textAreaValue, setTextAreaValue] = React.useState<string>(query)
-
   const { generateExploreUrl } = useSendVertexMessage()
+  const APPLICATION_NAME = process.env.APPLICATION_NAME || 'Explore Assistant'
 
   useEffect(() => {
     if (
@@ -102,76 +110,94 @@ const ExploreChatPage = () => {
     setTextAreaValue('')
   }
 
+  const handleSelect = (value: string) => {
+    const exploreId = value.replace(':', '/')
+    const modelName = value.split(':')[0]
+    const exploreName = value.split(':')[1]
+    dispatch(setExploreId(exploreId))
+    dispatch(setModelName(modelName))
+    dispatch(setExploreName(exploreName))
+    dispatch(setHistory([])) // Clear history immediately when exploreId changes
+    setTextAreaValue('') // Clear the FieldTextArea
+  }
+
   return (
     <ExploreBasePage>
-        <>
-          <Section>
-            {exploreUrl != '' ? (
-              <ExploreEmbed />
-            ) : (
-              <Space
-                height="100%"
-                width="100%"
-                align={'center'}
-                justify={'center'}
-              >
-                <GeminiLogo width={'300px'} animate={isQuerying} />
-              </Space>
-            )}
-          </Section>
-          <Aside
-            paddingX={'u8'}
-            paddingY={'u4'}
-            minWidth={'400px'}
-            borderLeft={'key'}
-          >
-            <Space between>
-              <Heading fontSize={'xxlarge'} fontWeight={'semiBold'}>
-                Explore Assistant
-              </Heading>
-              {exploreUrl && (
-                <ButtonTransparent onClick={reset}>
-                  <Icon icon={<ArrowBackIosSharp />} size={20} />
-                  <Span>Back</Span>
-                </ButtonTransparent>
-              )}
+      <>
+        <Section>
+          {exploreUrl != '' ? (
+            <ExploreEmbed />
+          ) : (
+            <Space
+              height="100%"
+              width="100%"
+              align={'center'}
+              justify={'center'}
+            >
+              <GeminiLogo width={'300px'} animate={isQuerying} />
             </Space>
-            {exploreUrl ? (
-              <SpaceVertical>
-                <Space justify={'end'}></Space>
-                <Chat />
-              </SpaceVertical>
-            ) : (
-              <SpaceVertical mt={'u8'} gap={'none'}>
-                <Section width={'100%'}>
-                  <FieldTextArea
-                    label="Type your prompt in here"
-                    description="💡 Tip: Try asking for your data output in a viz!"
-                    value={textAreaValue}
-                    onKeyDown={(e:any) => {
-                      // nativeEvent.code check to determine if enter press is for submission or for accepting japanese kanji character
-                      if(e.key === 'Enter' && e.keyCode !== 229 ) {
-                        handleExploreSubmit()
-                      }
-                    }}
-                    onChange={handleChange}
-                    disabled={isQuerying}
-                  />
-
-                  <Button
-                    my={'u6'}
-                    disabled={isQuerying}
-                    onClick={handleExploreSubmit}
-                  >
-                    Generate Explore
-                  </Button>
-                </Section>
-
-                <SamplePrompts handleSubmit={handlePromptSubmit} />
-              </SpaceVertical>
+          )}
+        </Section>
+        <Aside
+          paddingX={'u8'}
+          paddingY={'u4'}
+          minWidth={'400px'}
+          borderLeft={'key'}
+        >
+          <Space between>
+            <Heading fontSize={'xxlarge'} fontWeight={'semiBold'}>
+              {APPLICATION_NAME}
+            </Heading>
+            {exploreUrl && (
+              <ButtonTransparent onClick={reset}>
+                <Icon icon={<ArrowBackIosSharp />} size={20} />
+                <Span>Back</Span>
+              </ButtonTransparent>
             )}
-          </Aside>
-        </>
+          </Space>
+          {exploreUrl ? (
+            <SpaceVertical>
+              <Space justify={'end'}></Space>
+              <Chat />
+            </SpaceVertical>
+          ) : (
+            <SpaceVertical mt={'u8'} gap={'none'}>
+              <Section width={'100%'}>
+                <Paragraph fontSize={'small'}>
+                  Pick a data domain and inquire with the help of the Gemini
+                  model on Vertex AI.
+                </Paragraph>
+                <Box py="u4">
+                  <ExploreSelect handleSelect={handleSelect} />
+                </Box>
+                <FieldTextArea
+                  label="Type your prompt in here"
+                  description="💡 Tip: Try asking for your data output in a viz!"
+                  value={textAreaValue}
+                  onKeyDown={(e: any) => {
+                    // nativeEvent.code check to determine if enter press is for submission or for accepting japanese kanji character
+                    if (e.key === 'Enter' && e.keyCode !== 229) {
+                      handleExploreSubmit()
+                    }
+                  }}
+                  onChange={handleChange}
+                  disabled={isQuerying}
+                />
+
+                <Button
+                  my={'u6'}
+                  disabled={isQuerying}
+                  onClick={handleExploreSubmit}
+                >
+                  Generate Explore
+                </Button>
+              </Section>
+
+              <SamplePrompts handleSubmit={handlePromptSubmit} />
+            </SpaceVertical>
+          )}
+        </Aside>
+      </>
     </ExploreBasePage>
   )
 }

@@ -6,6 +6,7 @@ import {
   FieldTextArea,
   Heading,
   Icon,
+  Paragraph,
   Section,
   Space,
   SpaceVertical,
@@ -13,6 +14,7 @@ import {
 } from '@looker/components'
 import React, { FormEvent, useCallback, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import process from 'process'
 import { RootState } from '../../store'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
 import SamplePrompts from '../../components/SamplePrompts'
@@ -41,8 +43,8 @@ const ExploreChatPage = () => {
   const { isQuerying, exploreUrl, query, dimensions, measures, examples } =
     useSelector((state: RootState) => state.assistant)
   const [textAreaValue, setTextAreaValue] = React.useState<string>(query)
-
   const { generateExploreUrl } = useSendVertexMessage()
+  const APPLICATION_NAME = process.env.APPLICATION_NAME || 'Explore Assistant'
 
   useEffect(() => {
     if (
@@ -144,7 +146,7 @@ const ExploreChatPage = () => {
         >
           <Space between>
             <Heading fontSize={'xxlarge'} fontWeight={'semiBold'}>
-              Explore Assistant
+              {APPLICATION_NAME}
             </Heading>
             {exploreUrl && (
               <ButtonTransparent onClick={reset}>
@@ -161,6 +163,10 @@ const ExploreChatPage = () => {
           ) : (
             <SpaceVertical mt={'u8'} gap={'none'}>
               <Section width={'100%'}>
+                <Paragraph fontSize={'small'}>
+                  Pick a data domain and inquire with the help of the Gemini
+                  model on Vertex AI.
+                </Paragraph>
                 <Box py="u4">
                   <ExploreSelect handleSelect={handleSelect} />
                 </Box>

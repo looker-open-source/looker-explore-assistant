@@ -15,6 +15,7 @@ import { ExploreEmbed } from '../../components/ExploreEmbed'
 import GeminiLogo from '../../components/GeminiLogo'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useDispatch, useSelector } from 'react-redux'
+import process from 'process'
 import {
   addToHistory,
   setExploreUrl,
@@ -37,6 +38,7 @@ const ExploreAssistantPage = () => {
   const { generateExploreUrl } = useFetchData()
   const [textAreaValue, setTextAreaValue] = React.useState<string>('')
   const { extensionSDK } = useContext(ExtensionContext)
+  const APPLICATION_NAME = process.env.APPLICATION_NAME || 'Explore Assistant'
 
   const {
     exploreUrl,
@@ -134,11 +136,11 @@ const ExploreAssistantPage = () => {
         borderRight={'key'}
       >
         <Heading fontSize={'xxlarge'} fontWeight={'semiBold'}>
-          Explore Assistant
+          {APPLICATION_NAME}
         </Heading>
-        <Paragraph fontSize={'small'} marginBottom={'u4'}>
-          Select data domain and ask questions of a sample Ecommerce dataset
-          powered by the Gemini model on Vertex AI.
+        <Paragraph fontSize={'small'}>
+          Pick a data domain and inquire with the help of the Gemini model on
+          Vertex AI.
         </Paragraph>
         <Box py="u4">
           <ExploreSelect handleSelect={handleSelect} />

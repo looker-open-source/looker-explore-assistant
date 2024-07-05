@@ -104,6 +104,8 @@ jsonPayload.component="explore-assistant-metadata"
    VERTEX_BIGQUERY_MODEL_ID=<This is the model id that you want to use for prediction>
    ```
 
+   If you'd like to customize applicaiton name set up APPLICATION_NAME.
+
 1. If you're utilizing Looker Core (Looker instance hosted in Google Cloud), adjust the `embed_domain` variable within the `useEffect()` function in ExploreEmbed.tsx to reflect the `hostUrl` instead of `window.origin`.
 
    ```typescript
@@ -149,6 +151,8 @@ jsonPayload.component="explore-assistant-metadata"
     }
    }
    ```
+
+   If you prefer a different application (part of the URL) or label (visible in the Application dropdown), select a different value that matches the APPLICATION_NAME variable.
 
 1. Create a `model` LookML file in your project. The name doesn't matter. The model and connection won't be used, and in the future this step may be eliminated.
 

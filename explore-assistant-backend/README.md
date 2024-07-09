@@ -37,6 +37,8 @@ Here we list the reasons and tradeoffs of each deployment approach in an effort 
 
 ## Configuration and Deployment
 
+We are using terraform to setup the backend. We will also be hosting the terraform state inside the project itself by using a [remote backend](https://developer.hashicorp.com/terraform/language/settings/backends/remote). The configuration is passed on the command line since we want to use the project-id in the bucket name. Since the project-ids are globally unique, so will the storage bucket name.
+
 ### Cloud Function Backend
 
 First create a file that will contain the LOOKER_AUTH_TOKEN and place it at the root. This will be used by the cloud function locally, as well as the extension framework app. The value of this token will uploaded to the GCP project as secret to be used by the Cloud Function.
@@ -57,7 +59,8 @@ export TF_VAR_project_id=XXX
 export TF_VAR_use_bigquery_backend=0
 export TF_VAR_use_cloud_function_backend=1
 export TF_VAR_looker_auth_token=$(cat ../../.vertex_cf_auth_token)
-terraform init
+gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
+terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state" -backend-config="prefix=terraform/state"
 terraform plan
 terraform apply
 ```
@@ -71,6 +74,8 @@ cd terraform
 export TF_VAR_project_id=XXX
 export TF_VAR_use_bigquery_backend=1
 export TF_VAR_use_cloud_function_backend=0
+gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
+terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state" -backend-config="prefix=terraform/state"
 terraform plan
 terraform apply
 ```

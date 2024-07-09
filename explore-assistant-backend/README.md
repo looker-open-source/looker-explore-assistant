@@ -70,10 +70,33 @@ To deploy the BigQuery backend:
 cd terraform 
 export TF_VAR_project_id=XXX
 export TF_VAR_use_bigquery_backend=1
-export TF_VAR_use_cloud_function_backend=0
+terraform init
 terraform plan
 terraform apply
 ```
+
+You will hvae to wait 1-2 minutes for the APIs to turn on. You will also have to wait a couple of minutes for the service account for the BigQuery connection to appear.
+
+If you use the defaults, you can test whether everything is working by running:
+
+```sql
+    SELECT ml_generate_text_llm_result AS generated_content
+    FROM
+    ML.GENERATE_TEXT(
+        MODEL `explore_assistant.explore_assistant_llm`,
+        (
+          SELECT "hi" as prompt
+        ),
+        STRUCT(
+        0.05 AS temperature,
+        1024 AS max_output_tokens,
+        0.98 AS top_p,
+        TRUE AS flatten_json_output,
+        1 AS top_k)
+      )
+```
+
+Also, as part of the BigQuery backend setup, we create the Service Account that can be used to connect Looker to the BigQuery dataset to fetch the examples and use the model. You can follow the instructions for creating the connection in Looker here (https://cloud.google.com/looker/docs/db-config-google-bigquery#authentication_with_bigquery_service_accounts). You should be able to pickup the instructions on step 5. 
 
 ## Deployment Notes
 

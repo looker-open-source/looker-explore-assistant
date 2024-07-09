@@ -42,5 +42,9 @@ EOF
   }
 
   location = var.deployment_region
+
+  lifecycle {
+    ignore_changes  = [query, job_id]
+  }
 }
 

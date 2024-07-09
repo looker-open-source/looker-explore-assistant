@@ -1,47 +1,19 @@
 
-
-resource "google_bigquery_dataset" "dataset" {
-  dataset_id    = var.dataset_id_name
-  friendly_name = var.dataset_id_name
-  description   = "bq llm dataset for remote vertex ai model"
-  location      = var.deployment_region
+resource "google_service_account" "explore-assistant-bq-sa" {
+  account_id   = "explore-assistant-bq-sa"
+  display_name = "Looker Explore Assistant BigQuery SA"
 }
 
-resource "google_service_account" "looker_llm_service_account" {
-  account_id   = "looker-explore-assistant-sa"
-  display_name = "Looker LLM SA"
+resource "google_project_iam_member" "iam_permission_bq_data_editor" {
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = format("serviceAccount:%s", google_service_account.explore-assistant-bq-sa.email)
 }
 
-resource "google_project_iam_member" "iam_permission_looker_bq" {
-  project    = var.project_id
-  role       = "roles/editor"
-  member     = format("serviceAccount:%s", google_service_account.looker_llm_service_account.email)
-}
-
-resource "google_project_iam_member" "iam_permission_looker_aiplatform" {
-  project    = var.project_id
-  role       = "roles/aiplatform.user"
-  member     = format("serviceAccount:%s", google_service_account.looker_llm_service_account.email)
-}
-
-resource "google_project_iam_member" "iam_service_account_act_as" {
-  project    = var.project_id
-  role       = "roles/iam.serviceAccountUser"
-  member     = format("serviceAccount:%s", google_service_account.looker_llm_service_account.email)
-}
-
-# IAM permission as Editor
-resource "google_project_iam_member" "iam_looker_service_usage" {
-  project    = var.project_id
-  role       = "roles/serviceusage.serviceUsageConsumer"
-  member     = format("serviceAccount:%s", google_service_account.looker_llm_service_account.email)
-}
-
-# IAM permission as Editor
-resource "google_project_iam_member" "iam_looker_bq_consumer" {
-  project    = var.project_id
-  role       = "roles/bigquery.connectionUser"
-  member     = format("serviceAccount:%s", google_service_account.looker_llm_service_account.email)
+resource "google_project_iam_member" "iam_permission_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = format("serviceAccount:%s", google_service_account.explore-assistant-bq-sa.email)
 }
 
 resource "google_bigquery_job" "create_explore_assistant_examples_table" {

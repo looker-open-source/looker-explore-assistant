@@ -28,18 +28,20 @@ export const useLookerFields = () => {
         }
         const dimensions = fields.dimensions
           .filter(({ hidden }: any) => !hidden)
-          .map(({ name, type, description, tags }: any) => ({
+          .map(({ name, type, label, description, tags }: any) => ({
             name,
             type,
+            label,
             description,
             tags,
           }))
 
         const measures = fields.measures
           .filter(({ hidden }: any) => !hidden)
-          .map(({ name, type, description, tags }: any) => ({
+          .map(({ name, type, label, description, tags }: any) => ({
             name,
             type,
+            label,
             description,
             tags,
           }))

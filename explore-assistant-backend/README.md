@@ -96,6 +96,8 @@ If you use the defaults, you can test whether everything is working by running:
       )
 ```
 
+Also, as part of the BigQuery backend setup, we create the Service Account that can be used to connect Looker to the BigQuery dataset to fetch the examples and use the model. You can follow the instructions for creating the connection in Looker here (https://cloud.google.com/looker/docs/db-config-google-bigquery#authentication_with_bigquery_service_accounts). You should be able to pickup the instructions on step 5. 
+
 ## Deployment Notes
 
 - Changes to the code in `explore-assistant-cloud-function` will result in a zip file with a new hash. This hash is added to the environment variables for the cloud function, and a new hash will trigger the redeployment of the cloud function.

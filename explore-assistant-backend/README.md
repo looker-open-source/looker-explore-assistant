@@ -60,7 +60,7 @@ export TF_VAR_use_bigquery_backend=0
 export TF_VAR_use_cloud_function_backend=1
 export TF_VAR_looker_auth_token=$(cat ../../.vertex_cf_auth_token)
 gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
-terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state" -backend-config="prefix=terraform/state"
+terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state"
 terraform plan
 terraform apply
 ```
@@ -75,7 +75,7 @@ export TF_VAR_project_id=XXX
 export TF_VAR_use_bigquery_backend=1
 export TF_VAR_use_cloud_function_backend=0
 gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
-terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state" -backend-config="prefix=terraform/state"
+terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state"
 terraform plan
 terraform apply
 ```

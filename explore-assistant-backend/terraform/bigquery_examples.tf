@@ -1,3 +1,21 @@
+
+resource "google_service_account" "explore-assistant-bq-sa" {
+  account_id   = "explore-assistant-bq-sa"
+  display_name = "Looker Explore Assistant BigQuery SA"
+}
+
+resource "google_project_iam_member" "iam_permission_bq_data_editor" {
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = format("serviceAccount:%s", google_service_account.explore-assistant-bq-sa.email)
+}
+
+resource "google_project_iam_member" "iam_permission_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = format("serviceAccount:%s", google_service_account.explore-assistant-bq-sa.email)
+}
+
 resource "google_bigquery_job" "create_explore_assistant_examples_table" {
   job_id = "create_explore_assistant_examples_table-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   query {

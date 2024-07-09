@@ -29,6 +29,7 @@ module "bg-backend-project-services" {
 
   activate_apis = [
     "aiplatform.googleapis.com",
+    "bigquery.googleapis.com",
   ]
 
   depends_on = [module.base-project-services]

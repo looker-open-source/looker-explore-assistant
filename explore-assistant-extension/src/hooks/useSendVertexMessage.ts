@@ -10,7 +10,11 @@ import { useErrorBoundary } from 'react-error-boundary'
 import looker_filter_doc from '../documents/looker_filter_doc.md'
 
 interface ModelParameters {
-  max_output_tokens?: number
+  max_output_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  flatten_json_output?: boolean;
+  top_k?: number;
 }
 
 const generateSQL = (
@@ -21,8 +25,15 @@ const generateSQL = (
   const escapedPrompt = UtilsHelper.escapeQueryAll(prompt)
   const subselect = `SELECT '` + escapedPrompt + `' AS prompt`
 
+  const {
+    max_output_tokens = 1024,
+    temperature = 0.05,
+    top_p = 0.98,
+    flatten_json_output = true,
+    top_k = 1,
+  } = parameters
+
   return `
-  
     SELECT ml_generate_text_llm_result AS generated_content
     FROM
     ML.GENERATE_TEXT(
@@ -31,15 +42,15 @@ const generateSQL = (
           ${subselect}
         ),
         STRUCT(
-        0.05 AS temperature,
-        1024 AS max_output_tokens,
-        0.98 AS top_p,
-        TRUE AS flatten_json_output,
-        1 AS top_k)
+        ${temperature} AS temperature,
+        ${max_output_tokens} AS max_output_tokens,
+        ${top_p} AS top_p,
+        ${flatten_json_output} AS flatten_json_output,
+        ${top_k} AS top_k)
       )
-  
-      `
+  `;
 }
+
 
 function formatRow(field: {
   name?: string

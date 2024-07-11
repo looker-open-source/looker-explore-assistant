@@ -10,18 +10,20 @@ import { RootState } from '../../store'
 
 const ExploreBasePage = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = React.useState<boolean>(true)
-  const { examples } =
+  const { examples, dimensions, measures } =
     useSelector((state: RootState) => state.assistant)
 
 
   useEffect(() => {
     if (
       examples.exploreGenerationExamples.length > 0 &&
-      examples.exploreRefinementExamples.length > 0
+      examples.exploreRefinementExamples.length > 0 &&
+      dimensions.length > 0 &&
+      measures.length > 0
     ) {
       setLoading(false)
     }
-  }, [examples])
+  }, [examples, dimensions, measures])
 
   return (
     <Layout height={'100%'} hasAside={true}>

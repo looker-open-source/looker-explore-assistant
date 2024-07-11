@@ -310,6 +310,12 @@ ${exploreRefinementExamples
 
   const generateExploreUrl = useCallback(
     async (prompt: string) => {
+
+      if(!dimensions.length || !measures.length) {
+        showBoundary(new Error('Dimensions or measures are not defined'))
+        return
+      }
+
       // get the fields, limit, and sort
 
       // get the filters

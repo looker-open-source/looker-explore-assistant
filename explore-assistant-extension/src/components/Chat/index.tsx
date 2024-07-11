@@ -83,7 +83,7 @@ const Chat = () => {
         }),
       )
     }
-  }, [messageThread, textAreaValue, query])
+  }, [messageThread, textAreaValue, query, generateExploreUrl])
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setTextAreaValue(e.currentTarget.value)

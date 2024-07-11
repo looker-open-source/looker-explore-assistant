@@ -7,17 +7,45 @@ export interface ExploreQuery {
 
 export class ExploreHelper {
   static generateExploreUrlFromJSON = (exploreData: ExploreQuery): string => {
+    if (!exploreData || typeof exploreData !== 'object') {
+      return ''
+    }
+
     const { fields, filters, sorts, limit } = exploreData
 
-    const fieldsString = fields.map(encodeURIComponent).join(',')
+    if (!Array.isArray(fields) || fields.length === 0) {
+      return ''
+    }
+
+    const fieldsString = fields
+      .map((field) => encodeURIComponent(field))
+      .join(',')
+
     const filtersString = Object.entries(filters)
-      .map(([key, value]) => `f[${encodeURIComponent(key)}]=${value}`)
+      .map(
+        ([key, value]) =>
+          `f[${encodeURIComponent(key)}]=${value}`,
+      )
       .join('&')
-    const sortsString = sorts.map(encodeURIComponent).join(',')
-    const limitString = `limit=${encodeURIComponent(limit.toString())}`
 
-    const url = `fields=${fieldsString}&${filtersString}&sorts=${sortsString}&${limitString}&toggle=pik,vis`
+    const sortsString = Array.isArray(sorts)
+      ? sorts.map((sort) => encodeURIComponent(sort)).join(',')
+      : ''
 
-    return url
+    const limitString = limit
+      ? `limit=${encodeURIComponent(limit.toString())}`
+      : ''
+
+    const queryParts = [
+      fieldsString && `fields=${fieldsString}`,
+      filtersString,
+      sortsString && `sorts=${sortsString}`,
+      limitString,
+      'toggle=pik,vis',
+    ]
+      .filter(Boolean)
+      .join('&')
+
+    return queryParts ? queryParts : ''
   }
 }

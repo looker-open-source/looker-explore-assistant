@@ -69,7 +69,7 @@ const ExploreChatPage = () => {
       query = prompt
     }
 
-    if (query.trim() === '') return
+    if (!query || query.trim() === '') return
 
     dispatch(setIsQuerying(true))
     dispatch(setQuery(query))
@@ -89,7 +89,7 @@ const ExploreChatPage = () => {
 
     dispatch(setExploreUrl(newExploreUrl))
     dispatch(setIsQuerying(false))
-  }, [textAreaValue])
+  }, [textAreaValue, generateExploreUrl])
 
   const handleSamplePromptSubmit = (prompt: string) => {
     setTextAreaValue(prompt)
@@ -164,7 +164,7 @@ const ExploreChatPage = () => {
                   <Button
                     my={'u6'}
                     disabled={isQuerying}
-                    onClick={handleExploreSubmit}
+                    onClick={() => handleExploreSubmit}
                   >
                     Generate Explore
                   </Button>

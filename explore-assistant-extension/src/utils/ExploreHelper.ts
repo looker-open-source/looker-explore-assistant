@@ -13,7 +13,7 @@ export class ExploreHelper {
     const fieldsString = fields?.join(',') || ''
 
     const sortsString = Array.isArray(sorts)
-      ? sorts.map((sort) => encodeURIComponent(sort)).join(',')
+      ? sorts.map((sort) => sort).join(',')
       : ''
 
     const limitString = limit ? limit.toString() : ''

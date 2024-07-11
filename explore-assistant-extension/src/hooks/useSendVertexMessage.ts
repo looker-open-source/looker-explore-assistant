@@ -7,6 +7,8 @@ import { RootState } from '../store'
 import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
 
+import looker_filter_doc from '../documents/looker_filter_doc.md'
+
 interface ModelParameters {
   max_output_tokens?: number;
   temperature?: number;
@@ -107,6 +109,25 @@ function formatRow(field: {
   return `| ${name} | ${type} | ${label} | ${description} | ${tags} |`
 }
 
+
+function formatContent(field: {
+  name?: string
+  type?: string
+  label?: string
+  description?: string
+  tags?: string[]
+}) {
+  // Initialize properties with default values if not provided
+  const name = field.name || ''
+  const type = field.type || ''
+  const label = field.label || ''
+  const description = field.description || ''
+  const tags = field.tags ? field.tags.join(', ') : ''
+
+  // Return a markdown row
+  return `| ${name} | ${type} | ${label} | ${description} | ${tags} |`
+}
+
 const useSendVertexMessage = () => {
   const { showBoundary } = useErrorBoundary()
 
@@ -127,7 +148,7 @@ const useSendVertexMessage = () => {
     (state: RootState) => state.assistant.examples,
   )
 
-  const vertextBigQuery = async (
+  const vertexBigQuery = async (
     contents: string,
     parameters: ModelParameters,
   ) => {
@@ -154,7 +175,7 @@ const useSendVertexMessage = () => {
     }
   }
 
-  const vertextCloudFunction = async (
+  const vertexCloudFunction = async (
     contents: string,
     parameters: ModelParameters,
   ) => {
@@ -247,6 +268,12 @@ ${exploreRefinementExamples
     },
     [messageThread],
   )
+
+  const promptWrapper = (prompt: string) => {
+    // wrap the prompt with the current date
+    const currentDate = new Date().toLocaleString()
+    return `The current date is ${currentDate} \n\n\n\n ${prompt}`
+  }
 
   const isSummarizationPrompt = async (prompt: string) => {
     const contents = `
@@ -378,7 +405,6 @@ ${exploreRefinementExamples
       // get the filters
       const filterContents = `
 
-
 ${looker_filter_doc}
 
 # LookML Definitions
@@ -411,46 +437,84 @@ ${measures.map(formatRow).join('\n')}
 
 
       const contents = `
-        Context
-        ----------
-    
-        You are a developer who would transalate questions to a structured Looker URL query based on the following instructions.
-        
-        Instructions:
-          - choose only the fields in the below lookml metadata
-          - prioritize the field description, label, tags, and name for what field(s) to use for a given description
-          - generate only one answer, no more.
-          - use the Examples (at the bottom) for guidance on how to structure the Looker url query
-          - try to avoid adding dynamic_fields, provide them when very similar example is found in the bottom
-          - never respond with sql, always return an looker explore url as a single string
-          - response should start with fields= , as in the Examples section at the bottom  
-    
-        LookML Metadata
-        ----------
-    
-        Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
-          
-      ${dimensions.map(formatContent).join('\n')}
-          
-        Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):
-      
-      ${measures.map(formatContent).join('\n')}
-    
-        Example
-        ----------
-    
-      ${exploreGenerationExamples
-        .map((item) => `input: "${item.input}" ; output: ${item.output}`)
-        .join('\n')}
+# Context
 
-        Input
-        ----------
-        ${prompt}
+Your job is to convert a user question in plain language to the JSON payload that we will use to generate a Looker API call to the run_inline_query function.
+
+## Format of query object
+
+| Field              | Type   | Description                                                                                                                                                                                                                                                                          |
+|--------------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| model              | string | Model                                                                                                                                                                                                                                                                                |
+| view               | string | Explore Name                                                                                                                                                                                                                                                                         |
+| fields             | string[] | Fields                                                                                                                                                                                                                                                                                |
+| pivots             | string[] | Pivots                                                                                                                                                                                                                                                                                |
+| fill_fields        | string[] | Fill Fields                                                                                                                                                                                                                                                                           |
+| filters            | object | Filters                                                                                                                                                                                                                                                                               |
+| filter_expression  | string | Filter Expression                                                                                                                                                                                                                                                                     |
+| sorts              | string[] | Sorts                                                                                                                                                                                                                                                                                 |
+| limit              | string | Limit                                                                                                                                                                                                                                                                                 |
+| column_limit       | string | Column Limit                                                                                                                                                                                                                                                                          |
+| total              | boolean | Total                                                                                                                                                                                                                                                                                 |
+| row_total          | string | Raw Total                                                                                                                                                                                                                                                                             |
+| subtotals          | string[] | Subtotals                                                                                                                                                                                                                                                                             |
+| vis_config         | object | Visualization configuration properties. These properties are typically opaque and differ based on the type of visualization used. There is no specified set of allowed keys. The values can be any type supported by JSON. A "type" key with a string value is often present, and is used by Looker to determine which visualization to present. Visualizations ignore unknown vis_config properties. |
+| filter_config      | object | The filter_config represents the state of the filter UI on the explore page for a given query. When running a query via the Looker UI, this parameter takes precedence over "filters". When creating a query or modifying an existing query, "filter_config" should be set to null. Setting it to any other value could cause unexpected filtering behavior. The format should be considered opaque. |
 
     
-        Output
-        ----------
-    `
+# LookML Metadata
+
+Mode: ${modelName}
+Explore: ${exploreName}
+
+Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
+
+| Field Id | Field Type | LookML Type | Label | Description | Tags |
+|------------|------------|-------------|-------|-------------|------|
+${dimensions.map(formatRow).join('\n')}
+          
+Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):
+
+| Field Id | Field Type | LookML Type | Label | Description | Tags |
+|------------|------------|-------------|-------|-------------|------|
+${measures.map(formatRow).join('\n')}
+    
+# Examples
+
+${exploreGenerationExamples
+  .map((item) => `input: "${item.input}" ; output: ${item.output}`)
+  .join('\n')}
+
+
+Output
+----------
+
+Return a JSON that is compatible with the Looker API run_inline_query function as per the spec. Here is an example:
+
+{
+  "model":"${modelName}",
+  "view":"${exploreName}",
+  "fields":["category.name","inventory_items.days_in_inventory_tier","products.count"],
+  "filters":{"category.name":"socks"},
+  "sorts":["products.count desc 0"],
+  "limit":"500",
+}
+
+Instructions:
+- choose only the fields in the below lookml metadata
+- prioritize the field description, label, tags, and name for what field(s) to use for a given description
+- generate only one answer, no more.
+- use the Examples for guidance on how to structure the body
+- try to avoid adding dynamic_fields, provide them when very similar example is found in the bottom
+- only respond with a JSON object
+  
+  
+User Request
+----------
+${prompt}
+
+`
+
       const parameters = {
         max_output_tokens: 1000,
       }
@@ -469,15 +533,20 @@ ${measures.map(formatRow).join('\n')}
   )
 
   const sendMessage = async (message: string, parameters: ModelParameters) => {
+    const wrappedMessage = promptWrapper(message)
     try {
+
+      if(VERTEX_AI_ENDPOINT && ( VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID)) {
+        throw new Error('Both Vertex AI and BigQuery are enabled. Please only enable one')
+      }
 
       let response = ''
       if (VERTEX_AI_ENDPOINT) {
-        response = await vertextCloudFunction(message, parameters)
-      }
-      
-      if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
-        response = await vertextBigQuery(message, parameters)
+        response = await vertexCloudFunction(wrappedMessage, parameters)
+      } else if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
+        response = await vertexBigQuery(wrappedMessage, parameters)
+      } else {
+        throw new Error('No Vertex AI or BigQuery connection found')
       }
 
       if (response.startsWith('```json') && response.endsWith('```')) {
@@ -488,6 +557,8 @@ ${measures.map(formatRow).join('\n')}
     } catch(error) {
         showBoundary(error)
     }
+
+    return ''
   }
 
   return {

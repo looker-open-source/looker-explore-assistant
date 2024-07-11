@@ -1,95 +1,27 @@
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useCallback, useContext } from 'react'
 import { useSelector } from 'react-redux'
-import { UtilsHelper } from '../utils/Helper'
 import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
 import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
 
 import looker_filter_doc from '../documents/looker_filter_doc.md'
-
-interface ModelParameters {
-  max_output_tokens?: number;
-  temperature?: number;
-  top_p?: number;
-  flatten_json_output?: boolean;
-  top_k?: number;
-}
-
-interface ExploreQuery {
-  fields: string[]
-  filters: Record<string, string>
-  sorts: string[]
-  limit: string
-}
-
-const generateExploreUrlFromJSON = (exploreData: ExploreQuery): string => {
-  const {
-    fields,
-    filters,
-    sorts,
-    limit,
-  } = exploreData;
-
-  const fieldsString = fields.map(encodeURIComponent).join(',');
-  const filtersString = Object.entries(filters)
-    .map(([key, value]) => `f[${encodeURIComponent(key)}]=${value}`)
-    .join('&');
-  const sortsString = sorts.map(encodeURIComponent).join(',');
-  const limitString = `limit=${encodeURIComponent(limit.toString())}`;
-
-  const url = `fields=${fieldsString}&${filtersString}&sorts=${sortsString}&${limitString}&toggle=pik,vis`;
-
-  return url;
-}
+import { ExploreHelper } from '../utils/ExploreHelper'
+import { ModelParameters } from '../utils/VertexHelper'
+import { BigQueryHelper } from '../utils/BigQueryHelper'
 
 const parseJSONResponse = (jsonString: string) => {
-  if (jsonString.startsWith("```json") && jsonString.endsWith("```")) {
-    jsonString = jsonString.slice(7, -3).trim();
+  if (jsonString.startsWith('```json') && jsonString.endsWith('```')) {
+    jsonString = jsonString.slice(7, -3).trim()
   }
 
   try {
-    return JSON.parse(jsonString);
+    return JSON.parse(jsonString)
   } catch (error) {
-    return jsonString;
+    return jsonString
   }
 }
-
-const generateSQL = (
-  model_id: string,
-  prompt: string,
-  parameters: ModelParameters,
-) => {
-  const escapedPrompt = UtilsHelper.escapeQueryAll(prompt)
-  const subselect = `SELECT '` + escapedPrompt + `' AS prompt`
-
-  const {
-    max_output_tokens = 1024,
-    temperature = 0.05,
-    top_p = 0.98,
-    flatten_json_output = true,
-    top_k = 1,
-  } = parameters
-
-  return `
-    SELECT ml_generate_text_llm_result AS generated_content
-    FROM
-    ML.GENERATE_TEXT(
-        MODEL \`${model_id}\`,
-        (
-          ${subselect}
-        ),
-        STRUCT(
-        ${temperature} AS temperature,
-        ${max_output_tokens} AS max_output_tokens,
-        ${top_p} AS top_p,
-        ${flatten_json_output} AS flatten_json_output,
-        ${top_k} AS top_k)
-      )
-  `
-}
-
 
 function formatRow(field: {
   name?: string
@@ -108,7 +40,6 @@ function formatRow(field: {
   // Return a markdown row
   return `| ${name} | ${type} | ${label} | ${description} | ${tags} |`
 }
-
 
 function formatContent(field: {
   name?: string
@@ -155,7 +86,7 @@ const useSendVertexMessage = () => {
     const createSQLQuery = await core40SDK.ok(
       core40SDK.create_sql_query({
         connection_name: VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME,
-        sql: generateSQL(VERTEX_BIGQUERY_MODEL_ID, contents, parameters),
+        sql: BigQueryHelper.generateSQL(VERTEX_BIGQUERY_MODEL_ID, contents, parameters),
       }),
     )
 
@@ -182,7 +113,6 @@ const useSendVertexMessage = () => {
     const body = JSON.stringify({
       contents: contents,
       parameters: parameters,
-      
     })
 
     const signature = CryptoJS.HmacSHA256(body, VERTEX_CF_AUTH_TOKEN).toString()
@@ -398,9 +328,7 @@ ${exploreRefinementExamples
 
   const generateExploreUrl = useCallback(
     async (prompt: string) => {
-
       // get the fields, limit, and sort
-
 
       // get the filters
       const filterContents = `
@@ -427,14 +355,13 @@ ${measures.map(formatRow).join('\n')}
 
  ${prompt}
 
-`     
+`
       console.log(filterContents)
       const filterResponse = await sendMessage(filterContents, {})
       const filterResponseJSON = parseJSONResponse(filterResponse)
       console.log(filterResponseJSON)
 
       // get the visualiation details
-
 
       const contents = `
 # Context
@@ -525,7 +452,8 @@ ${prompt}
       responseJSON['filters'] = filterResponseJSON
       console.log(responseJSON)
 
-      const newExploreUrl = generateExploreUrlFromJSON(responseJSON)
+      const newExploreUrl =
+        ExploreHelper.generateExploreUrlFromJSON(responseJSON)
       console.log(newExploreUrl)
       return newExploreUrl
     },
@@ -535,15 +463,23 @@ ${prompt}
   const sendMessage = async (message: string, parameters: ModelParameters) => {
     const wrappedMessage = promptWrapper(message)
     try {
-
-      if(VERTEX_AI_ENDPOINT && ( VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID)) {
-        throw new Error('Both Vertex AI and BigQuery are enabled. Please only enable one')
+      if (
+        VERTEX_AI_ENDPOINT &&
+        VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME &&
+        VERTEX_BIGQUERY_MODEL_ID
+      ) {
+        throw new Error(
+          'Both Vertex AI and BigQuery are enabled. Please only enable one',
+        )
       }
 
       let response = ''
       if (VERTEX_AI_ENDPOINT) {
         response = await vertexCloudFunction(wrappedMessage, parameters)
-      } else if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
+      } else if (
+        VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME &&
+        VERTEX_BIGQUERY_MODEL_ID
+      ) {
         response = await vertexBigQuery(wrappedMessage, parameters)
       } else {
         throw new Error('No Vertex AI or BigQuery connection found')
@@ -552,10 +488,10 @@ ${prompt}
       if (response.startsWith('```json') && response.endsWith('```')) {
         response = response.slice(7, -3).trim()
       }
-      
+
       return response
-    } catch(error) {
-        showBoundary(error)
+    } catch (error) {
+      showBoundary(error)
     }
 
     return ''

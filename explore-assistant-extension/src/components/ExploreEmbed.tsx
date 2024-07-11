@@ -62,7 +62,7 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
     const hostUrl = extensionSDK?.lookerHostData?.hostUrl
     const el = ref.current
     if (el && hostUrl && exploreParams) {
-      console.log('exploreParams', exploreParams)
+
       const paramsObj: any = {
         // For Looker Original use window.origin for Looker Core use hostUrl
         embed_domain: hostUrl, //window.origin, //hostUrl,
@@ -78,7 +78,6 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
         paramsObj[key] = value
       })
 
-      console.log(paramsObj)
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
       LookerEmbedSDK.createExploreWithId(exploreId)

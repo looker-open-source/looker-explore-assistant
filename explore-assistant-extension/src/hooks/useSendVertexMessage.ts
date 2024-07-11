@@ -68,7 +68,11 @@ const useSendVertexMessage = () => {
     const createSQLQuery = await core40SDK.ok(
       core40SDK.create_sql_query({
         connection_name: VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME,
-        sql: BigQueryHelper.generateSQL(VERTEX_BIGQUERY_MODEL_ID, contents, parameters),
+        sql: BigQueryHelper.generateSQL(
+          VERTEX_BIGQUERY_MODEL_ID,
+          contents,
+          parameters,
+        ),
       }),
     )
 
@@ -227,7 +231,6 @@ ${exploreRefinementExamples
 
   const summarizeExplore = useCallback(
     async (exploreParams: ExploreParams) => {
-
       // get the contents of the explore query
       const createQuery = await core40SDK.ok(
         core40SDK.create_query({
@@ -284,8 +287,7 @@ ${exploreRefinementExamples
 
   const generateExploreParams = useCallback(
     async (prompt: string) => {
-
-      if(!dimensions.length || !measures.length) {
+      if (!dimensions.length || !measures.length) {
         showBoundary(new Error('Dimensions or measures are not defined'))
         return
       }
@@ -317,15 +319,45 @@ ${prompt}
 
 Your job is to follow the steps below and generate a JSON object.
 
-* Step 1: Your task is the look at the following data question that the user is asking and determin the filter expression for it. You should return a JSON dictionary of the filter expressions that should be used for the given question. The dictionary should have the field id as the key and the filter expression as the value. If there are multiple filter expressions for a given measure or dimension, you should return a list of filter expressions. 
-* Step 2: verify that you're only using valid expressions for the filter values. If you do not know what the valid expressions are, refer to the table below. If you are still unsure, don't use the filter.
-* Step 3: verify that the output keys are indeed Field Ids from the table. If they are not, you should return an empty dictionary. There should be a period in the field id.
+* Step 1: Your task is the look at the following data question that the user is asking and determin the filter expression for it. You should return a JSON list of filters to apply. Each element in the list will be a pair of the field id and the filter expression. Your output will look like \` [ { "field_id": "example_view.created_date", "filter_expression": "this year" } ]\`
+* Step 2: verify that you're only using valid expressions for the filter values. If you do not know what the valid expressions are, refer to the table above. If you are still unsure, don't use the filter.
+* Step 3: verify that the field ids are indeed Field Ids from the table. If they are not, you should return an empty dictionary. There should be a period in the field id.
 
 `
       console.log(filterContents)
-      const filterResponse = await sendMessage(filterContents, {})
-      const filterResponseJSON = parseJSONResponse(filterResponse)
-      console.log(filterResponseJSON)
+      const filterResponseInitial = await sendMessage(filterContents, {})
+
+      // check the response
+      const filterContentsCheck =
+        filterContents +
+        `
+
+      # Output
+
+      ${filterResponseInitial}
+
+      # Instructions
+
+      Verify the output, make changes and return the JSON
+
+      `
+      const filterResponseCheck = await sendMessage(filterContentsCheck, {})
+      const filterResponseCheckJSON = parseJSONResponse(filterResponseCheck)
+
+      // Iterate through each filter
+      const filterResponseJSON = {}
+
+      // Iterate through each filter
+      filterResponseCheckJSON.forEach(function (filter: { filter_id: string; filter_expression: string }) {
+        // Check if the field_id already exists in the hash
+        if (!filterResponseJSON[filter.field_id]) {
+          // If not, create an empty array for this field_id
+          filterResponseJSON[filter.field_id] = []
+        }
+        // Push the filter_expression into the array
+        filterResponseJSON[filter.field_id].push(filter.filter_expression)
+      })
+      console.log('filterResponseJSON', filterResponseJSON)
 
       // get the visualiation details
 

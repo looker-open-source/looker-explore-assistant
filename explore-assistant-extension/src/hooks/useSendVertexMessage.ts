@@ -15,6 +15,45 @@ interface ModelParameters {
   top_k?: number;
 }
 
+interface ExploreQuery {
+  fields: string[]
+  filters: Record<string, string>
+  sorts: string[]
+  limit: string
+}
+
+const generateExploreUrlFromJSON = (exploreData: ExploreQuery): string => {
+  const {
+    fields,
+    filters,
+    sorts,
+    limit,
+  } = exploreData;
+
+  const fieldsString = fields.map(encodeURIComponent).join(',');
+  const filtersString = Object.entries(filters)
+    .map(([key, value]) => `f[${encodeURIComponent(key)}]=${value}`)
+    .join('&');
+  const sortsString = sorts.map(encodeURIComponent).join(',');
+  const limitString = `limit=${encodeURIComponent(limit.toString())}`;
+
+  const url = `fields=${fieldsString}&${filtersString}&sorts=${sortsString}&${limitString}&toggle=pik,vis`;
+
+  return url;
+}
+
+const parseJSONResponse = (jsonString: string) => {
+  if (jsonString.startsWith("```json") && jsonString.endsWith("```")) {
+    jsonString = jsonString.slice(7, -3).trim();
+  }
+
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    return jsonString;
+  }
+}
+
 const generateSQL = (
   model_id: string,
   prompt: string,
@@ -49,27 +88,28 @@ const generateSQL = (
   `
 }
 
-function formatContent(field: {
+
+function formatRow(field: {
   name?: string
   type?: string
   label?: string
   description?: string
   tags?: string[]
 }) {
-  let result = ''
-  if (field.name) result += 'name: ' + field.name
-  if (field.type) result += (result ? ', ' : '') + 'type: ' + field.type
-  if (field.label) result += (result ? ', ' : '') + 'label: ' + field.label
-  if (field.description)
-    result += (result ? ', ' : '') + 'description: ' + field.description
-  if (field.tags && field.tags.length)
-    result += (result ? ', ' : '') + 'tags: ' + field.tags.join(', ')
+  // Initialize properties with default values if not provided
+  const name = field.name || ''
+  const type = field.type || ''
+  const label = field.label || ''
+  const description = field.description || ''
+  const tags = field.tags ? field.tags.join(', ') : ''
 
-  return result
+  // Return a markdown row
+  return `| ${name} | ${type} | ${label} | ${description} | ${tags} |`
 }
 
 const useSendVertexMessage = () => {
-  const { showBoundary } = useErrorBoundary();
+  const { showBoundary } = useErrorBoundary()
+
   // cloud function
   const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
   const VERTEX_CF_AUTH_TOKEN = process.env.VERTEX_CF_AUTH_TOKEN || ''
@@ -121,6 +161,7 @@ const useSendVertexMessage = () => {
     const body = JSON.stringify({
       contents: contents,
       parameters: parameters,
+      
     })
 
     const signature = CryptoJS.HmacSHA256(body, VERTEX_CF_AUTH_TOKEN).toString()
@@ -330,6 +371,45 @@ ${exploreRefinementExamples
 
   const generateExploreUrl = useCallback(
     async (prompt: string) => {
+
+      // get the fields, limit, and sort
+
+
+      // get the filters
+      const filterContents = `
+
+
+${looker_filter_doc}
+
+# LookML Definitions
+
+Below is a table of dimensions and measures that can be used to be determine what the filters should be. Pay attention to the dimension type when translating the filters.
+
+| Field Id | Field Type | LookML Type | Label | Description | Tags |
+|------------|------------|-------------|-------|-------------|------|
+${dimensions.map(formatRow).join('\n')}
+${measures.map(formatRow).join('\n')}
+
+# System Instructions
+
+* Step 1: Your task is the look at the following data question that the user is asking and determin the filter expression for it. You should return a JSON dictionary of the filter expressions that should be used for the given question. The dictionary should have the field id as the key and the filter expression as the value. If there are multiple filter expressions for a given measure or dimension, you should return a list of filter expressions. 
+* Step 2: verify that you're only using valid expressions for the filter values. If you do not know what the valid expressions are, refer to the table below. If you are still unsure, don't use the filter.
+* Step 3: verify that the output keys are indeed Field Ids from the table. If they are not, you should return an empty dictionary. There should be a period in the field id.
+
+
+# Data Question from user
+
+ ${prompt}
+
+`     
+      console.log(filterContents)
+      const filterResponse = await sendMessage(filterContents, {})
+      const filterResponseJSON = parseJSONResponse(filterResponse)
+      console.log(filterResponseJSON)
+
+      // get the visualiation details
+
+
       const contents = `
         Context
         ----------
@@ -376,17 +456,13 @@ ${exploreRefinementExamples
       }
       console.log(contents)
       const response = await sendMessage(contents, parameters)
+      const responseJSON = parseJSONResponse(response)
 
-      const unquoteResponse = (response: string) => {
-        return response
-          .substring(response.indexOf('fields='))
-          .replace(/^`+|`+$/g, '')
-          .trim()
-      }
-      const cleanResponse = unquoteResponse(response)
-      console.log(cleanResponse)
-      const newExploreUrl = cleanResponse + '&toggle=dat,pik,vis'
+      responseJSON['filters'] = filterResponseJSON
+      console.log(responseJSON)
 
+      const newExploreUrl = generateExploreUrlFromJSON(responseJSON)
+      console.log(newExploreUrl)
       return newExploreUrl
     },
     [dimensions, measures, exploreGenerationExamples],
@@ -402,6 +478,10 @@ ${exploreRefinementExamples
       
       if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
         response = await vertextBigQuery(message, parameters)
+      }
+
+      if (response.startsWith('```json') && response.endsWith('```')) {
+        response = response.slice(7, -3).trim()
       }
       
       return response

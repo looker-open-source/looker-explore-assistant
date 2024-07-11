@@ -16,7 +16,7 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   addToHistory,
-  setExploreUrl,
+  setExploreParams,
   setHistory,
   setIsQuerying,
   setQuery,
@@ -29,11 +29,11 @@ import ExploreBasePage from '../ExploreBasePage/'
 
 const ExploreAssistantPage = () => {
   const dispatch = useDispatch()
-  const { generateExploreUrl } = useFetchData()
+  const { generateExploreParams } = useFetchData()
   const [textAreaValue, setTextAreaValue] = React.useState<string>('')
   const { extensionSDK } = useContext(ExtensionContext)
 
-  const { exploreUrl, isQuerying, history, examples} = useSelector(
+  const { exploreParams, isQuerying, history, examples} = useSelector(
     (state: RootState) => state.assistant,
   )
 
@@ -61,18 +61,18 @@ const ExploreAssistantPage = () => {
     })
   }, [])
 
-  const handleExploreUrl = useCallback(
+  const handleExploreParams = useCallback(
     async (query: string) => {
       dispatch(setIsQuerying(true))
       dispatch(setQuery(query))
-      dispatch(setExploreUrl(''))
+      dispatch(setExploreParams(null))
 
-      const newExploreUrl = await generateExploreUrl(query)
+      const newExploreParams = await generateExploreParams(query)
 
-      dispatch(setExploreUrl(newExploreUrl))
+      dispatch(setExploreParams(newExploreParams))
       dispatch(setIsQuerying(false))
 
-      const newHistoryItem = { message: query, url: newExploreUrl }
+      const newHistoryItem = { message: query, url: newExploreParams }
       dispatch(addToHistory(newHistoryItem))
       const updatedHistory = [...history, newHistoryItem]
       await extensionSDK.localStorageSetItem(
@@ -84,7 +84,7 @@ const ExploreAssistantPage = () => {
   )
 
   const handleSubmit = useCallback(async () => {
-    handleExploreUrl(textAreaValue)
+    handleExploreParams(textAreaValue)
   }, [textAreaValue])
 
   const handleChange = (e: FormEvent<HTMLTextAreaElement>) => {
@@ -93,7 +93,7 @@ const ExploreAssistantPage = () => {
 
   const handlePromptSubmit = (prompt: string) => {
     setTextAreaValue(prompt)
-    handleExploreUrl(prompt)
+    handleExploreParams(prompt)
   }
 
   return (
@@ -143,7 +143,7 @@ const ExploreAssistantPage = () => {
           </Section>
         </Aside>
         <Section height="100%">
-          {exploreUrl != '' ? (
+          {exploreParams != '' ? (
             <ExploreEmbed />
           ) : (
             <Space

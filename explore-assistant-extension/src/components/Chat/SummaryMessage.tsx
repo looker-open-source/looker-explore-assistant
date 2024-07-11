@@ -3,12 +3,13 @@ import React, { useEffect } from 'react'
 import Message from './Message'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
 import MarkdownText from './MarkdownText'
+import { ExploreParams } from '../../slices/assistantSlice'
 
 interface SummaryMessageProps {
-  queryArgs: string
+  exploreParams: ExploreParams | null
 }
 
-const SummaryMessage = ({ queryArgs }: SummaryMessageProps) => {
+const SummaryMessage = ({ exploreParams }: SummaryMessageProps) => {
   const [loading, setLoading] = React.useState<boolean>(true)
   const [summary, setSummary] = React.useState<string>('')
 
@@ -16,7 +17,8 @@ const SummaryMessage = ({ queryArgs }: SummaryMessageProps) => {
 
   useEffect(() => {
     const fetchSummary = async () => {
-      const response = await summarizeExplore(queryArgs)
+      if (!exploreParams) return
+      const response = await summarizeExplore(exploreParams)
       setSummary(response)
       setLoading(false)
     }

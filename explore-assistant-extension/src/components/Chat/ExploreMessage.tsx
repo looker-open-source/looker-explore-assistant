@@ -16,16 +16,17 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import { Info } from '@material-ui/icons'
+import { ExploreParams } from '../../slices/assistantSlice'
 
 interface ExploreMessageProps {
   prompt: string
-  queryArgs: string
+  exploreParams: ExploreParams | null
 }
 
-const ExploreMessage = ({ prompt, queryArgs }: ExploreMessageProps) => {
+const ExploreMessage = ({ prompt, exploreParams }: ExploreMessageProps) => {
   const { exploreId } = useSelector((state: RootState) => state.assistant)
   const { extensionSDK } = useContext(ExtensionContext)
-  const exploreHref = `/explore/${exploreId}?${queryArgs}`
+  const exploreHref = `/explore/${exploreId}`
   const openExplore = () => {
     extensionSDK.openBrowserWindow(exploreHref, '_blank')
   }

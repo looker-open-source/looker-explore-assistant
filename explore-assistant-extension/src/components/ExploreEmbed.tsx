@@ -30,6 +30,7 @@ import { LookerEmbedSDK } from '@looker/embed-sdk'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store'
+import { ExploreHelper } from '../utils/ExploreHelper'
 
 export interface ExploreEmbedProps {}
 
@@ -37,7 +38,7 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
 
-  const { exploreUrl, exploreId } = useSelector(
+  const { exploreParams, exploreId } = useSelector(
     (state: RootState) => state.assistant,
   )
 
@@ -60,7 +61,8 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
   useEffect(() => {
     const hostUrl = extensionSDK?.lookerHostData?.hostUrl
     const el = ref.current
-    if (el && hostUrl && exploreUrl) {
+    if (el && hostUrl && exploreParams) {
+      console.log('exploreParams', exploreParams)
       const paramsObj: any = {
         // For Looker Original use window.origin for Looker Core use hostUrl
         embed_domain: hostUrl, //window.origin, //hostUrl,
@@ -69,17 +71,14 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
           key_color: '#174ea6',
           background_color: '#f4f6fa',
         }),
+        toggle: 'pik,vis',
       }
-      exploreUrl.split('&').map((param) => {
-        const [key, ...rest] = param.split('=')
-        // paramsObj[key] = rest.join('=')
-        if (key === 'filter_expression' || key === 'dynamic_fields') {
-          // console.log('rest', rest)
-          paramsObj[key] = rest.join('=')
-        } else {
-          paramsObj[key] = param.split('=')[1]
-        }
+
+      Object.entries(ExploreHelper.encodeExploreParams(exploreParams)).forEach(([key, value]) => {
+        paramsObj[key] = value
       })
+
+      console.log(paramsObj)
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
       LookerEmbedSDK.createExploreWithId(exploreId)
@@ -104,7 +103,7 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
         })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exploreUrl])
+  }, [exploreParams])
 
   return (
     <>

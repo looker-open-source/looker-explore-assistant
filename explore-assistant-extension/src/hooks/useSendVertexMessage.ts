@@ -7,9 +7,9 @@ import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
 
 import looker_filter_doc from '../documents/looker_filter_doc.md'
-import { ExploreHelper } from '../utils/ExploreHelper'
 import { ModelParameters } from '../utils/VertexHelper'
 import { BigQueryHelper } from '../utils/BigQueryHelper'
+import { ExploreParams } from '../slices/assistantSlice'
 
 const parseJSONResponse = (jsonString: string) => {
   if (jsonString.startsWith('```json') && jsonString.endsWith('```')) {
@@ -184,7 +184,11 @@ ${exploreRefinementExamples
   const promptWrapper = (prompt: string) => {
     // wrap the prompt with the current date
     const currentDate = new Date().toLocaleString()
-    return `The current date is ${currentDate} \n\n\n\n ${prompt}`
+    return `The current date is ${currentDate}
+    
+    
+    ${prompt}
+    `
   }
 
   const isSummarizationPrompt = async (prompt: string) => {
@@ -222,37 +226,7 @@ ${exploreRefinementExamples
   }
 
   const summarizeExplore = useCallback(
-    async (exploreQueryArgs: string) => {
-      const params = new URLSearchParams(exploreQueryArgs)
-
-      // Initialize an object to construct the query
-      const queryParams: {
-        fields: string[]
-        filters: Record<string, string>
-        sorts: string[]
-        limit: string
-      } = {
-        fields: [],
-        filters: {},
-        sorts: [],
-        limit: '',
-      }
-
-      // Iterate over the parameters to fill the query object
-      params.forEach((value, key) => {
-        if (key === 'fields') {
-          queryParams.fields = value.split(',')
-        } else if (key.startsWith('f[')) {
-          const filterKey = key.match(/\[(.*?)\]/)?.[1]
-          if (filterKey) {
-            queryParams.filters[filterKey] = value
-          }
-        } else if (key === 'sorts') {
-          queryParams.sorts = value.split(',')
-        } else if (key === 'limit') {
-          queryParams.limit = value
-        }
-      })
+    async (exploreParams: ExploreParams) => {
 
       // get the contents of the explore query
       const createQuery = await core40SDK.ok(
@@ -260,10 +234,10 @@ ${exploreRefinementExamples
           model: modelName,
           view: exploreName,
 
-          fields: queryParams.fields || [],
-          filters: queryParams.filters || {},
-          sorts: queryParams.sorts || [],
-          limit: queryParams.limit || '1000',
+          fields: exploreParams.fields || [],
+          filters: exploreParams.filters || {},
+          sorts: exploreParams.sorts || [],
+          limit: exploreParams.limit || '1000',
         }),
       )
 
@@ -308,7 +282,7 @@ ${exploreRefinementExamples
     [exploreName, modelName],
   )
 
-  const generateExploreUrl = useCallback(
+  const generateExploreParams = useCallback(
     async (prompt: string) => {
 
       if(!dimensions.length || !measures.length) {
@@ -332,16 +306,20 @@ Below is a table of dimensions and measures that can be used to be determine wha
 ${dimensions.map(formatRow).join('\n')}
 ${measures.map(formatRow).join('\n')}
 
-# System Instructions
+# Instructions
+
+The user asked the following question:
+
+\`\`\`
+${prompt}
+\`\`\`
+
+
+Your job is to follow the steps below and generate a JSON object.
 
 * Step 1: Your task is the look at the following data question that the user is asking and determin the filter expression for it. You should return a JSON dictionary of the filter expressions that should be used for the given question. The dictionary should have the field id as the key and the filter expression as the value. If there are multiple filter expressions for a given measure or dimension, you should return a list of filter expressions. 
 * Step 2: verify that you're only using valid expressions for the filter values. If you do not know what the valid expressions are, refer to the table below. If you are still unsure, don't use the filter.
 * Step 3: verify that the output keys are indeed Field Ids from the table. If they are not, you should return an empty dictionary. There should be a period in the field id.
-
-
-# Data Question from user
-
- ${prompt}
 
 `
       console.log(filterContents)
@@ -379,7 +357,7 @@ Your job is to convert a user question in plain language to the JSON payload tha
     
 # LookML Metadata
 
-Mode: ${modelName}
+Model: ${modelName}
 Explore: ${exploreName}
 
 Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
@@ -440,10 +418,7 @@ ${prompt}
       responseJSON['filters'] = filterResponseJSON
       console.log(responseJSON)
 
-      const newExploreUrl =
-        ExploreHelper.generateExploreUrlFromJSON(responseJSON)
-      console.log(newExploreUrl)
-      return newExploreUrl
+      return responseJSON
     },
     [dimensions, measures, exploreGenerationExamples],
   )
@@ -486,7 +461,7 @@ ${prompt}
   }
 
   return {
-    generateExploreUrl,
+    generateExploreParams,
     sendMessage,
     sendMessageWithThread,
     summarizePrompts,

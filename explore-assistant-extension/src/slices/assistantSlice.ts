@@ -1,5 +1,14 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
+export interface ExploreParams {
+  fields?: string[]
+  filters?: Record<string, string>
+  pivots?: string[]
+  vis_config?: any
+  sorts?: string[]
+  limit?: string
+}
+
 interface HistoryItem {
   message: string
   url: string
@@ -21,7 +30,7 @@ interface Message {
 }
 
 interface ExploreMessage {
-  exploreUrl: string
+  exploreParams: ExploreParams | null
   actor: 'system'
   createdAt: number
   type: 'explore'
@@ -29,7 +38,7 @@ interface ExploreMessage {
 }
 
 interface SummarizeMesage {
-  exploreUrl: string
+  exploreParams: ExploreParams | null
   actor: 'system'
   createdAt: number
   type: 'summarize'
@@ -42,7 +51,7 @@ interface AssistantState {
   history: HistoryItem[]
   dimensions: Field[]
   measures: Field[]
-  exploreUrl: string
+  exploreParams: ExploreParams | null
   query: string
   messageThread: ChatMessage[]
   exploreId: string
@@ -65,7 +74,7 @@ const initialState: AssistantState = {
   history: [],
   dimensions: [],
   measures: [],
-  exploreUrl: '',
+  exploreParams: null,
   query: '',
   messageThread: [],
   exploreId: '',
@@ -96,8 +105,8 @@ export const assistantSlice = createSlice({
     setMeasures: (state, action: PayloadAction<Field[]>) => {
       state.measures = action.payload
     },
-    setExploreUrl: (state, action: PayloadAction<string>) => {
-      state.exploreUrl = action.payload
+    setExploreParams: (state, action: PayloadAction<ExploreParams | null>) => {
+      state.exploreParams = action.payload
     },
     setQuery: (state, action: PayloadAction<string>) => {
       state.query = action.payload
@@ -105,7 +114,7 @@ export const assistantSlice = createSlice({
     resetChat: (state) => {
       state.messageThread = []
       state.query = ''
-      state.exploreUrl = ''
+      state.exploreParams = null
     },
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
       state.messageThread.push(action.payload)
@@ -134,7 +143,7 @@ export const {
   setHistory,
   setDimensions,
   setMeasures,
-  setExploreUrl,
+  setExploreParams,
   setQuery,
   resetChat,
   addMessage,

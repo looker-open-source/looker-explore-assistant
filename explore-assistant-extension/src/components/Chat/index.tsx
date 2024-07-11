@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
 import { Space, SpaceVertical, Spinner } from '@looker/components'
-import { addMessage, setExploreUrl } from '../../slices/assistantSlice'
+import { addMessage, setExploreParams } from '../../slices/assistantSlice'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import Message from './Message'
@@ -13,13 +13,13 @@ import SummaryMessage from './SummaryMessage'
 const Chat = () => {
   const dispatch = useDispatch()
   const {
-    generateExploreUrl,
+    generateExploreParams,
     isSummarizationPrompt,
     summarizePrompts,
     isDataQuestionPrompt,
   } = useSendVertexMessage()
   const [textAreaValue, setTextAreaValue] = React.useState<string>('')
-  const { messageThread, query, exploreUrl } = useSelector(
+  const { messageThread, query, exploreParams } = useSelector(
     (state: RootState) => state.assistant,
   )
   const [isSendingMessage, setIsSendingMessage] = React.useState<boolean>(false)
@@ -48,7 +48,7 @@ const Chat = () => {
         isSummarizationPrompt(prompt),
         isDataQuestionPrompt(prompt),
       ])
-    const newExploreUrl = await generateExploreUrl(promptSummary)
+    const newExploreParams = await generateExploreParams(promptSummary)
     setIsSendingMessage(false)
 
     dispatch(
@@ -64,18 +64,18 @@ const Chat = () => {
     if (isSummary) {
       dispatch(
         addMessage({
-          exploreUrl: exploreUrl,
+          exploreParams: exploreParams,
           actor: 'system',
           createdAt: Date.now(),
           type: 'summarize',
         }),
       )
     } else {
-      dispatch(setExploreUrl(newExploreUrl))
+      dispatch(setExploreParams(newExploreParams))
 
       dispatch(
         addMessage({
-          exploreUrl: newExploreUrl,
+          exploreParams: newExploreParams,
           summarizedPrompt: promptSummary,
           actor: 'system',
           createdAt: Date.now(),
@@ -83,7 +83,7 @@ const Chat = () => {
         }),
       )
     }
-  }, [messageThread, textAreaValue, query, generateExploreUrl])
+  }, [messageThread, textAreaValue, query, generateExploreParams])
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setTextAreaValue(e.currentTarget.value)
@@ -97,9 +97,9 @@ const Chat = () => {
         <Message message={userMessage} actor="user" createdAt={Date.now()} />
         {messageThread.map((message, index) => {
           if (message.type === 'explore') {
-            return <ExploreMessage key={index} queryArgs={message.exploreUrl} prompt={message.summarizedPrompt} />
+            return <ExploreMessage key={index} exploreParams={message.exploreParams} prompt={message.summarizedPrompt} />
           } else if (message.type === 'summarize') {
-            return <SummaryMessage key={index} queryArgs={message.exploreUrl} />
+            return <SummaryMessage key={index} exploreParams={message.exploreParams} />
           } else {
             return (
               <Message

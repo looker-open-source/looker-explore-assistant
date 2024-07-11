@@ -18,7 +18,7 @@ import SamplePrompts from '../../components/SamplePrompts'
 import {
   addMessage,
   resetChat,
-  setExploreUrl,
+  setExploreParams,
   setIsQuerying,
   setQuery,
 } from '../../slices/assistantSlice'
@@ -30,30 +30,18 @@ import ExploreBasePage from '../ExploreBasePage/'
 
 const ExploreChatPage = () => {
   const dispatch = useDispatch()
-  const [loading, setLoading] = React.useState<boolean>(true)
   const [isQueryPending, setIsQueryPending] = React.useState<boolean>(false)
-  const { isQuerying, exploreUrl, query, dimensions, measures, examples } =
+  const { isQuerying, exploreParams, query } =
     useSelector((state: RootState) => state.assistant)
   const [textAreaValue, setTextAreaValue] = React.useState<string>(query)
 
-  const { generateExploreUrl } = useSendVertexMessage()
-
-  useEffect(() => {
-    if (
-      dimensions.length > 0 &&
-      measures.length > 0 &&
-      examples.exploreGenerationExamples.length > 0 &&
-      examples.exploreRefinementExamples.length > 0
-    ) {
-      setLoading(false)
-    }
-  }, [dimensions, measures, examples])
+  const { generateExploreParams } = useSendVertexMessage()
 
   useEffect(() => {
     if (query.trim() === '') return
     if (isQuerying) return
 
-    generateExploreUrl(query)
+    generateExploreParams(query)
   }, [query])
 
   useEffect(() => {
@@ -73,23 +61,23 @@ const ExploreChatPage = () => {
 
     dispatch(setIsQuerying(true))
     dispatch(setQuery(query))
-    dispatch(setExploreUrl(''))
+    dispatch(setExploreParams(null))
 
-    const newExploreUrl = await generateExploreUrl(query)
+    const newExploreParams = await generateExploreParams(query)
 
     dispatch(
       addMessage({
         type: 'explore',
         actor: 'system',
-        exploreUrl: newExploreUrl,
+        exploreParams: newExploreParams,
         createdAt: Date.now(),
         summarizedPrompt: query,
       }),
     )
 
-    dispatch(setExploreUrl(newExploreUrl))
+    dispatch(setExploreParams(newExploreParams))
     dispatch(setIsQuerying(false))
-  }, [textAreaValue, generateExploreUrl])
+  }, [textAreaValue, generateExploreParams])
 
   const handleSamplePromptSubmit = (prompt: string) => {
     setTextAreaValue(prompt)
@@ -109,7 +97,7 @@ const ExploreChatPage = () => {
     <ExploreBasePage>
         <>
           <Section>
-            {exploreUrl != '' ? (
+            {exploreParams ? (
               <ExploreEmbed />
             ) : (
               <Space
@@ -132,14 +120,14 @@ const ExploreChatPage = () => {
               <Heading fontSize={'xxlarge'} fontWeight={'semiBold'}>
                 Explore Assistant
               </Heading>
-              {exploreUrl && (
+              {exploreParams && (
                 <ButtonTransparent onClick={reset}>
                   <Icon icon={<ArrowBackIosSharp />} size={20} />
                   <Span>Back</Span>
                 </ButtonTransparent>
               )}
             </Space>
-            {exploreUrl ? (
+            {exploreParams ? (
               <SpaceVertical>
                 <Space justify={'end'}></Space>
                 <Chat />

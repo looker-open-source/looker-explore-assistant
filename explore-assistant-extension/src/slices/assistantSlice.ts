@@ -119,10 +119,10 @@ export const assistantSlice = createSlice({
     setModelName: (state, action: PayloadAction<string>) => {
       state.modelName = action.payload  
     },
-    setExploreGenerationExamples(state, action: PayloadAction<AssistantState['examples']['exploreGeneration']>) {
+    setExploreGenerationExamples(state, action: PayloadAction<AssistantState['examples']['exploreGenerationExamples']>) {
       state.examples.exploreGenerationExamples = action.payload
     },
-    setExploreRefinementExamples(state, action: PayloadAction<AssistantState['examples']['exploreRefinement']>) {
+    setExploreRefinementExamples(state, action: PayloadAction<AssistantState['examples']['exploreRefinementExamples']>) {
       state.examples.exploreRefinementExamples = action.payload
     },
   },

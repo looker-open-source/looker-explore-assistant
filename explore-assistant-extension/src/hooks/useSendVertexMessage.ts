@@ -41,24 +41,6 @@ function formatRow(field: {
   return `| ${name} | ${type} | ${label} | ${description} | ${tags} |`
 }
 
-function formatContent(field: {
-  name?: string
-  type?: string
-  label?: string
-  description?: string
-  tags?: string[]
-}) {
-  // Initialize properties with default values if not provided
-  const name = field.name || ''
-  const type = field.type || ''
-  const label = field.label || ''
-  const description = field.description || ''
-  const tags = field.tags ? field.tags.join(', ') : ''
-
-  // Return a markdown row
-  return `| ${name} | ${type} | ${label} | ${description} | ${tags} |`
-}
-
 const useSendVertexMessage = () => {
   const { showBoundary } = useErrorBoundary()
 

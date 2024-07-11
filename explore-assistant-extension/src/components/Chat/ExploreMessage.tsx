@@ -17,6 +17,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import { Info } from '@material-ui/icons'
 import { ExploreParams } from '../../slices/assistantSlice'
+import { ExploreHelper } from '../../utils/ExploreHelper'
 
 interface ExploreMessageProps {
   prompt: string
@@ -26,7 +27,7 @@ interface ExploreMessageProps {
 const ExploreMessage = ({ prompt, exploreParams }: ExploreMessageProps) => {
   const { exploreId } = useSelector((state: RootState) => state.assistant)
   const { extensionSDK } = useContext(ExtensionContext)
-  const exploreHref = `/explore/${exploreId}`
+  const exploreHref = `/explore/${exploreId}?${ExploreHelper.exploreQueryArgumentString(exploreParams)}`
   const openExplore = () => {
     extensionSDK.openBrowserWindow(exploreHref, '_blank')
   }

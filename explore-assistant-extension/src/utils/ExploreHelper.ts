@@ -1,6 +1,12 @@
 import { ExploreParams } from '../slices/assistantSlice'
 
 export class ExploreHelper {
+
+  static exploreQueryArgumentString = (exploreParams: ExploreParams | null): string => {
+    const encodedParams = ExploreHelper.encodeExploreParams(exploreParams)
+    return new URLSearchParams(encodedParams).toString()
+  }
+
   static encodeExploreParams = (
     exploreParams: ExploreParams | null,
   ): { [key: string]: string } => {

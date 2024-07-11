@@ -63,9 +63,13 @@ const ExploreChatPage = () => {
     }
   }, [isQueryPending])
 
-  const handleExploreSubmit = useCallback(async () => {
-    if (textAreaValue.trim() === '') return
-    const query = textAreaValue.trim()
+  const handleExploreSubmit = useCallback(async ( prompt? : string) => {
+    let query = textAreaValue.trim()
+    if(prompt) {
+      query = prompt
+    }
+
+    if (query.trim() === '') return
 
     dispatch(setIsQuerying(true))
     dispatch(setQuery(query))
@@ -87,10 +91,9 @@ const ExploreChatPage = () => {
     dispatch(setIsQuerying(false))
   }, [textAreaValue])
 
-  const handlePromptSubmit = (prompt: string) => {
-    dispatch(setQuery(prompt))
+  const handleSamplePromptSubmit = (prompt: string) => {
     setTextAreaValue(prompt)
-    setIsQueryPending(true)
+    handleExploreSubmit(prompt)
   }
 
   const handleChange = (e: FormEvent<HTMLTextAreaElement>) => {
@@ -167,7 +170,7 @@ const ExploreChatPage = () => {
                   </Button>
                 </Section>
 
-                <SamplePrompts handleSubmit={handlePromptSubmit} />
+                <SamplePrompts handleSubmit={handleSamplePromptSubmit} />
               </SpaceVertical>
             )}
           </Aside>

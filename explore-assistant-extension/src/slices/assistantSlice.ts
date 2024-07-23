@@ -69,7 +69,7 @@ interface AssistantState {
   }
 }
 
-const initialState: AssistantState = {
+export const initialState: AssistantState = {
   isQuerying: false,
   history: [],
   dimensions: [],

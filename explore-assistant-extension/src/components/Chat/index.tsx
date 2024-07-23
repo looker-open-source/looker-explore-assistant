@@ -16,7 +16,6 @@ const Chat = () => {
     generateExploreParams,
     isSummarizationPrompt,
     summarizePrompts,
-    isDataQuestionPrompt,
   } = useSendVertexMessage()
   const [textAreaValue, setTextAreaValue] = React.useState<string>('')
   const { messageThread, query, exploreParams } = useSelector(
@@ -42,11 +41,10 @@ const Chat = () => {
     setIsSendingMessage(true)
     setTextAreaValue('')
 
-    const [promptSummary, isSummary, isDataQuestion] =
+    const [promptSummary, isSummary] =
       await Promise.all([
         summarizePrompts(promptList),
         isSummarizationPrompt(prompt),
-        isDataQuestionPrompt(prompt),
       ])
     const newExploreParams = await generateExploreParams(promptSummary)
     setIsSendingMessage(false)
@@ -56,7 +54,7 @@ const Chat = () => {
         message: textAreaValue,
         actor: 'user',
         createdAt: Date.now(),
-        intent: isDataQuestion ? 'dataQuestion' : (isSummary ? 'summarize' : 'exploreRefinement'),
+        intent: isSummary ? 'summarize' : 'exploreRefinement',
         type: 'text',
       }),
     )

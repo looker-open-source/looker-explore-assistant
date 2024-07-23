@@ -12,7 +12,6 @@ import looker_visualization_doc from '../documents/looker_visualization_doc.md'
 import { ModelParameters } from '../utils/VertexHelper'
 import { BigQueryHelper } from '../utils/BigQueryHelper'
 import { ExploreParams } from '../slices/assistantSlice'
-import ExploreMessage from '../components/Chat/ExploreMessage'
 
 const parseJSONResponse = (jsonString: string) => {
   if (jsonString.startsWith('```json') && jsonString.endsWith('```')) {
@@ -160,10 +159,10 @@ ${exploreRefinementExamples
       const messageHistoryContents = messageThread
         .slice(-20)
         .map((message) => {
-          if (message instanceof ExploreMessage) {
-            return
+          if ('message' in message && 'actor' in message) {
+            return `${message.actor}: ${message.message}`
           }
-          return `${message.actor}: ${message.message}`
+          return ''
         })
         .join('\n')
 
@@ -226,10 +225,6 @@ ${exploreRefinementExamples
     `
     const response = await sendMessage(contents, {})
     return response === 'data summary'
-  }
-
-  const isDataQuestionPrompt = async (prompt: string) => {
-    return false
   }
 
   const summarizeExplore = useCallback(
@@ -577,11 +572,13 @@ ${exploreRefinementExamples
 
   return {
     generateExploreParams,
+    generateBaseExploreParams,
+    generateFilterParams,
+    generateVisualizationParams,
     sendMessage,
     sendMessageWithThread,
     summarizePrompts,
     isSummarizationPrompt,
-    isDataQuestionPrompt,
     summarizeExplore,
   }
 }

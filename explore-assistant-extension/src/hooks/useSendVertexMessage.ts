@@ -7,9 +7,12 @@ import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
 
 import looker_filter_doc from '../documents/looker_filter_doc.md'
+import looker_visualization_doc from '../documents/looker_visualization_doc.md'
+
 import { ModelParameters } from '../utils/VertexHelper'
 import { BigQueryHelper } from '../utils/BigQueryHelper'
 import { ExploreParams } from '../slices/assistantSlice'
+import ExploreMessage from '../components/Chat/ExploreMessage'
 
 const parseJSONResponse = (jsonString: string) => {
   if (jsonString.startsWith('```json') && jsonString.endsWith('```')) {
@@ -77,7 +80,7 @@ const useSendVertexMessage = () => {
     )
 
     if (createSQLQuery.slug) {
-      const runSQLQuery = await core40SDK.ok(
+      const runSQLQuery: any = await core40SDK.ok(
         core40SDK.run_sql_query(createSQLQuery.slug, 'json'),
       )
       const exploreData = await runSQLQuery[0]['generated_content']
@@ -157,7 +160,7 @@ ${exploreRefinementExamples
       const messageHistoryContents = messageThread
         .slice(-20)
         .map((message) => {
-          if ('exploreUrl' in message) {
+          if (message instanceof ExploreMessage) {
             return
           }
           return `${message.actor}: ${message.message}`
@@ -285,45 +288,38 @@ ${exploreRefinementExamples
     [exploreName, modelName],
   )
 
-  const generateExploreParams = useCallback(
+  const generateFilterParams = useCallback(
     async (prompt: string) => {
-      if (!dimensions.length || !measures.length) {
-        showBoundary(new Error('Dimensions or measures are not defined'))
-        return
-      }
-
-      // get the fields, limit, and sort
-
       // get the filters
       const filterContents = `
 
-${looker_filter_doc}
-
-# LookML Definitions
-
-Below is a table of dimensions and measures that can be used to be determine what the filters should be. Pay attention to the dimension type when translating the filters.
-
-| Field Id | Field Type | LookML Type | Label | Description | Tags |
-|------------|------------|-------------|-------|-------------|------|
-${dimensions.map(formatRow).join('\n')}
-${measures.map(formatRow).join('\n')}
-
-# Instructions
-
-The user asked the following question:
-
-\`\`\`
-${prompt}
-\`\`\`
-
-
-Your job is to follow the steps below and generate a JSON object.
-
-* Step 1: Your task is the look at the following data question that the user is asking and determin the filter expression for it. You should return a JSON list of filters to apply. Each element in the list will be a pair of the field id and the filter expression. Your output will look like \` [ { "field_id": "example_view.created_date", "filter_expression": "this year" } ]\`
-* Step 2: verify that you're only using valid expressions for the filter values. If you do not know what the valid expressions are, refer to the table above. If you are still unsure, don't use the filter.
-* Step 3: verify that the field ids are indeed Field Ids from the table. If they are not, you should return an empty dictionary. There should be a period in the field id.
-
-`
+   ${looker_filter_doc}
+   
+   # LookML Definitions
+   
+   Below is a table of dimensions and measures that can be used to be determine what the filters should be. Pay attention to the dimension type when translating the filters.
+   
+   | Field Id | Field Type | LookML Type | Label | Description | Tags |
+   |------------|------------|-------------|-------|-------------|------|
+   ${dimensions.map(formatRow).join('\n')}
+   ${measures.map(formatRow).join('\n')}
+   
+   # Instructions
+   
+   The user asked the following question:
+   
+   \`\`\`
+   ${prompt}
+   \`\`\`
+   
+   
+   Your job is to follow the steps below and generate a JSON object.
+   
+   * Step 1: Your task is the look at the following data question that the user is asking and determin the filter expression for it. You should return a JSON list of filters to apply. Each element in the list will be a pair of the field id and the filter expression. Your output will look like \` [ { "field_id": "example_view.created_date", "filter_expression": "this year" } ]\`
+   * Step 2: verify that you're only using valid expressions for the filter values. If you do not know what the valid expressions are, refer to the table above. If you are still unsure, don't use the filter.
+   * Step 3: verify that the field ids are indeed Field Ids from the table. If they are not, you should return an empty dictionary. There should be a period in the field id.
+   
+   `
       console.log(filterContents)
       const filterResponseInitial = await sendMessage(filterContents, {})
 
@@ -332,23 +328,26 @@ Your job is to follow the steps below and generate a JSON object.
         filterContents +
         `
 
-      # Output
-
-      ${filterResponseInitial}
-
-      # Instructions
-
-      Verify the output, make changes and return the JSON
-
-      `
+         # Output
+   
+         ${filterResponseInitial}
+   
+         # Instructions
+   
+         Verify the output, make changes and return the JSON
+   
+         `
       const filterResponseCheck = await sendMessage(filterContentsCheck, {})
       const filterResponseCheckJSON = parseJSONResponse(filterResponseCheck)
 
       // Iterate through each filter
-      const filterResponseJSON = {}
+      const filterResponseJSON: any = {}
 
       // Iterate through each filter
-      filterResponseCheckJSON.forEach(function (filter: { filter_id: string; filter_expression: string }) {
+      filterResponseCheckJSON.forEach(function (filter: {
+        field_id: string
+        filter_expression: string
+      }) {
         // Check if the field_id already exists in the hash
         if (!filterResponseJSON[filter.field_id]) {
           // If not, create an empty array for this field_id
@@ -357,88 +356,145 @@ Your job is to follow the steps below and generate a JSON object.
         // Push the filter_expression into the array
         filterResponseJSON[filter.field_id].push(filter.filter_expression)
       })
+
+      console.log('filterResponseInitial', filterResponseInitial)
+      console.log('filterResponseCheckJSON', filterResponseCheckJSON)
       console.log('filterResponseJSON', filterResponseJSON)
 
-      // get the visualiation details
+      return filterResponseJSON
+    },
+    [dimensions, measures],
+  )
+
+  const generateVisualizationParams = async (
+    exploreParams: ExploreParams,
+    prompt: string,
+  ) => {
+    const contents = `
+
+    ${looker_visualization_doc}
+
+      # User Request
+
+      ## Prompt
+
+      The user asked the following question:
+
+      \`\`\`
+      ${prompt}
+      \`\`\`
+
+      ## Explore Definition
+
+      The user is asking for the following explore definition:
+
+      \`\`\`
+      ${JSON.stringify(exploreParams)}
+      \`\`\`
+
+      ## Determine Visualization JSON
+
+      Based on the question, and on the original question, determine what the visualization config should be. The visualization config should be a JSON object that is compatible with the Looker API run_inline_query function. Only contain values that are different than the defaults. Here is an example:
+
+      \`\`\`
+      {
+        "type": "looker_column",
+      }
+      \`\`\`
+
+    `
+    const parameters = {
+      max_output_tokens: 1000,
+    }
+    const response = await sendMessage(contents, parameters)
+    return parseJSONResponse(response)
+  }
+
+  const generateBaseExploreParams = useCallback(
+    async (prompt: string) => {
+      if (!dimensions.length || !measures.length) {
+        showBoundary(new Error('Dimensions or measures are not defined'))
+        return
+      }
 
       const contents = `
-# Context
-
-Your job is to convert a user question in plain language to the JSON payload that we will use to generate a Looker API call to the run_inline_query function.
-
-## Format of query object
-
-| Field              | Type   | Description                                                                                                                                                                                                                                                                          |
-|--------------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| model              | string | Model                                                                                                                                                                                                                                                                                |
-| view               | string | Explore Name                                                                                                                                                                                                                                                                         |
-| fields             | string[] | Fields                                                                                                                                                                                                                                                                                |
-| pivots             | string[] | Pivots                                                                                                                                                                                                                                                                                |
-| fill_fields        | string[] | Fill Fields                                                                                                                                                                                                                                                                           |
-| filters            | object | Filters                                                                                                                                                                                                                                                                               |
-| filter_expression  | string | Filter Expression                                                                                                                                                                                                                                                                     |
-| sorts              | string[] | Sorts                                                                                                                                                                                                                                                                                 |
-| limit              | string | Limit                                                                                                                                                                                                                                                                                 |
-| column_limit       | string | Column Limit                                                                                                                                                                                                                                                                          |
-| total              | boolean | Total                                                                                                                                                                                                                                                                                 |
-| row_total          | string | Raw Total                                                                                                                                                                                                                                                                             |
-| subtotals          | string[] | Subtotals                                                                                                                                                                                                                                                                             |
-| vis_config         | object | Visualization configuration properties. These properties are typically opaque and differ based on the type of visualization used. There is no specified set of allowed keys. The values can be any type supported by JSON. A "type" key with a string value is often present, and is used by Looker to determine which visualization to present. Visualizations ignore unknown vis_config properties. |
-| filter_config      | object | The filter_config represents the state of the filter UI on the explore page for a given query. When running a query via the Looker UI, this parameter takes precedence over "filters". When creating a query or modifying an existing query, "filter_config" should be set to null. Setting it to any other value could cause unexpected filtering behavior. The format should be considered opaque. |
-
-    
-# LookML Metadata
-
-Model: ${modelName}
-Explore: ${exploreName}
-
-Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
-
-| Field Id | Field Type | LookML Type | Label | Description | Tags |
-|------------|------------|-------------|-------|-------------|------|
-${dimensions.map(formatRow).join('\n')}
+      # Context
+      
+      Your job is to convert a user question in plain language to the JSON payload that we will use to generate a Looker API call to the run_inline_query function.
+      
+      ## Format of query object
+      
+      | Field              | Type   | Description                                                                                                                                                                                                                                                                          |
+      |--------------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+      | model              | string | Model                                                                                                                                                                                                                                                                                |
+      | view               | string | Explore Name                                                                                                                                                                                                                                                                         |
+      | fields             | string[] | Fields                                                                                                                                                                                                                                                                                |
+      | pivots             | string[] | Pivots                                                                                                                                                                                                                                                                                |
+      | fill_fields        | string[] | Fill Fields                                                                                                                                                                                                                                                                           |
+      | filters            | object | Filters                                                                                                                                                                                                                                                                               |
+      | filter_expression  | string | Filter Expression                                                                                                                                                                                                                                                                     |
+      | sorts              | string[] | Sorts                                                                                                                                                                                                                                                                                 |
+      | limit              | string | Limit                                                                                                                                                                                                                                                                                 |
+      | column_limit       | string | Column Limit                                                                                                                                                                                                                                                                          |
+      | total              | boolean | Total                                                                                                                                                                                                                                                                                 |
+      | row_total          | string | Raw Total                                                                                                                                                                                                                                                                             |
+      | subtotals          | string[] | Subtotals                                                                                                                                                                                                                                                                             |
+      | vis_config         | object | Visualization configuration properties. These properties are typically opaque and differ based on the type of visualization used. There is no specified set of allowed keys. The values can be any type supported by JSON. A "type" key with a string value is often present, and is used by Looker to determine which visualization to present. Visualizations ignore unknown vis_config properties. |
+      | filter_config      | object | The filter_config represents the state of the filter UI on the explore page for a given query. When running a query via the Looker UI, this parameter takes precedence over "filters". When creating a query or modifying an existing query, "filter_config" should be set to null. Setting it to any other value could cause unexpected filtering behavior. The format should be considered opaque. |
+      
           
-Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):
-
-| Field Id | Field Type | LookML Type | Label | Description | Tags |
-|------------|------------|-------------|-------|-------------|------|
-${measures.map(formatRow).join('\n')}
-    
-# Examples
-
-${exploreGenerationExamples
-  .map((item) => `input: "${item.input}" ; output: ${item.output}`)
-  .join('\n')}
-
-
-Output
-----------
-
-Return a JSON that is compatible with the Looker API run_inline_query function as per the spec. Here is an example:
-
-{
-  "model":"${modelName}",
-  "view":"${exploreName}",
-  "fields":["category.name","inventory_items.days_in_inventory_tier","products.count"],
-  "filters":{"category.name":"socks"},
-  "sorts":["products.count desc 0"],
-  "limit":"500",
-}
-
-Instructions:
-- choose only the fields in the below lookml metadata
-- prioritize the field description, label, tags, and name for what field(s) to use for a given description
-- generate only one answer, no more.
-- use the Examples for guidance on how to structure the body
-- try to avoid adding dynamic_fields, provide them when very similar example is found in the bottom
-- only respond with a JSON object
-  
-  
-User Request
-----------
-${prompt}
-
-`
+      # LookML Metadata
+      
+      Model: ${modelName}
+      Explore: ${exploreName}
+      
+      Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
+      
+      | Field Id | Field Type | LookML Type | Label | Description | Tags |
+      |------------|------------|-------------|-------|-------------|------|
+      ${dimensions.map(formatRow).join('\n')}
+                
+      Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):
+      
+      | Field Id | Field Type | LookML Type | Label | Description | Tags |
+      |------------|------------|-------------|-------|-------------|------|
+      ${measures.map(formatRow).join('\n')}
+          
+      # Examples
+      
+      ${exploreGenerationExamples
+        .map((item) => `input: "${item.input}" ; output: ${item.output}`)
+        .join('\n')}
+      
+      
+      Output
+      ----------
+      
+      Return a JSON that is compatible with the Looker API run_inline_query function as per the spec. Here is an example:
+      
+      {
+        "model":"${modelName}",
+        "view":"${exploreName}",
+        "fields":["category.name","inventory_items.days_in_inventory_tier","products.count"],
+        "filters":{"category.name":"socks"},
+        "sorts":["products.count desc 0"],
+        "limit":"500",
+      }
+      
+      Instructions:
+      - choose only the fields in the below lookml metadata
+      - prioritize the field description, label, tags, and name for what field(s) to use for a given description
+      - generate only one answer, no more.
+      - use the Examples for guidance on how to structure the body
+      - try to avoid adding dynamic_fields, provide them when very similar example is found in the bottom
+      - only respond with a JSON object
+        
+        
+      User Request
+      ----------
+      ${prompt}
+      
+      `
 
       const parameters = {
         max_output_tokens: 1000,
@@ -447,8 +503,35 @@ ${prompt}
       const response = await sendMessage(contents, parameters)
       const responseJSON = parseJSONResponse(response)
 
+      return responseJSON
+    },
+    [dimensions, measures, exploreGenerationExamples],
+  )
+
+  const generateExploreParams = useCallback(
+    async (prompt: string) => {
+      if (!dimensions.length || !measures.length) {
+        showBoundary(new Error('Dimensions or measures are not defined'))
+        return
+      }
+
+      // get the filters
+      const filterResponseJSON = await generateFilterParams(prompt)
+
+      // get the base explore params
+      const responseJSON = await generateBaseExploreParams(prompt)
+
       responseJSON['filters'] = filterResponseJSON
       console.log(responseJSON)
+
+      // get the visualizations
+      const visualizationResponseJSON = await generateVisualizationParams(
+        responseJSON,
+        prompt,
+      )
+      console.log(visualizationResponseJSON)
+
+      responseJSON['vis_config'] = visualizationResponseJSON
 
       return responseJSON
     },

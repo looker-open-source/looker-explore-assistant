@@ -37,7 +37,9 @@ Here we list the reasons and tradeoffs of each deployment approach in an effort 
 
 ## Configuration and Deployment
 
-We are using terraform to setup the backend. We will also be hosting the terraform state inside the project itself by using a [remote backend](https://developer.hashicorp.com/terraform/language/settings/backends/remote). The configuration is passed on the command line since we want to use the project-id in the bucket name. Since the project-ids are globally unique, so will the storage bucket name.
+We are using terraform to setup the backend. By default, we will store the state locally. You can also host the terraform state inside the project itself by using a [remote backend](https://developer.hashicorp.com/terraform/language/settings/backends/remote). The configuration is passed on the command line since we want to use the project-id in the bucket name. Since the project-ids are globally unique, so will the storage bucket name.
+
+To use the remote backend you can run `./init.sh remote` instead of `terraform init`. This will create the bucket in the project, and setup the terraform project to use it as a backend.
 
 ### Cloud Function Backend
 
@@ -59,8 +61,7 @@ export TF_VAR_project_id=XXX
 export TF_VAR_use_bigquery_backend=0
 export TF_VAR_use_cloud_function_backend=1
 export TF_VAR_looker_auth_token=$(cat ../../.vertex_cf_auth_token)
-gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
-terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state"
+terraform init
 terraform plan
 terraform apply
 ```
@@ -74,8 +75,7 @@ cd terraform
 export TF_VAR_project_id=XXX
 export TF_VAR_use_bigquery_backend=1
 export TF_VAR_use_cloud_function_backend=0
-gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
-terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state"
+terraform init
 terraform plan
 terraform apply
 ```

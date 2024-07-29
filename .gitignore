@@ -11,3 +11,5 @@ node_modules
 
 .vertex_cf_auth_token
 dist
+
+explore-assistant-backend/terraform/backend.tf

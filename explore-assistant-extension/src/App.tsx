@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react'
 import { hot } from 'react-hot-loader/root'
 import { Route, Switch, Redirect } from 'react-router-dom'
-import LandingPage from './pages/LandingPage'
 import ExploreAssistantPage from './pages/ExploreAssistantPage'
 import ExploreChatPage from './pages/ExploreChatPage'
 import { useDispatch } from 'react-redux'
@@ -12,6 +11,7 @@ import {
 } from './slices/assistantSlice'
 import { useLookerFields } from './hooks/useLookerFields'
 import { useBigQueryExamples } from './hooks/useBigQueryExamples'
+import AgentPage from './pages/AgentPage'
 
 const ExploreApp = () => {
   const dispatch = useDispatch()
@@ -32,7 +32,7 @@ const ExploreApp = () => {
     <>
         <Switch>
           <Route path="/index" exact>
-              <LandingPage />
+              <AgentPage />
           </Route>
           <Route path="/assistant">
               <ExploreAssistantPage />

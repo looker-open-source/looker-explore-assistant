@@ -3,13 +3,19 @@ import PromptInput from './PromptInput'
 import Sidebar from './Sidebar'
 
 import './style.css'
-import PromptExamples from './PromptExamples'
+import SamplePrompts from '../../components/SamplePrompts'
+import Chat from '../../components/Chat'
+import { ExploreEmbed } from '../../components/ExploreEmbed'
 
 const AgentPage = () => {
   const [expanded, setExpanded] = useState(false)
 
   const toggleDrawer = () => {
     setExpanded(!expanded)
+  }
+
+  const handleSubmit = (prompt: string) => {
+
   }
   return (
     <div className="page-container flex h-screen">
@@ -24,14 +30,7 @@ const AgentPage = () => {
           <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
             <h1 className="text-5xl font-bold">
               <span
-                style={{
-                  color: 'transparent',
-                  backgroundSize: '400% 100%',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  background:
-                    'linear-gradient(74deg, #4285f4 0%, #9b72cb 9%, #d96570 20%, #d96570 24%, #9b72cb 35%, #4285f4 44%, #9b72cb 50%, #d96570 56%, #e9eef6 75%, #e9eef6 100%)',
-                }}
+                className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500"
               >
                 Hello.
               </span>
@@ -42,11 +41,16 @@ const AgentPage = () => {
           </div>
 
           <div className="flex justify-center items-center mt-16">
-            <PromptExamples />
+            <SamplePrompts handleSubmit={handleSubmit} />
+          </div>
+
+          <div className="">
+            <ExploreEmbed />
+            <Chat />
           </div>
 
         </div>
-        <div className="mt-4">
+        <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-4/5">
           <PromptInput />
         </div>
       </main>

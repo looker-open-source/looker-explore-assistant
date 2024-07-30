@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react'
 import { hot } from 'react-hot-loader/root'
 import { Route, Switch, Redirect } from 'react-router-dom'
-import ExploreAssistantPage from './pages/ExploreAssistantPage'
 import ExploreChatPage from './pages/ExploreChatPage'
 import { useDispatch } from 'react-redux'
 import {
@@ -33,9 +32,6 @@ const ExploreApp = () => {
         <Switch>
           <Route path="/index" exact>
               <AgentPage />
-          </Route>
-          <Route path="/assistant">
-              <ExploreAssistantPage />
           </Route>
           <Route path="/chat">
               <ExploreChatPage />

@@ -22,20 +22,13 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
     { text: 'Camel in the Desert' },
   ]
 
-  useEffect(() => {
-    console.log('expanded', expanded)
-  }, [expanded])
-
   const handleClick = () => {
     if (expanded) {
       // closing
-      console.log('closing')
-
       setIsExpanded(false)
       setTimeout(() => toggleDrawer(), 100)
     } else {
       // opening
-      console.log('opening')
       toggleDrawer()
       setTimeout(() => setIsExpanded(true), 100)
     }

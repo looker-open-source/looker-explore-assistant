@@ -1,9 +1,9 @@
 import React from 'react'
+import { useDispatch } from 'react-redux'
+import { setIsQuerying, setQuery } from '../slices/assistantSlice'
 
-interface SamplePromptsProps {
-  handleSubmit: (prompt: string) => void
-}
-const SamplePrompts = ({ handleSubmit }: SamplePromptsProps) => {
+const SamplePrompts = () => {
+  const dispatch = useDispatch()
   const categorizedPrompts = [
     {
       category: 'Cohorting',
@@ -20,6 +20,11 @@ const SamplePrompts = ({ handleSubmit }: SamplePromptsProps) => {
         'Total revenue by category this year compared to last year in a line chart with year pivoted',
     },
   ]
+
+  const handleSubmit = (prompt: string) => {
+    dispatch(setQuery(prompt))
+    dispatch(setIsQuerying(true))
+  }
   return (
     <div className="flex flex-wrap max-w-5xl">
       {categorizedPrompts.map((item, index: number) => (

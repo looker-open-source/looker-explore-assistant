@@ -1,25 +1,30 @@
 import { Send } from '@material-ui/icons'
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { RootState } from '../../store'
+import { setIsQuerying, setQuery } from '../../slices/assistantSlice'
 
 const PromptInput = () => {
+  const dispatch = useDispatch()
   const [inputText, setInputText] = useState('')
   const [isAnimating, setIsAnimating] = useState(false)
   const inputRef = useRef(null)
+
+  const { isQuerying } = useSelector((state: RootState) => state.assistant)
+
 
   const handleInputChange = (e: any) => {
     setInputText(e.target.value)
   }
 
-  const handleSubmit = () => {
-    if (inputText.trim()) {
+  const handleSubmit = useCallback(() => {
+    const prompt = inputText.trim()
+    if (prompt && !isQuerying) {
       setIsAnimating(true)
-      // Simulate processing time
-      setTimeout(() => {
-        setIsAnimating(false)
-        setInputText('')
-      }, 2000)
+      dispatch(setIsQuerying(true))
+      dispatch(setQuery(prompt))
     }
-  }
+  }, [isQuerying, inputText])
 
   const handleKeyPress = (e: any) => {
     if (e.key === 'Enter') {
@@ -35,8 +40,9 @@ const PromptInput = () => {
           value={inputText}
           onChange={handleInputChange}
           onKeyDown={handleKeyPress}
+          disabled={isQuerying}
           placeholder="Enter a prompt here"
-          className="flex-grow bg-transparent text-black-300 placeholder-gray-400 outline-none pl-4"
+          className={`flex-grow bg-transparent placeholder-gray-400 outline-none pl-4 ${isQuerying ? 'cursor-not-allowed text-gray-500' : 'cursor-text text-gray-800'}`}
         />
         <div className="flex items-center space-x-2">
           {inputText ? (

@@ -4,6 +4,8 @@ import MenuIcon from '@mui/icons-material/Menu'
 import SettingsIcon from '@mui/icons-material/Settings'
 import AddIcon from '@mui/icons-material/Add'
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline'
+import { useDispatch } from 'react-redux'
+import { setIsQuerying, setQuery } from '../../slices/assistantSlice'
 
 interface SidebarProps {
   expanded: boolean
@@ -11,6 +13,7 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
+  const dispatch = useDispatch()
   const [isExpanded, setIsExpanded] = React.useState(expanded)
 
   const sidebarItems = [
@@ -32,6 +35,11 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
       toggleDrawer()
       setTimeout(() => setIsExpanded(true), 100)
     }
+  }
+
+  const handleNewChat = () => {
+    dispatch(setQuery(''))
+    dispatch(setIsQuerying(false))
   }
 
   return (
@@ -62,6 +70,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
               transition-all duration-300 ease-in-out
             
             `}
+            onClick={handleNewChat}
           >
             <AddIcon />
 

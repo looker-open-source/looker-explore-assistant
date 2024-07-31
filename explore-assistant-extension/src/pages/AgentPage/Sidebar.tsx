@@ -5,7 +5,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import AddIcon from '@mui/icons-material/Add'
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline'
 import { useDispatch, useSelector } from 'react-redux'
-import { resetChat } from '../../slices/assistantSlice'
+import { resetChat, setIsChatMode, setQuery } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
 
 interface SidebarProps {
@@ -16,7 +16,7 @@ interface SidebarProps {
 const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const dispatch = useDispatch()
   const [isExpanded, setIsExpanded] = React.useState(expanded)
-  const { isChatMode, isQuerying } = useSelector(
+  const { isChatMode, isQuerying, history } = useSelector(
     (state: RootState) => state.assistant,
   )
 
@@ -48,6 +48,14 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
       dispatch(resetChat())
     }
   }
+
+  const handleHistoryClick = (message: string) => {
+    dispatch(resetChat())
+    dispatch(setQuery(message))
+    dispatch(setIsChatMode(true))
+  }
+
+  const reverseHistory = [...history].reverse()
 
   return (
     <div
@@ -105,21 +113,25 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
           <div>
             <div className="mb-4 font-semibold">Recent</div>
             <div className="flex flex-col space-y-4">
-              {sidebarItems.map((item, index) => (
-                <Tooltip
-                  key={index}
-                  title={expanded ? '' : item.text}
-                  placement="right"
-                  arrow
-                >
+              {history.length == 0 && (
+                <div className="text-gray-400">No recent chats</div> 
+              )}
+              {reverseHistory.map((item, index) => (
+                <Tooltip title={item.message} placement="right" arrow>
                   <div
-                    className={`flex items-center hover:bg-gray-100 cursor-pointer`}
+                    key={index}
+                    className={`flex items-center cursor-pointer hover:underline`}
+                    onClick={() => handleHistoryClick(item.message)}
                   >
-                    <ChatBubbleOutline
-                      fontSize="small"
-                      className="mr-2 text-gray-600"
-                    />
-                    {expanded && <span className="ml-3">{item.text}</span>}
+                    <div className="">
+                      <ChatBubbleOutline
+                        fontSize="small"
+                        className="mr-2 text-gray-600"
+                      />
+                    </div>
+                    <div className="line-clamp-1">
+                      <span className="ml-3">{item.message}</span>
+                    </div>
                   </div>
                 </Tooltip>
               ))}

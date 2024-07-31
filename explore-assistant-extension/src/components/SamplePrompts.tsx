@@ -1,6 +1,6 @@
 import React from 'react'
 import { useDispatch } from 'react-redux'
-import { setIsChatMode, setQuery } from '../slices/assistantSlice'
+import { resetChat, setIsChatMode, setQuery } from '../slices/assistantSlice'
 
 const SamplePrompts = () => {
   const dispatch = useDispatch()
@@ -22,6 +22,7 @@ const SamplePrompts = () => {
   ]
 
   const handleSubmit = (prompt: string) => {
+    dispatch(resetChat())
     dispatch(setQuery(prompt))
     dispatch(setIsChatMode(true))
   }

@@ -1,8 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
 interface HistoryItem {
-  message: string
-  url: string
+  message: string,
+  createdAt: number,
 }
 
 interface Field {
@@ -120,8 +120,17 @@ export const assistantSlice = createSlice({
     setSidePanelExploreUrl: (state, action: PayloadAction<string>) => {
       state.sidePanel.exploreUrl = action.payload
     },
-    addToHistory: (state, action: PayloadAction<HistoryItem>) => {
-      state.history.push(action.payload)
+    updateLastHistoryEntry: (state, action: PayloadAction<string>) => {
+      state.history[state.history.length - 1] = {
+        message: action.payload,
+        createdAt: Date.now(),
+      }
+    },
+    addToHistory: (state, action: PayloadAction<string>) => {
+      state.history.push({
+        message: action.payload,
+        createdAt: Date.now(),
+      })
     },
     setHistory: (state, action: PayloadAction<HistoryItem[]>) => {
       state.history = action.payload
@@ -143,6 +152,7 @@ export const assistantSlice = createSlice({
       state.query = ''
       state.isChatMode = false
       state.isQuerying = false
+      state.sidePanel = initialState.sidePanel
     },
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
       state.currentExploreThread.messages.push(action.payload)
@@ -173,6 +183,7 @@ export const {
   setIsChatMode,
   resetChatMode,
   addToHistory,
+  updateLastHistoryEntry,
   addPrompt,
   setHistory,
   setDimensions,

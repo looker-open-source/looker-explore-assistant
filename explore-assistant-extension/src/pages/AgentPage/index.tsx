@@ -11,11 +11,13 @@ import useSendVertexMessage from '../../hooks/useSendVertexMessage'
 import {
   addMessage,
   addPrompt,
+  addToHistory,
   closeSidePanel,
   openSidePanel,
   setIsQuerying,
   setQuery,
   setSidePanelExploreUrl,
+  updateLastHistoryEntry,
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
@@ -63,6 +65,16 @@ const AgentPage = () => {
       dispatch(setIsQuerying(false))
       return
     }
+
+    // update the history of the current thread
+    if(currentExploreThread.messages.length > 0) {
+      // edit existing
+      dispatch(updateLastHistoryEntry(promptSummary))
+    } else {
+      // create new
+      dispatch(addToHistory(promptSummary))
+    }
+
     const newExploreUrl = await generateExploreUrl(promptSummary)
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))

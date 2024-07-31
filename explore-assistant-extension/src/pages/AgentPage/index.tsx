@@ -11,22 +11,26 @@ import useSendVertexMessage from '../../hooks/useSendVertexMessage'
 import {
   addMessage,
   addPrompt,
+  closeSidePanel,
+  openSidePanel,
   setExploreUrl,
   setIsQuerying,
   setQuery,
+  setSidePanelExploreUrl,
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
+import { Close } from '@material-ui/icons'
+import { Tooltip } from '@material-ui/core'
 
 const AgentPage = () => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
   const [expanded, setExpanded] = useState(false)
-  const [showExplore, setShowExplore] = useState(true)
   const { generateExploreUrl, isSummarizationPrompt, summarizePrompts } =
     useSendVertexMessage()
 
-  const { isChatMode, query, currentExploreThread } = useSelector(
+  const { isChatMode, query, currentExploreThread, sidePanel } = useSelector(
     (state: RootState) => state.assistant,
   )
 
@@ -68,7 +72,8 @@ const AgentPage = () => {
         }),
       )
     } else {
-      dispatch(setExploreUrl(newExploreUrl))
+      dispatch(setSidePanelExploreUrl(newExploreUrl))
+      dispatch(openSidePanel())
 
       dispatch(
         addMessage({
@@ -110,7 +115,7 @@ const AgentPage = () => {
               <div
                 className={clsx(
                   'flex flex-col relative',
-                  showExplore ? 'w-2/5' : 'w-full',
+                  sidePanel.isSidePanelOpen ? 'w-2/5' : 'w-full',
                 )}
               >
                 <div className="flex-grow">
@@ -122,21 +127,23 @@ const AgentPage = () => {
                   <PromptInput />
                 </div>
               </div>
-              {showExplore && (
+              {sidePanel.isSidePanelOpen && (
                 <div className="flex-grow flex flex-col p-2">
                   <div className="flex flex-row bg-gray-400 text-white rounded-t-lg px-4 py-2 text-sm">
                     <div className="flex-grow">Explore</div>
                     <div className="">
-                      <button
-                        onClick={() => setShowExplore(false)}
-                        className="text-white hover:text-gray-300"
-                      >
-                        Close
-                      </button>
+                      <Tooltip title="Close Explore" placement="bottom" arrow>
+                        <button
+                          onClick={() => dispatch(closeSidePanel())}
+                          className="text-white hover:text-gray-300"
+                        >
+                          <Close />
+                        </button>
+                      </Tooltip>
                     </div>
                   </div>
                   <div className="bg-gray-200 border-l-2 border-r-2 border-gray-400 flex-grow">
-                    <ExploreEmbed />
+                    <ExploreEmbed exploreUrl={sidePanel.exploreUrl} />
                   </div>
                   <div className="bg-gray-400 text-white px-4 py-2 text-sm rounded-b-lg"></div>
                 </div>

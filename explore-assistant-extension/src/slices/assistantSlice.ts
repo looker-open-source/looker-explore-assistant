@@ -48,6 +48,10 @@ interface AssistantState {
   isQuerying: boolean
   isChatMode: boolean
   currentExploreThread: ExploreThread
+  sidePanel: {
+    isSidePanelOpen: boolean
+    exploreUrl: string
+  }
   history: HistoryItem[]
   dimensions: Field[]
   measures: Field[]
@@ -76,6 +80,10 @@ const initialState: AssistantState = {
     summarizedPrompt: '',
     promptList: [],
   },
+  sidePanel: {
+    isSidePanelOpen: false,
+    exploreUrl: '',
+  },
   history: [],
   dimensions: [],
   measures: [],
@@ -102,6 +110,15 @@ export const assistantSlice = createSlice({
     resetChatMode: (state) => {
       state.isChatMode = false
       resetChat()
+    },
+    openSidePanel: (state) => {
+      state.sidePanel.isSidePanelOpen = true
+    },
+    closeSidePanel: (state) => {
+      state.sidePanel.isSidePanelOpen = false
+    },
+    setSidePanelExploreUrl: (state, action: PayloadAction<string>) => {
+      state.sidePanel.exploreUrl = action.payload
     },
     addToHistory: (state, action: PayloadAction<HistoryItem>) => {
       state.history.push(action.payload)
@@ -169,6 +186,10 @@ export const {
   setModelName,
   setExploreGenerationExamples,
   setExploreRefinementExamples,
+
+  openSidePanel,
+  closeSidePanel,
+  setSidePanelExploreUrl,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

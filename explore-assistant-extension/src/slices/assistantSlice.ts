@@ -1,15 +1,18 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
-type Setting = {
-  id: string
+export interface Setting {
   name: string
   description: string
   value: boolean
 }
 
+export interface Settings {
+  [key: string]: Setting
+}
+
 interface HistoryItem {
-  message: string,
-  createdAt: number,
+  message: string
+  createdAt: number
 }
 
 interface Field {
@@ -76,7 +79,7 @@ export interface AssistantState {
       output: string
     }[]
   }
-  settings: Setting[]
+  settings: Settings
 }
 
 export const initialState: AssistantState = {
@@ -103,9 +106,13 @@ export const initialState: AssistantState = {
     exploreGenerationExamples: [],
     exploreRefinementExamples: [],
   },
-  settings: [
-    {id: '1', name: 'Show Explore Data', description: 'By default, expand the data panel in the Explore', value: false},
-  ]
+  settings: {
+    show_explore_data: {
+      name: 'Show Explore Data',
+      description: 'By default, expand the data panel in the Explore',
+      value: false,
+    },
+  },
 }
 
 export const assistantSlice = createSlice({
@@ -125,16 +132,14 @@ export const assistantSlice = createSlice({
     resetSettings: (state) => {
       state.settings = initialState.settings
     },
-    setSetting: (state, action: PayloadAction<{ id: string, value: boolean}>) => {
-      state.settings = state.settings.map(setting => {
-        if (setting.id === action.payload.id) {
-          return {
-            ...setting,
-            value: action.payload.value,
-          }
-        }
-        return setting
-      })
+    setSetting: (
+      state,
+      action: PayloadAction<{ id: keyof Settings; value: boolean }>
+    ) => {
+      const { id, value } = action.payload;
+      if (state.settings[id]) {
+        state.settings[id].value = value;
+      }
     },
     openSidePanel: (state) => {
       state.sidePanel.isSidePanelOpen = true
@@ -195,12 +200,18 @@ export const assistantSlice = createSlice({
       state.exploreName = action.payload
     },
     setModelName: (state, action: PayloadAction<string>) => {
-      state.modelName = action.payload  
+      state.modelName = action.payload
     },
-    setExploreGenerationExamples(state, action: PayloadAction<AssistantState['examples']['exploreGeneration']>) {
+    setExploreGenerationExamples(
+      state,
+      action: PayloadAction<AssistantState['examples']['exploreGeneration']>,
+    ) {
       state.examples.exploreGenerationExamples = action.payload
     },
-    setExploreRefinementExamples(state, action: PayloadAction<AssistantState['examples']['exploreRefinement']>) {
+    setExploreRefinementExamples(
+      state,
+      action: PayloadAction<AssistantState['examples']['exploreRefinement']>,
+    ) {
       state.examples.exploreRefinementExamples = action.payload
     },
   },

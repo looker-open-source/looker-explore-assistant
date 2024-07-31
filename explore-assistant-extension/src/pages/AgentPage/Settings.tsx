@@ -11,7 +11,7 @@ import {
 } from '@mui/material'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store'
-import { setSetting } from '../../slices/assistantSlice'
+import { setSetting, Settings } from '../../slices/assistantSlice'
 
 interface SettingsModalProps {
   open: boolean
@@ -20,13 +20,15 @@ interface SettingsModalProps {
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const dispatch = useDispatch()
-  const { settings } = useSelector((state: RootState) => state.assistant)
+  const settings = useSelector<RootState, Settings>(
+    (state) => state.assistant.settings,
+  )
 
   const handleToggle = (id: string) => {
     dispatch(
       setSetting({
         id,
-        value: !settings.find((setting) => setting.id === id)?.value,
+        value: !settings[id].value,
       }),
     )
   }
@@ -50,8 +52,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
           Settings
         </Typography>
         <List>
-          {settings.map((setting) => (
-            <ListItem key={setting.id} className="py-2">
+          {Object.entries(settings).map(([id, setting]) => (
+            <ListItem key={id} className="py-2">
               <ListItemText
                 primary={setting.name}
                 secondary={setting.description}
@@ -60,9 +62,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
               <ListItemSecondaryAction>
                 <Switch
                   edge="end"
-                  onChange={() => handleToggle(setting.id)}
+                  onChange={() => handleToggle(id)}
                   checked={setting.value}
-                  inputProps={{ 'aria-labelledby': `switch-${setting.id}` }}
+                  inputProps={{ 'aria-labelledby': `switch-${id}` }}
                 />
               </ListItemSecondaryAction>
             </ListItem>

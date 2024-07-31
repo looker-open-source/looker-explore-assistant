@@ -152,10 +152,9 @@ ${exploreRefinementExamples
       Task
       ----------
       Summarize the prompts above to generate a single prompt that includes all the relevant information. If there are conflicting or duplicative information, prefer the most recent prompt.
-    
-      Answer
-      ----------
-    
+
+      Only return the summary of the prompt with no extra explanatation or text
+        
     `
       const response = await sendMessage(contents, {})
 

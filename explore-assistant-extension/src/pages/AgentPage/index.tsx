@@ -20,7 +20,7 @@ import {
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
-import { Close } from '@material-ui/icons'
+import { Close, LinkOff } from '@material-ui/icons'
 import { Tooltip } from '@material-ui/core'
 
 const AgentPage = () => {
@@ -33,7 +33,7 @@ const AgentPage = () => {
   const { isChatMode, query, currentExploreThread, sidePanel } = useSelector(
     (state: RootState) => state.assistant,
   )
-
+  
   const submitMessage = useCallback(async () => {
     dispatch(addPrompt(query))
     dispatch(setIsQuerying(true))
@@ -119,7 +119,9 @@ const AgentPage = () => {
                 )}
               >
                 <div className="flex-grow">
-                  <MessageThread />
+                  <div className="max-w-4xl mx-auto">
+                    <MessageThread />
+                  </div>
                 </div>
                 <div
                   className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4/5  transition-all duration-300 ease-in-out`}
@@ -127,27 +129,31 @@ const AgentPage = () => {
                   <PromptInput />
                 </div>
               </div>
-              {sidePanel.isSidePanelOpen && (
-                <div className="flex-grow flex flex-col p-2">
-                  <div className="flex flex-row bg-gray-400 text-white rounded-t-lg px-4 py-2 text-sm">
-                    <div className="flex-grow">Explore</div>
-                    <div className="">
-                      <Tooltip title="Close Explore" placement="bottom" arrow>
-                        <button
-                          onClick={() => dispatch(closeSidePanel())}
-                          className="text-white hover:text-gray-300"
-                        >
-                          <Close />
-                        </button>
-                      </Tooltip>
-                    </div>
+
+              <div
+                className={clsx(
+                  'flex-grow flex flex-col pb-2 pl-2 transition-all duration-300 ease-in-out transform max-w-0',
+                  sidePanel.isSidePanelOpen ? 'max-w-full translate-x-0 opacity-100' : 'translate-x-full opacity-0',
+                )}
+              >
+                <div className="flex flex-row bg-gray-400 text-white rounded-t-lg px-4 py-2 text-sm">
+                  <div className="flex-grow">Explore</div>
+                  <div className="">
+                    <Tooltip title="Close Explore" placement="bottom" arrow>
+                      <button
+                        onClick={() => dispatch(closeSidePanel())}
+                        className="text-white hover:text-gray-300"
+                      >
+                        <Close />
+                      </button>
+                    </Tooltip>
                   </div>
-                  <div className="bg-gray-200 border-l-2 border-r-2 border-gray-400 flex-grow">
-                    <ExploreEmbed exploreUrl={sidePanel.exploreUrl} />
-                  </div>
-                  <div className="bg-gray-400 text-white px-4 py-2 text-sm rounded-b-lg"></div>
                 </div>
-              )}
+                <div className="bg-gray-200 border-l-2 border-r-2 border-gray-400 flex-grow">
+                  <ExploreEmbed exploreUrl={sidePanel.exploreUrl} />
+                </div>
+                <div className="bg-gray-400 text-white px-4 py-2 text-sm rounded-b-lg"></div>
+              </div>
             </div>
           ) : (
             <>

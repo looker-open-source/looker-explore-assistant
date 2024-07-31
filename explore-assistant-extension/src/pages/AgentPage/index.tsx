@@ -95,7 +95,7 @@ const AgentPage = () => {
           expanded ? 'ml-80' : 'ml-16'
         } p-4 h-screen`}
       >
-        <div className="flex-grow p-4">
+        <div className="flex-grow p-4 pb-36">
           {isChatMode ? (
             <div className="">
               <ExploreEmbed />
@@ -120,7 +120,13 @@ const AgentPage = () => {
             </>
           )}
         </div>
-        <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-4/5">
+        <div className={`
+           fixed bottom-0 left-1/2 transform -translate-x-1/2 w-4/5
+
+          transition-all duration-300 ease-in-out
+
+           ${expanded ? 'pl-80' : ''}
+          `}>
           <PromptInput />
         </div>
       </main>

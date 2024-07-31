@@ -37,7 +37,7 @@ const PromptInput = () => {
     }
   }
   return (
-    <div className="max-w-3xl mx-auto mt-4">
+    <div className="max-w-3xl mx-auto px-8 pt-4 pb-2 bg-white bg-opacity-80 rounded-md">
       <div className="relative flex items-center bg-[rgb(240,244,249)] rounded-full p-2">
         <input
           ref={inputRef}
@@ -77,7 +77,7 @@ const PromptInput = () => {
           )}
         </div>
       </div>
-      <p className="text-xs text-gray-500 mt-2 text-center">
+      <p className="text-xs text-gray-500 my-2 text-center">
         Gemini may display inaccurate info, including about people, so double-check its responses.
       </p>
     </div>

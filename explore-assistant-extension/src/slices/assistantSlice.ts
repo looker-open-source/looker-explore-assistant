@@ -1,5 +1,12 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
+type Setting = {
+  id: string
+  name: string
+  description: string
+  value: boolean
+}
+
 interface HistoryItem {
   message: string,
   createdAt: number,
@@ -44,7 +51,7 @@ type ExploreThread = {
   promptList: string[]
 }
 
-interface AssistantState {
+export interface AssistantState {
   isQuerying: boolean
   isChatMode: boolean
   currentExploreThread: ExploreThread
@@ -69,9 +76,10 @@ interface AssistantState {
       output: string
     }[]
   }
+  settings: Setting[]
 }
 
-const initialState: AssistantState = {
+export const initialState: AssistantState = {
   isQuerying: false,
   isChatMode: false,
   currentExploreThread: {
@@ -94,7 +102,10 @@ const initialState: AssistantState = {
   examples: {
     exploreGenerationExamples: [],
     exploreRefinementExamples: [],
-  }
+  },
+  settings: [
+    {id: '1', name: 'Show Explore Data', description: 'By default, expand the data panel in the Explore', value: false},
+  ]
 }
 
 export const assistantSlice = createSlice({
@@ -110,6 +121,20 @@ export const assistantSlice = createSlice({
     resetChatMode: (state) => {
       state.isChatMode = false
       resetChat()
+    },
+    resetSettings: (state) => {
+      state.settings = initialState.settings
+    },
+    setSetting: (state, action: PayloadAction<{ id: string, value: boolean}>) => {
+      state.settings = state.settings.map(setting => {
+        if (setting.id === action.payload.id) {
+          return {
+            ...setting,
+            value: action.payload.value,
+          }
+        }
+        return setting
+      })
     },
     openSidePanel: (state) => {
       state.sidePanel.isSidePanelOpen = true
@@ -205,6 +230,9 @@ export const {
   openSidePanel,
   closeSidePanel,
   setSidePanelExploreUrl,
+
+  setSetting,
+  resetSettings,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

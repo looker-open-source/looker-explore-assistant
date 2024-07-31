@@ -12,6 +12,7 @@ import {
   setQuery,
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
+import SettingsModal from './Settings'
 
 interface SidebarProps {
   expanded: boolean
@@ -21,6 +22,7 @@ interface SidebarProps {
 const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const dispatch = useDispatch()
   const [isExpanded, setIsExpanded] = React.useState(expanded)
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const { isChatMode, isQuerying, history } = useSelector(
     (state: RootState) => state.assistant,
   )
@@ -166,6 +168,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
         <Tooltip title={expanded ? '' : 'Settings'} placement="top" arrow>
           <div
             className={`mr-2 flex flex-row text-gray-400 items-center cursor-pointer p-2 transition-all duration-300 ease-in-out`}
+            onClick={() => setIsSettingsOpen(true)}
           >
             <SettingsIcon />
             <div
@@ -180,6 +183,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
           </div>
         </Tooltip>
       </div>
+      <SettingsModal open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   )
 }

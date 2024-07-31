@@ -16,7 +16,7 @@ import {
   openSidePanel,
   setIsQuerying,
   setQuery,
-  setSidePanelExploreUrl,
+  setSidePanelExploreParams,
   updateLastHistoryEntry,
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
@@ -28,7 +28,7 @@ const AgentPage = () => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
   const [expanded, setExpanded] = useState(false)
-  const { generateExploreUrl, isSummarizationPrompt, summarizePrompts } =
+  const { generateExploreParams, isSummarizationPrompt, summarizePrompts } =
     useSendVertexMessage()
 
   const {
@@ -75,26 +75,26 @@ const AgentPage = () => {
       dispatch(addToHistory(promptSummary))
     }
 
-    const newExploreUrl = await generateExploreUrl(promptSummary)
+    const newExploreParams = await generateExploreParams(promptSummary)
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
 
     if (isSummary) {
       dispatch(
         addMessage({
-          exploreUrl: newExploreUrl,
+          exploreParams: newExploreParams,
           actor: 'system',
           createdAt: Date.now(),
           type: 'summarize',
         }),
       )
     } else {
-      dispatch(setSidePanelExploreUrl(newExploreUrl))
+      dispatch(setSidePanelExploreParams(newExploreParams))
       dispatch(openSidePanel())
 
       dispatch(
         addMessage({
-          exploreUrl: newExploreUrl,
+          exploreParams: newExploreParams,
           summarizedPrompt: promptSummary,
           actor: 'system',
           createdAt: Date.now(),
@@ -193,7 +193,7 @@ const AgentPage = () => {
                   </div>
                 </div>
                 <div className="bg-gray-200 border-l-2 border-r-2 border-gray-400 flex-grow">
-                  <ExploreEmbed exploreUrl={sidePanel.exploreUrl} />
+                  <ExploreEmbed exploreParams={sidePanel.exploreParams} />
                 </div>
                 <div className="bg-gray-400 text-white px-4 py-2 text-sm rounded-b-lg"></div>
               </div>

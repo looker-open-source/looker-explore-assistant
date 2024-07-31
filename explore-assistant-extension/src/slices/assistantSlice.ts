@@ -71,7 +71,7 @@ export interface AssistantState {
   currentExploreThread: ExploreThread
   sidePanel: {
     isSidePanelOpen: boolean
-    exploreUrl: string
+    exploreParams: ExploreParams
   }
   history: HistoryItem[]
   dimensions: Field[]
@@ -105,7 +105,7 @@ export const initialState: AssistantState = {
   },
   sidePanel: {
     isSidePanelOpen: false,
-    exploreUrl: '',
+    exploreParams: {},
   },
   history: [],
   dimensions: [],
@@ -159,8 +159,8 @@ export const assistantSlice = createSlice({
     closeSidePanel: (state) => {
       state.sidePanel.isSidePanelOpen = false
     },
-    setSidePanelExploreUrl: (state, action: PayloadAction<string>) => {
-      state.sidePanel.exploreUrl = action.payload
+    setSidePanelExploreParams: (state, action: PayloadAction<ExploreParams>) => {
+      state.sidePanel.exploreParams = action.payload
     },
     updateLastHistoryEntry: (state, action: PayloadAction<string>) => {
       state.history[state.history.length - 1] = {
@@ -249,7 +249,7 @@ export const {
 
   openSidePanel,
   closeSidePanel,
-  setSidePanelExploreUrl,
+  setSidePanelExploreParams,
 
   setSetting,
   resetSettings,

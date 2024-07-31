@@ -34,11 +34,38 @@ import { ExploreHelper } from '../utils/ExploreHelper'
 
 export interface ExploreEmbedProps {}
 
+const processUrlParams = (exploreUrl: string): { [key: string]: string } => {
+  const paramsObj: { [key: string]: string } = {}
+
+  exploreUrl.split('&').forEach(param => {
+    let decodedKey
+    let decodedValue
+    try {
+      const [key, ...rest] = param.split('=')
+      decodedKey = decodeURIComponent(key)
+      decodedValue = decodeURIComponent(rest.join('=')).replace(/\+/g, ' ')
+    } catch (e) {
+      console.error('Error decoding URL parameter segment:', param)
+      return
+    }
+
+    // Handle JSON objects directly as strings
+    if ((decodedValue.startsWith('{') && decodedValue.endsWith('}')) || 
+        (decodedValue.startsWith('[') && decodedValue.endsWith(']'))) {
+      paramsObj[decodedKey] = decodedValue
+    } else {
+      paramsObj[decodedKey] = decodedValue
+    }
+  })
+
+  return paramsObj
+}
+
 export const ExploreEmbed = ({}: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
 
-  const { exploreParams, exploreId } = useSelector(
+  const { exploreUrl, exploreId } = useSelector(
     (state: RootState) => state.assistant,
   )
 
@@ -61,7 +88,7 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
   useEffect(() => {
     const hostUrl = extensionSDK?.lookerHostData?.hostUrl
     const el = ref.current
-    if (el && hostUrl && exploreParams) {
+    if (el && hostUrl && exploreUrl) {
 
       const paramsObj: any = {
         // For Looker Original use window.origin for Looker Core use hostUrl
@@ -74,16 +101,26 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
         toggle: 'pik,vis',
       }
 
-      Object.entries(ExploreHelper.encodeExploreParams(exploreParams)).forEach(([key, value]) => {
-        paramsObj[key] = value
-      })
+      const decodedParams = processUrlParams(exploreUrl);
+      
+      const finalParams: { [key: string]: string } = {};
+      for (const key in decodedParams) {
+        if (decodedParams.hasOwnProperty(key)) {
+          if (key.includes('filter_config') || key.includes('vis') || key.includes('fields') 
+              || key.startsWith('f[')) {
+            finalParams[key] = decodedParams[key]; // Do not re-encode JSON params, fields, or filters
+          } else {
+            finalParams[key] = encodeURIComponent(decodedParams[key]).replace(/%20/g, ' ')
+          }
+        }
+      }
 
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
       LookerEmbedSDK.createExploreWithId(exploreId)
         .appendTo(el)
         .withClassName('looker-embed')
-        .withParams(paramsObj)
+        .withParams(finalParams)
         .on('explore:ready', () => handleQueryError())
         .on('drillmenu:click', canceller)
         .on('drillmodal:explore', canceller)
@@ -102,7 +139,7 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
         })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exploreParams])
+  }, [exploreUrl])
 
   return (
     <>

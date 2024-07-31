@@ -411,7 +411,7 @@ ${exploreRefinementExamples
         showBoundary(new Error('Dimensions or measures are not defined'))
         return
       }
-
+      const currentDateTime = new Date().toISOString()
       const contents = `
       # Context
       
@@ -456,7 +456,8 @@ ${exploreRefinementExamples
       ${measures.map(formatRow).join('\n')}
           
       # Examples
-      
+        Examples Below were taken at a different date. ALL DATE RANGES ARE WRONG COMPARING TO CURRENT DATE.
+        (BE CAREFUL WITH DATES, DO NOT OUTPUT THE Examples 1:1,  as changes could happen with timeframes and date ranges)
       ${exploreGenerationExamples
         .map((item) => `input: "${item.input}" ; output: ${item.output}`)
         .join('\n')}
@@ -482,6 +483,7 @@ ${exploreRefinementExamples
       - generate only one answer, no more.
       - use the Examples for guidance on how to structure the body
       - try to avoid adding dynamic_fields, provide them when very similar example is found in the bottom
+      - Always use the provided current date (${currentDateTime}) when generating Looker URL queries that involve TIMEFRAMES.
       - only respond with a JSON object
         
         

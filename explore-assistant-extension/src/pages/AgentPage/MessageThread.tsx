@@ -4,7 +4,7 @@ import { RootState } from '../../store'
 import Message from '../../components/Chat/Message'
 import ExploreMessage from '../../components/Chat/ExploreMessage'
 import SummaryMessage from '../../components/Chat/SummaryMessage'
-import { Space, Spinner } from '@looker/components'
+import { CircularProgress } from '@material-ui/core'
 
 const MessageThread = () => {
   const { currentExploreThread, isQuerying } = useSelector(
@@ -13,7 +13,7 @@ const MessageThread = () => {
 
   const messages = currentExploreThread.messages
   return (
-    <div>
+    <div className="">
       {messages.map((message, index) => {
         if (message.type === 'explore') {
           return (
@@ -37,8 +37,8 @@ const MessageThread = () => {
         }
       })}
       {isQuerying && (
-        <div className="flex flex-col">
-          <Spinner size={20} color={'key'} />
+        <div className="flex flex-col text-gray-300 size-8">
+          <CircularProgress color={'inherit'} size={'inherit'} />
         </div>
       )}
     </div>

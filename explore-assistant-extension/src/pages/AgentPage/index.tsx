@@ -13,14 +13,13 @@ import {
   addPrompt,
   closeSidePanel,
   openSidePanel,
-  setExploreUrl,
   setIsQuerying,
   setQuery,
   setSidePanelExploreUrl,
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
-import { Close, LinkOff } from '@material-ui/icons'
+import { Close } from '@material-ui/icons'
 import { Tooltip } from '@material-ui/core'
 
 const AgentPage = () => {
@@ -33,7 +32,7 @@ const AgentPage = () => {
   const { isChatMode, query, currentExploreThread, sidePanel } = useSelector(
     (state: RootState) => state.assistant,
   )
-  
+
   const submitMessage = useCallback(async () => {
     dispatch(addPrompt(query))
     dispatch(setIsQuerying(true))
@@ -118,7 +117,7 @@ const AgentPage = () => {
                   sidePanel.isSidePanelOpen ? 'w-2/5' : 'w-full',
                 )}
               >
-                <div className="flex-grow">
+                <div className="flex-grow overflow-y-auto max-h-full mb-36">
                   <div className="max-w-4xl mx-auto">
                     <MessageThread />
                   </div>
@@ -133,7 +132,9 @@ const AgentPage = () => {
               <div
                 className={clsx(
                   'flex-grow flex flex-col pb-2 pl-2 transition-all duration-300 ease-in-out transform max-w-0',
-                  sidePanel.isSidePanelOpen ? 'max-w-full translate-x-0 opacity-100' : 'translate-x-full opacity-0',
+                  sidePanel.isSidePanelOpen
+                    ? 'max-w-full translate-x-0 opacity-100'
+                    : 'translate-x-full opacity-0',
                 )}
               >
                 <div className="flex flex-row bg-gray-400 text-white rounded-t-lg px-4 py-2 text-sm">

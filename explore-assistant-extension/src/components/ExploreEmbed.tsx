@@ -31,15 +31,15 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store'
 
-export interface ExploreEmbedProps {}
+export interface ExploreEmbedProps {
+  exploreUrl: string
+}
 
-export const ExploreEmbed = ({}: ExploreEmbedProps) => {
+export const ExploreEmbed = ({ exploreUrl }: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
 
-  const { exploreUrl, exploreId } = useSelector(
-    (state: RootState) => state.assistant,
-  )
+  const { exploreId } = useSelector((state: RootState) => state.assistant)
 
   const canceller = (event: any) => {
     return { cancel: !event.modal }

@@ -6,6 +6,7 @@ import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
 import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
+import { Settings } from 'http2'
 
 interface ModelParameters {
   max_output_tokens?: number
@@ -59,7 +60,7 @@ function formatContent(field: {
 }
 
 const useSendVertexMessage = () => {
-  const { showBoundary } = useErrorBoundary();
+  const { showBoundary } = useErrorBoundary()
   // cloud function
   const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
   const VERTEX_CF_AUTH_TOKEN = process.env.VERTEX_CF_AUTH_TOKEN || ''
@@ -72,6 +73,10 @@ const useSendVertexMessage = () => {
   const { core40SDK } = useContext(ExtensionContext)
   const { dimensions, measures, messageThread, exploreName, modelName } =
     useSelector((state: RootState) => state.assistant)
+
+  const settings = useSelector<RootState, Settings>(
+    (state) => state.assistant.settings,
+  )
 
   const { exploreGenerationExamples, exploreRefinementExamples } = useSelector(
     (state: RootState) => state.assistant.examples,
@@ -152,10 +157,9 @@ ${exploreRefinementExamples
       Task
       ----------
       Summarize the prompts above to generate a single prompt that includes all the relevant information. If there are conflicting or duplicative information, prefer the most recent prompt.
-    
-      Answer
-      ----------
-    
+
+      Only return the summary of the prompt with no extra explanatation or text
+        
     `
       const response = await sendMessage(contents, {})
 
@@ -227,10 +231,6 @@ ${exploreRefinementExamples
     return response === 'data summary'
   }
 
-  const isDataQuestionPrompt = async (prompt: string) => {
-    return false
-  }
-
   const summarizeExplore = useCallback(
     async (exploreQueryArgs: string) => {
       const params = new URLSearchParams(exploreQueryArgs)
@@ -263,6 +263,8 @@ ${exploreRefinementExamples
           queryParams.limit = value
         }
       })
+
+      console.log(params)
 
       // get the contents of the explore query
       const createQuery = await core40SDK.ok(
@@ -375,28 +377,34 @@ ${exploreRefinementExamples
       }
       const cleanResponse = unquoteResponse(response)
       console.log(cleanResponse)
-      const newExploreUrl = cleanResponse + '&toggle=dat,pik,vis'
+
+      let toggleString = '&toggle=dat,pik,vis'
+      if(settings['show_explore_data'].value) {
+        toggleString = '&toggle=pik,vis'
+      }
+
+      const newExploreUrl = cleanResponse + toggleString
+
 
       return newExploreUrl
     },
-    [dimensions, measures, exploreGenerationExamples],
+    [dimensions, measures, exploreGenerationExamples, settings],
   )
 
   const sendMessage = async (message: string, parameters: ModelParameters) => {
     try {
-
       let response = ''
       if (VERTEX_AI_ENDPOINT) {
         response = await vertextCloudFunction(message, parameters)
       }
-      
+
       if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
         response = await vertextBigQuery(message, parameters)
       }
-      
+
       return response
-    } catch(error) {
-        showBoundary(error)
+    } catch (error) {
+      showBoundary(error)
     }
   }
 
@@ -406,7 +414,6 @@ ${exploreRefinementExamples
     sendMessageWithThread,
     summarizePrompts,
     isSummarizationPrompt,
-    isDataQuestionPrompt,
     summarizeExplore,
   }
 }

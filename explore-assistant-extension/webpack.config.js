@@ -67,7 +67,7 @@ module.exports = {
       },
       {
         test: /\.(css|scss|sass)$/i,
-        use: ["style-loader", "css-loader", "sass-loader"],
+        use: ["style-loader", "css-loader", 'postcss-loader', "sass-loader"],
       },
       {
         test: /\.(png|jpe?g|gif)$/i,

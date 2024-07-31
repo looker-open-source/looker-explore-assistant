@@ -17,12 +17,16 @@ const SummaryMessage = ({ queryArgs }: SummaryMessageProps) => {
   useEffect(() => {
     const fetchSummary = async () => {
       const response = await summarizeExplore(queryArgs)
-      setSummary(response)
+      if (!response) {
+        setSummary('There was an error summarizing the data')
+      } else {
+        setSummary(response)
+      }
       setLoading(false)
     }
     fetchSummary()
   }, [])
-
+  console.log(summary)
   return (
     <Message actor="system" createdAt={Date.now()}>
       <Section my={'u2'}>
@@ -31,9 +35,9 @@ const SummaryMessage = ({ queryArgs }: SummaryMessageProps) => {
           <Spinner size={20} my={'u2'} />
         ) : (
           <>
-            <Section maxHeight={150} scrolling={'auto'} my={'u2'}>
+            <div className="">
               <MarkdownText text={summary} />
-            </Section>
+          </div>
           </>
         )}
       </Section>

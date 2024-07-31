@@ -18,6 +18,11 @@ module "base-project-services" {
   ]
 }
 
+resource "time_sleep" "wait_after_basic_apis_activate" {
+  depends_on      = [module.base-project-services]
+  create_duration = "120s"
+}
+
 module "bg-backend-project-services" {
   count                       = var.use_bigquery_backend ? 1 : 0
   source                      = "terraform-google-modules/project-factory/google//modules/project_services"
@@ -32,7 +37,7 @@ module "bg-backend-project-services" {
     "bigquery.googleapis.com",
   ]
 
-  depends_on = [module.base-project-services]
+  depends_on = [module.base-project-services, time_sleep.wait_after_basic_apis_activate]
 }
 
 module "cf-backend-project-services" {
@@ -55,12 +60,16 @@ module "cf-backend-project-services" {
     "secretmanager.googleapis.com",
   ]
 
-  depends_on = [module.base-project-services]
+  depends_on = [module.base-project-services, time_sleep.wait_after_basic_apis_activate]
 }
 
 
 resource "time_sleep" "wait_after_apis_activate" {
-  depends_on      = [module.cf-backend-project-services, module.bg-backend-project-services]
+  depends_on      = [
+    time_sleep.wait_after_basic_apis_activate, 
+    module.cf-backend-project-services, 
+    module.bg-backend-project-services
+  ]
   create_duration = "120s"
 }
 

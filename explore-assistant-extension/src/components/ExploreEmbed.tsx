@@ -37,9 +37,11 @@ export const ExploreEmbed = ({}: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
 
-  const { exploreUrl, exploreId } = useSelector(
+  const { currentExploreThread, exploreId } = useSelector(
     (state: RootState) => state.assistant,
   )
+
+  const exploreUrl = currentExploreThread.exploreUrl
 
   const canceller = (event: any) => {
     return { cancel: !event.modal }

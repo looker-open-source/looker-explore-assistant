@@ -2,7 +2,7 @@ import { Send } from '@material-ui/icons'
 import React, { useState, useRef, useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store'
-import { setIsQuerying, setQuery } from '../../slices/assistantSlice'
+import { setIsChatMode, setQuery } from '../../slices/assistantSlice'
 
 const PromptInput = () => {
   const dispatch = useDispatch()
@@ -21,8 +21,13 @@ const PromptInput = () => {
     const prompt = inputText.trim()
     if (prompt && !isQuerying) {
       setIsAnimating(true)
-      dispatch(setIsQuerying(true))
+      dispatch(setIsChatMode(true))
       dispatch(setQuery(prompt))
+    }
+
+    if(!isQuerying) {
+      setInputText('')
+      setIsAnimating(false)
     }
   }, [isQuerying, inputText])
 
@@ -48,6 +53,7 @@ const PromptInput = () => {
           {inputText ? (
             <button
               onClick={handleSubmit}
+              disabled={isQuerying}
               className={`p-2 text-white bg-blue-500 rounded-full transition-all duration-300 ease-in-out ${
                 isAnimating ? 'animate-spin' : ''
               }`}
@@ -61,6 +67,7 @@ const PromptInput = () => {
           ) : (
             <button
               onClick={handleSubmit}
+              disabled={isQuerying}
               className={`p-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-full transition-all duration-300 ease-in-out ${
                 isAnimating ? 'animate-spin' : ''
               }`}

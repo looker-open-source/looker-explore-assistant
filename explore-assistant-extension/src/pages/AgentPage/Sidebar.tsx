@@ -1,11 +1,12 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { IconButton, Tooltip } from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
 import SettingsIcon from '@mui/icons-material/Settings'
 import AddIcon from '@mui/icons-material/Add'
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline'
-import { useDispatch } from 'react-redux'
-import { setIsQuerying, setQuery } from '../../slices/assistantSlice'
+import { useDispatch, useSelector } from 'react-redux'
+import { resetChat } from '../../slices/assistantSlice'
+import { RootState } from '../../store'
 
 interface SidebarProps {
   expanded: boolean
@@ -15,7 +16,8 @@ interface SidebarProps {
 const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const dispatch = useDispatch()
   const [isExpanded, setIsExpanded] = React.useState(expanded)
-
+  const { isChatMode } = useSelector((state: RootState) => state.assistant)
+  
   const sidebarItems = [
     { text: 'New chat' },
     { text: 'Ready to Assist' },
@@ -38,8 +40,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   }
 
   const handleNewChat = () => {
-    dispatch(setQuery(''))
-    dispatch(setIsQuerying(false))
+   dispatch(resetChat())
   }
 
   return (
@@ -63,7 +64,9 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
         <Tooltip title={'New Chat'} placement="bottom" arrow={false}>
           <div
             className={`
-              mr-2 flex flex-row text-gray-600 items-center cursor-pointer bg-gray-200
+              mr-2 flex flex-row items-center
+
+              ${isChatMode ? 'cursor-pointer bg-gray-300 text-gray-600 hover:text-gray-700' : 'bg-gray-200 text-gray-400' }
               
               rounded-full p-2
               

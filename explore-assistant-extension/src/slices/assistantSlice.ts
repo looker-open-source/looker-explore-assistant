@@ -37,14 +37,21 @@ interface SummarizeMesage {
 
 type ChatMessage = Message | ExploreMessage | SummarizeMesage
 
+type ExploreThread = {
+  messages: ChatMessage[]
+  exploreUrl: string
+  summarizedPrompt: string
+  promptList: string[]
+}
+
 interface AssistantState {
   isQuerying: boolean
+  isChatMode: boolean
+  currentExploreThread: ExploreThread
   history: HistoryItem[]
   dimensions: Field[]
   measures: Field[]
-  exploreUrl: string
   query: string
-  messageThread: ChatMessage[]
   exploreId: string
   exploreName: string
   modelName: string
@@ -62,12 +69,17 @@ interface AssistantState {
 
 const initialState: AssistantState = {
   isQuerying: false,
+  isChatMode: false,
+  currentExploreThread: {
+    messages: [],
+    exploreUrl: '',
+    summarizedPrompt: '',
+    promptList: [],
+  },
   history: [],
   dimensions: [],
   measures: [],
-  exploreUrl: '',
   query: '',
-  messageThread: [],
   exploreId: '',
   exploreName: '',
   modelName: '',
@@ -84,6 +96,13 @@ export const assistantSlice = createSlice({
     setIsQuerying: (state, action: PayloadAction<boolean>) => {
       state.isQuerying = action.payload
     },
+    setIsChatMode: (state, action: PayloadAction<boolean>) => {
+      state.isChatMode = action.payload
+    },
+    resetChatMode: (state) => {
+      state.isChatMode = false
+      resetChat()
+    },
     addToHistory: (state, action: PayloadAction<HistoryItem>) => {
       state.history.push(action.payload)
     },
@@ -97,18 +116,22 @@ export const assistantSlice = createSlice({
       state.measures = action.payload
     },
     setExploreUrl: (state, action: PayloadAction<string>) => {
-      state.exploreUrl = action.payload
+      state.currentExploreThread.exploreUrl = action.payload
     },
     setQuery: (state, action: PayloadAction<string>) => {
       state.query = action.payload
     },
     resetChat: (state) => {
-      state.messageThread = []
+      state.currentExploreThread = initialState.currentExploreThread
       state.query = ''
-      state.exploreUrl = ''
+      state.isChatMode = false
+      state.isQuerying = false
     },
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
-      state.messageThread.push(action.payload)
+      state.currentExploreThread.messages.push(action.payload)
+    },
+    addPrompt: (state, action: PayloadAction<string>) => {
+      state.currentExploreThread.promptList.push(action.payload)
     },
     setExploreId: (state, action: PayloadAction<string>) => {
       state.exploreId = action.payload
@@ -130,7 +153,10 @@ export const assistantSlice = createSlice({
 
 export const {
   setIsQuerying,
+  setIsChatMode,
+  resetChatMode,
   addToHistory,
+  addPrompt,
   setHistory,
   setDimensions,
   setMeasures,

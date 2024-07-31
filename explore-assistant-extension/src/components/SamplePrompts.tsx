@@ -1,6 +1,6 @@
 import React from 'react'
 import { useDispatch } from 'react-redux'
-import { setIsQuerying, setQuery } from '../slices/assistantSlice'
+import { setIsChatMode, setQuery } from '../slices/assistantSlice'
 
 const SamplePrompts = () => {
   const dispatch = useDispatch()
@@ -23,7 +23,7 @@ const SamplePrompts = () => {
 
   const handleSubmit = (prompt: string) => {
     dispatch(setQuery(prompt))
-    dispatch(setIsQuerying(true))
+    dispatch(setIsChatMode(true))
   }
   return (
     <div className="flex flex-wrap max-w-5xl">

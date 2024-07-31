@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react'
 import { hot } from 'react-hot-loader/root'
 import { Route, Switch, Redirect } from 'react-router-dom'
-import ExploreChatPage from './pages/ExploreChatPage'
 import { useDispatch } from 'react-redux'
 import {
   setExploreId,

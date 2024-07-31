@@ -1,8 +1,7 @@
-import { Card, CardContent, Paragraph, Section } from '@looker/components'
 import React from 'react'
 
-import styles from './style.module.scss'
 import MarkdownText from './MarkdownText'
+import clsx from 'clsx'
 
 export const getRelativeTimeString = (dateStr: string | Date) => {
   const date = new Date(dateStr)
@@ -74,23 +73,25 @@ interface MessageProps {
 }
 
 const Message = ({ message, actor, children }: MessageProps) => (
-  <Card border={'none'} width={'100%'}>
-    <CardContent  p={0}>
-      <Paragraph fontSize="xsmall" color="text1" mb="u2">
-        {actor == 'system' && 'Gemini'}
-      </Paragraph>
-
-      <Section
-        fontSize={'small'}
-        className={styles.chatBubble + ' ' + styles[actor]}
+  <div
+    className={`flex ${
+      actor === 'user' ? 'justify-end' : 'justify-start'
+    } mb-4`}
+  >
+    <div className={`max-w-[70%] ${actor === 'user' ? 'order-2' : 'order-1'}`}>
+      <div
+        className={clsx(
+          'rounded-lg p-3 max-w-xl',
+          actor === 'user'
+            ? 'bg-[rgb(237,243,253)] text-gray-800'
+            : 'bg-[rgb(242,242,242)] text-gray-800',
+        )}
       >
-        <div className={styles.chatBubbleContent}>
-          {message && (<MarkdownText text={message} />)}
-          {children && <div>{children}</div>}
-        </div>
-      </Section>
-    </CardContent>
-  </Card>
+        {message && <MarkdownText text={message} />}
+        {children && <div>{children}</div>}
+      </div>
+    </div>
+  </div>
 )
 
 export default Message

@@ -32,7 +32,9 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../store'
 import { ExploreHelper } from '../utils/ExploreHelper'
 
-export interface ExploreEmbedProps {}
+export interface ExploreEmbedProps {
+  exploreUrl: string
+}
 
 const processUrlParams = (exploreUrl: string): { [key: string]: string } => {
   const paramsObj: { [key: string]: string } = {}
@@ -62,12 +64,11 @@ const processUrlParams = (exploreUrl: string): { [key: string]: string } => {
 }
 
 export const ExploreEmbed = ({}: ExploreEmbedProps) => {
+export const ExploreEmbed = ({ exploreUrl }: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
 
-  const { exploreUrl, exploreId } = useSelector(
-    (state: RootState) => state.assistant,
-  )
+  const { exploreId } = useSelector((state: RootState) => state.assistant)
 
   const canceller = (event: any) => {
     return { cancel: !event.modal }

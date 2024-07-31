@@ -5,6 +5,7 @@ import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
 import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
+import { Settings } from 'http2'
 
 import looker_filter_doc from '../documents/looker_filter_doc.md'
 import looker_visualization_doc from '../documents/looker_visualization_doc.md'
@@ -58,6 +59,10 @@ const useSendVertexMessage = () => {
   const { core40SDK } = useContext(ExtensionContext)
   const { dimensions, measures, messageThread, exploreName, modelName } =
     useSelector((state: RootState) => state.assistant)
+
+  const settings = useSelector<RootState, Settings>(
+    (state) => state.assistant.settings,
+  )
 
   const { exploreGenerationExamples, exploreRefinementExamples } = useSelector(
     (state: RootState) => state.assistant.examples,
@@ -142,10 +147,9 @@ ${exploreRefinementExamples
       Task
       ----------
       Summarize the prompts above to generate a single prompt that includes all the relevant information. If there are conflicting or duplicative information, prefer the most recent prompt.
-    
-      Answer
-      ----------
-    
+
+      Only return the summary of the prompt with no extra explanatation or text
+        
     `
       const response = await sendMessage(contents, {})
 
@@ -511,6 +515,16 @@ ${exploreRefinementExamples
         showBoundary(new Error('Dimensions or measures are not defined'))
         return
       }
+      const cleanResponse = unquoteResponse(response)
+      console.log(cleanResponse)
+
+      let toggleString = '&toggle=dat,pik,vis'
+      if(settings['show_explore_data'].value) {
+        toggleString = '&toggle=pik,vis'
+      }
+
+      const newExploreUrl = cleanResponse + toggleString
+
 
       // get the filters
       const filterResponseJSON = await generateFilterParams(prompt)
@@ -532,7 +546,7 @@ ${exploreRefinementExamples
 
       return responseJSON
     },
-    [dimensions, measures, exploreGenerationExamples],
+    [dimensions, measures, exploreGenerationExamples, settings],
   )
 
   const sendMessage = async (message: string, parameters: ModelParameters) => {

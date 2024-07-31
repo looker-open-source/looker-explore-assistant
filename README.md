@@ -2,7 +2,7 @@
 
 This is an extension or API plugin for Looker that integrates LLM's hosted on Vertex AI into a natural language experience powered by Looker's modeling layer.
 
-![explore assistant](./static/Explore%20Assistant.gif)
+![explore assistant](./static/explore-assistant.gif)
 
 ## Description
 

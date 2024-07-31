@@ -28,7 +28,8 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import { App } from './App'
 import { Provider } from 'react-redux'
-import { store } from './store'
+import { store, persistor } from './store'
+import { PersistGate } from 'redux-persist/integration/react'
 import { ExtensionProvider } from '@looker/extension-sdk-react'
 import { Spinner } from '@looker/components'
 import { ErrorBoundary } from 'react-error-boundary'
@@ -58,23 +59,25 @@ const render = (Component: typeof App) => {
   ReactDOM.render(
     <>
       <Provider store={store}>
-        <ExtensionProvider
-          loadingComponent={<Spinner />}
-          requiredLookerVersion=">=21.0"
-        >
-          <ComponentsProvider
-            themeCustomizations={{
-              colors: { key: '#1A73E8' },
-              defaults: { externalLabel: false },
-            }}
+        <PersistGate loading={<Spinner />} persistor={persistor}>
+          <ExtensionProvider
+            loadingComponent={<Spinner />}
+            requiredLookerVersion=">=21.0"
           >
-           <ErrorBoundary 
-            FallbackComponent={Fallback} 
-            onError={logError}>
-            <Component />
-           </ErrorBoundary>
-          </ComponentsProvider>
-        </ExtensionProvider>
+            <ComponentsProvider
+              themeCustomizations={{
+                colors: { key: '#1A73E8' },
+                defaults: { externalLabel: false },
+              }}
+            >
+             <ErrorBoundary 
+              FallbackComponent={Fallback} 
+              onError={logError}>
+              <Component />
+             </ErrorBoundary>
+            </ComponentsProvider>
+          </ExtensionProvider>
+        </PersistGate>
       </Provider>
     </>,
     root,

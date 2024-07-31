@@ -57,7 +57,7 @@ const useSendVertexMessage = () => {
   const VERTEX_BIGQUERY_MODEL_ID = process.env.VERTEX_BIGQUERY_MODEL_ID || ''
 
   const { core40SDK } = useContext(ExtensionContext)
-  const { dimensions, measures, messageThread, exploreName, modelName } =
+  const { dimensions, measures, exploreName, modelName } =
     useSelector((state: RootState) => state.assistant)
 
   const settings = useSelector<RootState, Settings>(
@@ -156,39 +156,6 @@ ${exploreRefinementExamples
       return response
     },
     [exploreRefinementExamples],
-  )
-
-  const sendMessageWithThread = useCallback(
-    async (prompt: string) => {
-      const messageHistoryContents = messageThread
-        .slice(-20)
-        .map((message) => {
-          if ('message' in message && 'actor' in message) {
-            return `${message.actor}: ${message.message}`
-          }
-          return ''
-        })
-        .join('\n')
-
-      const contents = `
-
-      Conversation so far
-      ----------
-
-      ${messageHistoryContents}
-
-      Question
-      ---------
-      ${prompt}
-
-      Answer
-      ----------
-    `
-
-      const response = await sendMessage(contents, {})
-      return response
-    },
-    [messageThread],
   )
 
   const promptWrapper = (prompt: string) => {
@@ -515,16 +482,6 @@ ${exploreRefinementExamples
         showBoundary(new Error('Dimensions or measures are not defined'))
         return
       }
-      const cleanResponse = unquoteResponse(response)
-      console.log(cleanResponse)
-
-      let toggleString = '&toggle=dat,pik,vis'
-      if(settings['show_explore_data'].value) {
-        toggleString = '&toggle=pik,vis'
-      }
-
-      const newExploreUrl = cleanResponse + toggleString
-
 
       // get the filters
       const filterResponseJSON = await generateFilterParams(prompt)
@@ -592,7 +549,6 @@ ${exploreRefinementExamples
     generateFilterParams,
     generateVisualizationParams,
     sendMessage,
-    sendMessageWithThread,
     summarizePrompts,
     isSummarizationPrompt,
     summarizeExplore,

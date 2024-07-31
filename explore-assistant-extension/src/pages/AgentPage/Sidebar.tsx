@@ -138,7 +138,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
                 <div className="text-gray-400">No recent chats</div>
               )}
               {reverseHistory.map((item, index) => (
-                <Tooltip title={item.message} placement="right" arrow>
+                <Tooltip key={index} title={item.message} placement="right" arrow>
                   <div
                     key={index}
                     className={`flex items-center cursor-pointer hover:underline`}

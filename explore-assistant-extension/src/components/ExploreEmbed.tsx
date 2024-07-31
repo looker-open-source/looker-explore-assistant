@@ -42,7 +42,7 @@ export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
 
-  const { exploreId } = useSelector((state: RootState) => state.assistant)
+  const { exploreId, settings } = useSelector((state: RootState) => state.assistant)
 
   const canceller = (event: any) => {
     return { cancel: !event.modal }
@@ -75,15 +75,20 @@ export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
         }),
         toggle: 'pik,vis',
       }
+
+      let toggleString = '&toggle=dat,pik,vis'
+      if(settings['show_explore_data'].value) {
+        toggleString = '&toggle=pik,vis'
+      }
       
       const finalParams: { [key: string]: string } = {};
       for (const key in exploreParams) {
-        if (decodedParams.hasOwnProperty(key)) {
+        if (exploreParams.hasOwnProperty(key)) {
           if (key.includes('filter_config') || key.includes('vis') || key.includes('fields') 
               || key.startsWith('f[')) {
-            finalParams[key] = decodedParams[key]; // Do not re-encode JSON params, fields, or filters
+            finalParams[key] = exploreParams[key]; // Do not re-encode JSON params, fields, or filters
           } else {
-            finalParams[key] = encodeURIComponent(decodedParams[key]).replace(/%20/g, ' ')
+            finalParams[key] = encodeURIComponent(exploreParams[key]).replace(/%20/g, ' ')
           }
         }
       }
@@ -112,7 +117,7 @@ export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
         })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exploreUrl])
+  }, [exploreParams])
 
   return (
     <>

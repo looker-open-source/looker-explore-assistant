@@ -135,6 +135,9 @@ export const assistantSlice = createSlice({
     setHistory: (state, action: PayloadAction<HistoryItem[]>) => {
       state.history = action.payload
     },
+    clearHistory: (state) => {
+      state.history = []
+    },
     setDimensions: (state, action: PayloadAction<Field[]>) => {
       state.dimensions = action.payload
     },
@@ -183,6 +186,7 @@ export const {
   setIsChatMode,
   resetChatMode,
   addToHistory,
+  clearHistory,
   updateLastHistoryEntry,
   addPrompt,
   setHistory,

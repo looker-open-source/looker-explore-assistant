@@ -5,7 +5,12 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import AddIcon from '@mui/icons-material/Add'
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline'
 import { useDispatch, useSelector } from 'react-redux'
-import { resetChat, setIsChatMode, setQuery } from '../../slices/assistantSlice'
+import {
+  clearHistory,
+  resetChat,
+  setIsChatMode,
+  setQuery,
+} from '../../slices/assistantSlice'
 import { RootState } from '../../store'
 
 interface SidebarProps {
@@ -53,6 +58,10 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
     dispatch(resetChat())
     dispatch(setQuery(message))
     dispatch(setIsChatMode(true))
+  }
+
+  const handleClearHistory = () => {
+    dispatch(clearHistory())
   }
 
   const reverseHistory = [...history].reverse()
@@ -111,10 +120,20 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
       <nav className="flex-grow overflow-y-auto mt-4 ml-6 text-sm">
         {isExpanded && (
           <div>
-            <div className="mb-4 font-semibold">Recent</div>
+            <div className="mb-4 flex flex-row">
+              <div className="flex-grow font-semibold">Recent</div>
+              {history.length > 0 && (
+                <div
+                  className="px-4 text-xs text-gray-400 hover:underline cursor-pointer"
+                  onClick={handleClearHistory}
+                >
+                  clear
+                </div>
+              )}
+            </div>
             <div className="flex flex-col space-y-4">
               {history.length == 0 && (
-                <div className="text-gray-400">No recent chats</div> 
+                <div className="text-gray-400">No recent chats</div>
               )}
               {reverseHistory.map((item, index) => (
                 <Tooltip title={item.message} placement="right" arrow>

@@ -20,7 +20,7 @@ import {
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
 import { Close } from '@material-ui/icons'
-import { Tooltip } from '@material-ui/core'
+import { LinearProgress, Tooltip } from '@mui/material'
 
 const AgentPage = () => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
@@ -29,9 +29,15 @@ const AgentPage = () => {
   const { generateExploreUrl, isSummarizationPrompt, summarizePrompts } =
     useSendVertexMessage()
 
-  const { isChatMode, query, currentExploreThread, sidePanel } = useSelector(
-    (state: RootState) => state.assistant,
-  )
+  const {
+    isChatMode,
+    query,
+    currentExploreThread,
+    sidePanel,
+    dimensions,
+    measures,
+    examples,
+  } = useSelector((state: RootState) => state.assistant)
 
   const submitMessage = useCallback(async () => {
     dispatch(addPrompt(query))
@@ -97,6 +103,30 @@ const AgentPage = () => {
 
   const toggleDrawer = () => {
     setExpanded(!expanded)
+  }
+
+  const isAgentReady =
+    dimensions.length > 0 &&
+    measures.length > 0 &&
+    examples.exploreGenerationExamples.length > 0 &&
+    examples.exploreRefinementExamples.length > 0
+
+  if (!isAgentReady) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
+          <h1 className="text-5xl font-bold">
+            <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
+              Hello.
+            </span>
+          </h1>
+          <h1 className="text-3xl text-gray-400">Getting everything ready...</h1>
+          <div className="max-w-2xl text-blue-300">
+            <LinearProgress color="inherit" />
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

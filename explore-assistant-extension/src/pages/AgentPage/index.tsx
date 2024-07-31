@@ -64,7 +64,7 @@ const AgentPage = () => {
     if (isSummary) {
       dispatch(
         addMessage({
-          exploreUrl: currentExploreThread.exploreUrl,
+          exploreUrl: newExploreUrl,
           actor: 'system',
           createdAt: Date.now(),
           type: 'summarize',

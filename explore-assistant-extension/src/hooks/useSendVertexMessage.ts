@@ -259,6 +259,8 @@ ${exploreRefinementExamples
         }
       })
 
+      console.log(params)
+
       // get the contents of the explore query
       const createQuery = await core40SDK.ok(
         core40SDK.create_query({

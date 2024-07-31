@@ -32,7 +32,7 @@ const PromptInput = () => {
   }, [isQuerying, inputText])
 
   const handleKeyPress = (e: any) => {
-    if (e.key === 'Enter') {
+    if(e.key === 'Enter' && e.keyCode !== 229 ) {
       handleSubmit()
     }
   }

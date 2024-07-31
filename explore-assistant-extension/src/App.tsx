@@ -33,9 +33,6 @@ const ExploreApp = () => {
           <Route path="/index" exact>
               <AgentPage />
           </Route>
-          <Route path="/chat">
-              <ExploreChatPage />
-          </Route>
           <Route>
             <Redirect to="/index" />
           </Route>

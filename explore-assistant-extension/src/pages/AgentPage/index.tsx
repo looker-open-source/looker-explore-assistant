@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import PromptInput from './PromptInput'
 import Sidebar from './Sidebar'
 
@@ -8,10 +8,11 @@ import { ExploreEmbed } from '../../components/ExploreEmbed'
 import { RootState } from '../../store'
 import { useDispatch, useSelector } from 'react-redux'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
-import { addMessage, addPrompt, setExploreUrl, setIsQuerying } from '../../slices/assistantSlice'
+import { addMessage, addPrompt, setExploreUrl, setIsQuerying, setQuery } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 
 const AgentPage = () => {
+  const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
   const [expanded, setExpanded] = useState(false)
   const {
@@ -50,6 +51,7 @@ const AgentPage = () => {
     }
     const newExploreUrl = await generateExploreUrl(promptSummary)
     dispatch(setIsQuerying(false))
+    dispatch(setQuery(''))
 
     if (isSummary) {
       dispatch(
@@ -80,6 +82,8 @@ const AgentPage = () => {
       return
     }
     submitMessage()
+
+    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [query])
 
   const toggleDrawer = () => {
@@ -120,6 +124,7 @@ const AgentPage = () => {
             </>
           )}
         </div>
+        <div ref={endOfMessagesRef} /> {/* Ref for the last message */}
         <div className={`
            fixed bottom-0 left-1/2 transform -translate-x-1/2 w-4/5
 

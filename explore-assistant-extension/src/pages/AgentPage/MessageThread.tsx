@@ -37,9 +37,9 @@ const MessageThread = () => {
         }
       })}
       {isQuerying && (
-        <Space justify="end">
+        <div className="flex flex-col">
           <Spinner size={20} color={'key'} />
-        </Space>
+        </div>
       )}
     </div>
   )

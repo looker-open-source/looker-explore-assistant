@@ -10,6 +10,7 @@ const MessageThread = () => {
   const { currentExploreThread, isQuerying } = useSelector(
     (state: RootState) => state.assistant,
   )
+
   const messages = currentExploreThread.messages
   return (
     <div>

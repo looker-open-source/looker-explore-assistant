@@ -17,7 +17,7 @@ interface Message {
   actor: 'user' | 'system'
   createdAt: number
   type: 'text'
-  intent: 'exploreRefinement' | 'summarize' | 'dataQuestion'
+  intent?: 'exploreRefinement' | 'summarize' | 'dataQuestion'
 }
 
 interface ExploreMessage {

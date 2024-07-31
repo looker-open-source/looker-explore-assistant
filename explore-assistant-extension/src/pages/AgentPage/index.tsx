@@ -18,7 +18,6 @@ const AgentPage = () => {
     generateExploreUrl,
     isSummarizationPrompt,
     summarizePrompts,
-    isDataQuestionPrompt,
   } = useSendVertexMessage()
 
   const { isChatMode, query, currentExploreThread } = useSelector(
@@ -27,30 +26,23 @@ const AgentPage = () => {
 
   const submitMessage = useCallback(async () => {
     dispatch(addPrompt(query))
+    dispatch(setIsQuerying(true))
     
     const promptList = [...currentExploreThread.promptList, query]
-
-    
-
-    const [promptSummary, isSummary, isDataQuestion] = await Promise.all([
-      summarizePrompts(promptList),
-      isSummarizationPrompt(query),
-      isDataQuestionPrompt(query),
-    ])
 
     dispatch(
       addMessage({
         message: query,
         actor: 'user',
         createdAt: Date.now(),
-        intent: isDataQuestion
-          ? 'dataQuestion'
-          : isSummary
-          ? 'summarize'
-          : 'exploreRefinement',
         type: 'text',
       }),
     )
+    
+    const [promptSummary, isSummary] = await Promise.all([
+      summarizePrompts(promptList),
+      isSummarizationPrompt(query),
+    ])
 
     if(!promptSummary) {
       dispatch(setIsQuerying(false))

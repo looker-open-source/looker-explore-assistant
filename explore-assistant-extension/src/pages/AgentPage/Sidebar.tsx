@@ -16,8 +16,10 @@ interface SidebarProps {
 const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const dispatch = useDispatch()
   const [isExpanded, setIsExpanded] = React.useState(expanded)
-  const { isChatMode } = useSelector((state: RootState) => state.assistant)
-  
+  const { isChatMode, isQuerying } = useSelector(
+    (state: RootState) => state.assistant,
+  )
+
   const sidebarItems = [
     { text: 'New chat' },
     { text: 'Ready to Assist' },
@@ -39,8 +41,12 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
     }
   }
 
+  const canReset = isChatMode && !isQuerying
+
   const handleNewChat = () => {
-   dispatch(resetChat())
+    if (canReset) {
+      dispatch(resetChat())
+    }
   }
 
   return (
@@ -66,7 +72,11 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
             className={`
               mr-2 flex flex-row items-center
 
-              ${isChatMode ? 'cursor-pointer bg-gray-300 text-gray-600 hover:text-gray-700' : 'bg-gray-200 text-gray-400' }
+              ${
+                canReset
+                  ? 'cursor-pointer bg-gray-300 text-gray-600 hover:text-gray-700'
+                  : 'bg-gray-200 text-gray-400'
+              }
               
               rounded-full p-2
               

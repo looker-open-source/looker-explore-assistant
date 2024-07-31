@@ -227,10 +227,6 @@ ${exploreRefinementExamples
     return response === 'data summary'
   }
 
-  const isDataQuestionPrompt = async (prompt: string) => {
-    return false
-  }
-
   const summarizeExplore = useCallback(
     async (exploreQueryArgs: string) => {
       const params = new URLSearchParams(exploreQueryArgs)
@@ -406,7 +402,6 @@ ${exploreRefinementExamples
     sendMessageWithThread,
     summarizePrompts,
     isSummarizationPrompt,
-    isDataQuestionPrompt,
     summarizeExplore,
   }
 }

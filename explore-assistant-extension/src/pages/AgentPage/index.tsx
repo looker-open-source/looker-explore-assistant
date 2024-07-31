@@ -8,18 +8,23 @@ import { ExploreEmbed } from '../../components/ExploreEmbed'
 import { RootState } from '../../store'
 import { useDispatch, useSelector } from 'react-redux'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
-import { addMessage, addPrompt, setExploreUrl, setIsQuerying, setQuery } from '../../slices/assistantSlice'
+import {
+  addMessage,
+  addPrompt,
+  setExploreUrl,
+  setIsQuerying,
+  setQuery,
+} from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
+import clsx from 'clsx'
 
 const AgentPage = () => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
   const [expanded, setExpanded] = useState(false)
-  const {
-    generateExploreUrl,
-    isSummarizationPrompt,
-    summarizePrompts,
-  } = useSendVertexMessage()
+  const [showExplore, setShowExplore] = useState(true)
+  const { generateExploreUrl, isSummarizationPrompt, summarizePrompts } =
+    useSendVertexMessage()
 
   const { isChatMode, query, currentExploreThread } = useSelector(
     (state: RootState) => state.assistant,
@@ -28,7 +33,7 @@ const AgentPage = () => {
   const submitMessage = useCallback(async () => {
     dispatch(addPrompt(query))
     dispatch(setIsQuerying(true))
-    
+
     const promptList = [...currentExploreThread.promptList, query]
 
     dispatch(
@@ -39,13 +44,13 @@ const AgentPage = () => {
         type: 'text',
       }),
     )
-    
+
     const [promptSummary, isSummary] = await Promise.all([
       summarizePrompts(promptList),
       isSummarizationPrompt(query),
     ])
 
-    if(!promptSummary) {
+    if (!promptSummary) {
       dispatch(setIsQuerying(false))
       return
     }
@@ -97,13 +102,45 @@ const AgentPage = () => {
       <main
         className={`flex-grow flex flex-col transition-all duration-300 ${
           expanded ? 'ml-80' : 'ml-16'
-        } p-4 h-screen`}
+        } h-screen`}
       >
-        <div className="flex-grow p-4 pb-36">
+        <div className="flex-grow">
           {isChatMode ? (
-            <div className="">
-              <ExploreEmbed />
-              <MessageThread  />
+            <div className="relative flex flex-row h-screen px-4 pt-4 ">
+              <div
+                className={clsx(
+                  'flex flex-col relative',
+                  showExplore ? 'w-2/5' : 'w-full',
+                )}
+              >
+                <div className="flex-grow">
+                  <MessageThread />
+                </div>
+                <div
+                  className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4/5  transition-all duration-300 ease-in-out`}
+                >
+                  <PromptInput />
+                </div>
+              </div>
+              {showExplore && (
+                <div className="flex-grow flex flex-col p-2">
+                  <div className="flex flex-row bg-gray-400 text-white rounded-t-lg px-4 py-2 text-sm">
+                    <div className="flex-grow">Explore</div>
+                    <div className="">
+                      <button
+                        onClick={() => setShowExplore(false)}
+                        className="text-white hover:text-gray-300"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                  <div className="bg-gray-200 border-l-2 border-r-2 border-gray-400 flex-grow">
+                    <ExploreEmbed />
+                  </div>
+                  <div className="bg-gray-400 text-white px-4 py-2 text-sm rounded-b-lg"></div>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -121,19 +158,17 @@ const AgentPage = () => {
               <div className="flex justify-center items-center mt-16">
                 <SamplePrompts />
               </div>
+
+              <div
+                className={`fixed bottom-0 left-1/2 transform -translate-x-1/2 w-4/5 transition-all duration-300 ease-in-out
+                            ${expanded ? 'pl-80' : ''} `}
+              >
+                <PromptInput />
+              </div>
             </>
           )}
         </div>
         <div ref={endOfMessagesRef} /> {/* Ref for the last message */}
-        <div className={`
-           fixed bottom-0 left-1/2 transform -translate-x-1/2 w-4/5
-
-          transition-all duration-300 ease-in-out
-
-           ${expanded ? 'pl-80' : ''}
-          `}>
-          <PromptInput />
-        </div>
       </main>
     </div>
   )

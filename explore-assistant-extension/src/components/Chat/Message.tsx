@@ -76,10 +76,6 @@ interface MessageProps {
 const Message = ({ message, actor, children }: MessageProps) => (
   <Card border={'none'} width={'100%'}>
     <CardContent  p={0}>
-      <Paragraph fontSize="xsmall" color="text1" mb="u2">
-        {actor == 'system' && 'Gemini'}
-      </Paragraph>
-
       <Section
         fontSize={'small'}
         className={styles.chatBubble + ' ' + styles[actor]}

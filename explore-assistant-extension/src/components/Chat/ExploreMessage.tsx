@@ -6,17 +6,16 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store'
 
-import { ExploreParams } from '../../slices/assistantSlice'
+import { ExploreParams, setSidePanelExploreParams } from '../../slices/assistantSlice'
 import { ExploreHelper } from '../../utils/ExploreHelper'
 import {
   openSidePanel,
-  setSidePanelExploreUrl,
 } from '../../slices/assistantSlice'
 import { OpenInNew } from '@material-ui/icons'
 
 interface ExploreMessageProps {
   prompt: string
-  exploreParams: ExploreParams | null
+  exploreParams: ExploreParams
 }
 
 const ExploreMessage = ({ prompt, exploreParams }: ExploreMessageProps) => {
@@ -29,7 +28,7 @@ const ExploreMessage = ({ prompt, exploreParams }: ExploreMessageProps) => {
   }
 
   const openSidePanelExplore = () => {
-    dispatch(setSidePanelExploreUrl(queryArgs))
+    dispatch(setSidePanelExploreParams(exploreParams))
     dispatch(openSidePanel())
   }
 

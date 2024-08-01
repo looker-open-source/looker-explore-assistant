@@ -1,10 +1,9 @@
-name: Node.js CI
+name: Explore Assistant Extension CI
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches:
+      - '**'  # This will run on pushes to any branch
 
 jobs:
   test:

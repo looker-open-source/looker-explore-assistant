@@ -13,6 +13,7 @@ import looker_visualization_doc from '../documents/looker_visualization_doc.md'
 import { ModelParameters } from '../utils/VertexHelper'
 import { BigQueryHelper } from '../utils/BigQueryHelper'
 import { ExploreParams } from '../slices/assistantSlice'
+import { ExploreFilterValidator, FieldType } from '../utils/ExploreFilterHelper'
 
 const parseJSONResponse = (jsonString: string) => {
   if (jsonString.startsWith('```json') && jsonString.endsWith('```')) {
@@ -57,8 +58,9 @@ const useSendVertexMessage = () => {
   const VERTEX_BIGQUERY_MODEL_ID = process.env.VERTEX_BIGQUERY_MODEL_ID || ''
 
   const { core40SDK } = useContext(ExtensionContext)
-  const { dimensions, measures, exploreName, modelName } =
-    useSelector((state: RootState) => state.assistant)
+  const { dimensions, measures, exploreName, modelName } = useSelector(
+    (state: RootState) => state.assistant,
+  )
 
   const settings = useSelector<RootState, Settings>(
     (state) => state.assistant.settings,
@@ -200,19 +202,18 @@ ${exploreRefinementExamples
 
   const summarizeExplore = useCallback(
     async (exploreParams: ExploreParams) => {
-
       const filters: Record<string, string> = {}
-      if(exploreParams.filters !== undefined) {
+      if (exploreParams.filters !== undefined) {
         const exploreFiltters = exploreParams.filters
         Object.keys(exploreFiltters).forEach((key: string) => {
-          if(!exploreFiltters[key]) {
+          if (!exploreFiltters[key]) {
             return
           }
           const filter: string[] | string = exploreFiltters[key]
           if (typeof filter === 'string') {
             filters[key] = filter
           }
-          if(Array.isArray(filter)) {
+          if (Array.isArray(filter)) {
             filters[key] = filter.join(', ')
           }
         })
@@ -271,39 +272,37 @@ ${exploreRefinementExamples
     },
     [exploreName, modelName],
   )
-
   const generateFilterParams = useCallback(
     async (prompt: string) => {
       // get the filters
       const filterContents = `
-
-   ${looker_filter_doc}
-   
-   # LookML Definitions
-   
-   Below is a table of dimensions and measures that can be used to be determine what the filters should be. Pay attention to the dimension type when translating the filters.
-   
-   | Field Id | Field Type | LookML Type | Label | Description | Tags |
-   |------------|------------|-------------|-------|-------------|------|
-   ${dimensions.map(formatRow).join('\n')}
-   ${measures.map(formatRow).join('\n')}
-   
-   # Instructions
-   
-   The user asked the following question:
-   
-   \`\`\`
-   ${prompt}
-   \`\`\`
-   
-   
-   Your job is to follow the steps below and generate a JSON object.
-   
-   * Step 1: Your task is the look at the following data question that the user is asking and determin the filter expression for it. You should return a JSON list of filters to apply. Each element in the list will be a pair of the field id and the filter expression. Your output will look like \` [ { "field_id": "example_view.created_date", "filter_expression": "this year" } ]\`
-   * Step 2: verify that you're only using valid expressions for the filter values. If you do not know what the valid expressions are, refer to the table above. If you are still unsure, don't use the filter.
-   * Step 3: verify that the field ids are indeed Field Ids from the table. If they are not, you should return an empty dictionary. There should be a period in the field id.
-   
-   `
+  
+     ${looker_filter_doc}
+     
+     # LookML Definitions
+     
+     Below is a table of dimensions and measures that can be used to determine what the filters should be. Pay attention to the dimension type when translating the filters.
+     
+     | Field Id | Field Type | LookML Type | Label | Description | Tags |
+     |------------|------------|-------------|-------|-------------|------|
+     ${dimensions.map(formatRow).join('\n')}
+     ${measures.map(formatRow).join('\n')}
+     
+     # Instructions
+     
+     The user asked the following question:
+     
+     \`\`\`
+     ${prompt}
+     \`\`\`
+     
+     
+     Your job is to follow the steps below and generate a JSON object.
+     
+     * Step 1: Your task is the look at the following data question that the user is asking and determine the filter expression for it. You should return a JSON list of filters to apply. Each element in the list will be a pair of the field id and the filter expression. Your output will look like \`[ { "field_id": "example_view.created_date", "filter_expression": "this year" } ]\`
+     * Step 2: verify that you're only using valid expressions for the filter values. If you do not know what the valid expressions are, refer to the table above. If you are still unsure, don't use the filter.
+     * Step 3: verify that the field ids are indeed Field Ids from the table. If they are not, you should return an empty dictionary. There should be a period in the field id.
+     `
       console.log(filterContents)
       const filterResponseInitial = await sendMessage(filterContents, {})
 
@@ -311,27 +310,51 @@ ${exploreRefinementExamples
       const filterContentsCheck =
         filterContents +
         `
-
-         # Output
-   
-         ${filterResponseInitial}
-   
-         # Instructions
-   
-         Verify the output, make changes and return the JSON
-   
-         `
+  
+           # Output
+     
+           ${filterResponseInitial}
+     
+           # Instructions
+     
+           Verify the output, make changes and return the JSON
+     
+           `
       const filterResponseCheck = await sendMessage(filterContentsCheck, {})
       const filterResponseCheckJSON = parseJSONResponse(filterResponseCheck)
 
       // Iterate through each filter
       const filterResponseJSON: any = {}
 
-      // Iterate through each filter
+      // Validate each filter
       filterResponseCheckJSON.forEach(function (filter: {
         field_id: string
         filter_expression: string
       }) {
+        const field =
+          dimensions.find((d) => d.name === filter.field_id) ||
+          measures.find((m) => m.name === filter.field_id)
+        console.log(dimensions)
+        console.log(measures)
+        if (!field) {
+          console.log(`Invalid field: ${filter.field_id}`)
+          return
+        }
+
+        console.log(field)
+
+        const isValid = ExploreFilterValidator.isFilterValid(
+          field.type as FieldType,
+          filter.filter_expression,
+        )
+
+        if (!isValid) {
+          console.log(
+            `Invalid filter expression for field ${filter.field_id}: ${filter.filter_expression}`,
+          )
+          return
+        }
+
         // Check if the field_id already exists in the hash
         if (!filterResponseJSON[filter.field_id]) {
           // If not, create an empty array for this field_id
@@ -501,7 +524,7 @@ ${exploreRefinementExamples
         return
       }
 
-      const [filterResponseJSON, responseJSON ] = await Promise.all([
+      const [filterResponseJSON, responseJSON] = await Promise.all([
         generateFilterParams(prompt),
         generateBaseExploreParams(prompt),
       ])

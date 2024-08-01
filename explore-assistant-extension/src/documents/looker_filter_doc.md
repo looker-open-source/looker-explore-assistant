@@ -68,6 +68,21 @@ Date filters can also be combined together:
 
 Absolute date filters use the specific date values to generate query results. These are useful when creating queries for specific date ranges.
 
+| Example                   | Description                                                                                                                  |
+|---------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| 2018/05/29                | sometime on 2018/05/29                                                                                                        |
+| 2018/05/10 for 3 days     | from 2018/05/10 00:00:00 through 2018/05/12 23:59:59                                                                          |
+| after 2018/05/10          | 2018/05/10 00:00:00 and after                                                                                                |
+| before 2018/05/10         | before 2018/05/10 00:00:00                                                                                                   |
+| 2018/05                   | within the entire month of 2018/05                                                                                           |
+| 2018/05 for 2 months      | within the entire months of 2018/05 and 2018/06                                                                              |
+| 2018/05/10 05:00 for 5 hours | from 2018/05/10 05:00:00 through 2018/05/10 09:59:59                                                                      |
+| 2018/05/10 for 5 months   | from 2018/05/10 00:00:00 through 2018/10/09 23:59:59                                                                         |
+| 2018                      | entire year of 2018 (2018/01/01 00:00:00 through 2018/12/31 23:59:59)                                                        |
+| FY2018                    | entire fiscal year starting in 2018 (if your Looker developers have specified that your fiscal year starts in April then this is 2018/04/01 00:00 through 2019/03/31 23:59) |
+| FY2018-Q1                 | first quarter of the fiscal year starting in 2018 (if your Looker developers have specified that your fiscal year starts in April then this is 2018/04/01 00:00:00 through 2018/06/30 23:59:59) |
+
+
 ### Relative Dates
 
 Relative date filters allow you to create queries with rolling date values relative to the current date. These are useful when creating queries that update each time you run the query.

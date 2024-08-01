@@ -1,4 +1,28 @@
-export type FieldType = 'string' | 'number' | 'date' | 'boolean'
+export type FieldType =
+  | 'string'
+  | 'number'
+  | 'date'
+  | 'boolean'
+  | 'date_date'
+  | 'date_time'
+  | 'date_hour'
+  | 'date_hour_of_day'
+  | 'date_millisecond'
+  | 'date_minute'
+  | 'date_month'
+  | 'date_month_num'
+  | 'date_quarter'
+  | 'date_quarter_of_year'
+  | 'date_second'
+  | 'date_time_of_day'
+  | 'date_week'
+  | 'date_day_of_week'
+  | 'date_week_of_year'
+  | 'date_year'
+  | 'date_day_of_year'
+  | 'location'
+  | 'location_latitude'
+  | 'location_longitude'
 
 export interface Field {
   name: string
@@ -10,24 +34,24 @@ export interface FilterExpression {
 }
 
 export class ExploreFilterValidator {
-    static isValidStringFilter(filter: string): boolean {
-        const rules: ((f: string) => boolean)[] = [
-          (f) => /^[^%,]+$/.test(f), // Exact match
-          (f) => /^[^%,]+(,[^%,]+)+$/.test(f), // Multiple exact matches
-          (f) => /^%[^%]+%$/.test(f), // Contains
-          (f) => /^[^%]+%$/.test(f), // Starts with
-          (f) => /^%[^%]+$/.test(f), // Ends with
-          (f) => /^[^%]+%[^%]+$/.test(f), // Starts with and ends with
-          (f) => f === 'EMPTY' || f === 'NULL', // EMPTY or NULL
-          (f) => /^-[^%,]+$/.test(f), // Not equal to
-          (f) => /^-(%[^%]+%|[^%]+%|%[^%]+)$/.test(f), // Not contains, not starts with, not ends with
-          (f) => f === '-EMPTY' || f === '-NULL', // Not EMPTY or not NULL
-          (f) => /^[^%]+%(,[^%,]+)+$/.test(f), // Starts with or exact match
-          (f) => /^_[^%]+$/.test(f), // Single character wildcard
-        ];
-    
-        return rules.some((rule) => rule(filter));
-      }
+  static isValidStringFilter(filter: string): boolean {
+    const rules: ((f: string) => boolean)[] = [
+      (f) => /^[^%,]+$/.test(f), // Exact match
+      (f) => /^[^%,]+(,[^%,]+)+$/.test(f), // Multiple exact matches
+      (f) => /^%[^%]+%$/.test(f), // Contains
+      (f) => /^[^%]+%$/.test(f), // Starts with
+      (f) => /^%[^%]+$/.test(f), // Ends with
+      (f) => /^[^%]+%[^%]+$/.test(f), // Starts with and ends with
+      (f) => f === 'EMPTY' || f === 'NULL', // EMPTY or NULL
+      (f) => /^-[^%,]+$/.test(f), // Not equal to
+      (f) => /^-(%[^%]+%|[^%]+%|%[^%]+)$/.test(f), // Not contains, not starts with, not ends with
+      (f) => f === '-EMPTY' || f === '-NULL', // Not EMPTY or not NULL
+      (f) => /^[^%]+%(,[^%,]+)+$/.test(f), // Starts with or exact match
+      (f) => /^_[^%]+$/.test(f), // Single character wildcard
+    ]
+
+    return rules.some((rule) => rule(filter))
+  }
 
   static isValidNumberFilter(filter: string): boolean {
     const singleRules: ((f: string) => boolean)[] = [
@@ -75,38 +99,64 @@ export class ExploreFilterValidator {
 
   static isValidDateFilter(filter: string): boolean {
     const rules: ((f: string) => boolean)[] = [
+      // This {interval}
       (f) => /^(this|next|last)\s+(week|month|quarter|year)$/.test(f),
+      // {n} {interval}, {n} {interval} ago, {n} {interval} ago for {n} {interval}, {n} {interval} from now, {n} {interval} from now for {n} {interval}
       (f) =>
-        /^\d+\s+(second|minute|hour|day|week|month|year)s?(\s+ago)?$/.test(f),
+        /^\d+\s+(second|minute|hour|day|week|month|year)s?(\s+(ago|from\s+now))?$/.test(
+          f,
+        ),
       (f) =>
         /^\d+\s+(second|minute|hour|day|week|month|year)s?\s+ago\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
-          f,
-        ),
-      (f) =>
-        /^before\s+\d+\s+(second|minute|hour|day|week|month|year)s?\s+ago$/.test(
-          f,
-        ),
-      (f) =>
-        /^(before|after)\s+\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?$/.test(f),
-      (f) =>
-        /^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?\s+to\s+\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?$/.test(
-          f,
-        ),
-      (f) => /^(today|yesterday|tomorrow)$/.test(f),
-      (f) =>
-        /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i.test(f),
-      (f) => /^next\s+(week|month|quarter|year)$/.test(f),
-      (f) =>
-        /^\d+\s+(second|minute|hour|day|week|month|year)s?\s+from\s+now$/.test(
           f,
         ),
       (f) =>
         /^\d+\s+(second|minute|hour|day|week|month|year)s?\s+from\s+now\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
           f,
         ),
-      (f) => /^this\s+year\s+to\s+(second|minute|hour|day|week|month)$/.test(f),
+      // before {n} {interval} ago
+      (f) =>
+        /^before\s+\d+\s+(second|minute|hour|day|week|month|year)s?\s+ago$/.test(
+          f,
+        ),
+      // before {time}, after {time}
+      (f) =>
+        /^(before|after)\s+\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?$/.test(f),
+      // {time} to {time}
+      (f) =>
+        /^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?\s+to\s+\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?$/.test(
+          f,
+        ),
+      // today, yesterday, tomorrow
+      (f) => /^(today|yesterday|tomorrow)$/.test(f),
+      // {day of week}
+      (f) =>
+        /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i.test(f),
+      // next {week, month, quarter, fiscal quarter, year, fiscal year}
+      (f) =>
+        /^next\s+(week|month|quarter|fiscal\s+quarter|year|fiscal\s+year)$/.test(
+          f,
+        ),
+      // this {interval} to {interval}
+      (f) =>
+        /^this\s+(year|month|week|quarter|fiscal\s+year)\s+to\s+(second|minute|hour|day|week|month|quarter|fiscal\s+year)$/.test(
+          f,
+        ),
+      // {time} for {n} {interval}
       (f) =>
         /^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
+          f,
+        ),
+      // FY{year}, FY{year}-Q{quarter}
+      (f) => /^FY\d{4}$/.test(f),
+      (f) => /^FY\d{4}-Q[1-4]$/.test(f),
+      // Absolute Dates
+      (f) => /^\d{4}\/(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])$/.test(f),
+      (f) => /^\d{4}\/(0[1-9]|1[0-2])$/.test(f),
+      (f) => /^\d{4}$/.test(f),
+      // {time} for {n} {interval} (using slashes)
+      (f) =>
+        /^\d{4}\/\d{2}\/\d{2}(\s+\d{2}:\d{2}:\d{2})?\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
           f,
         ),
     ]
@@ -119,6 +169,10 @@ export class ExploreFilterValidator {
     return /^(yes|no|true|false)$/i.test(filter)
   }
 
+  static isValidLocationFilter(filter: string): boolean {
+    return /^(latitude|longitude):-?\d+(\.\d+)?$/.test(filter)
+  }
+
   static isFilterValid(fieldType: FieldType, filter: string): boolean {
     switch (fieldType) {
       case 'string':
@@ -126,9 +180,30 @@ export class ExploreFilterValidator {
       case 'number':
         return this.isValidNumberFilter(filter)
       case 'date':
+      case 'date_date':
+      case 'date_time':
+      case 'date_hour':
+      case 'date_hour_of_day':
+      case 'date_millisecond':
+      case 'date_minute':
+      case 'date_month':
+      case 'date_month_num':
+      case 'date_quarter':
+      case 'date_quarter_of_year':
+      case 'date_second':
+      case 'date_time_of_day':
+      case 'date_week':
+      case 'date_day_of_week':
+      case 'date_week_of_year':
+      case 'date_year':
+      case 'date_day_of_year':
         return this.isValidDateFilter(filter)
       case 'boolean':
         return this.isValidBooleanFilter(filter)
+      case 'location':
+      case 'location_latitude':
+      case 'location_longitude':
+        return this.isValidLocationFilter(filter)
       default:
         return false
     }

@@ -30,16 +30,19 @@ import { LookerEmbedSDK } from '@looker/embed-sdk'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store'
+import { ExploreHelper } from '../utils/ExploreHelper'
+import { ExploreParams } from '../slices/assistantSlice'
 
 export interface ExploreEmbedProps {
-  exploreUrl: string
+  exploreParams: ExploreParams
 }
 
-export const ExploreEmbed = ({ exploreUrl }: ExploreEmbedProps) => {
+
+export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
 
-  const { exploreId } = useSelector((state: RootState) => state.assistant)
+  const { exploreId, settings } = useSelector((state: RootState) => state.assistant)
 
   const canceller = (event: any) => {
     return { cancel: !event.modal }
@@ -60,7 +63,8 @@ export const ExploreEmbed = ({ exploreUrl }: ExploreEmbedProps) => {
   useEffect(() => {
     const hostUrl = extensionSDK?.lookerHostData?.hostUrl
     const el = ref.current
-    if (el && hostUrl && exploreUrl) {
+    if (el && hostUrl && exploreParams) {
+
       const paramsObj: any = {
         // For Looker Original use window.origin for Looker Core use hostUrl
         embed_domain: hostUrl, //window.origin, //hostUrl,
@@ -69,17 +73,21 @@ export const ExploreEmbed = ({ exploreUrl }: ExploreEmbedProps) => {
           key_color: '#174ea6',
           background_color: '#f4f6fa',
         }),
+        toggle: 'pik,vis,dat',
       }
-      exploreUrl.split('&').map((param) => {
-        const [key, ...rest] = param.split('=')
-        // paramsObj[key] = rest.join('=')
-        if (key === 'filter_expression' || key === 'dynamic_fields') {
-          // console.log('rest', rest)
-          paramsObj[key] = rest.join('=')
-        } else {
-          paramsObj[key] = param.split('=')[1]
-        }
-      })
+
+
+      if(settings['show_explore_data'].value) {
+        paramsObj['toggle'] = 'pik,vis'
+      }
+      
+      const encodedParams = ExploreHelper.encodeExploreParams(exploreParams)
+      for (const key in encodedParams) {
+        paramsObj[key] = encodedParams[key]
+      }
+
+      console.log('Final Params', paramsObj)
+
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
       LookerEmbedSDK.createExploreWithId(exploreId)
@@ -104,7 +112,11 @@ export const ExploreEmbed = ({ exploreUrl }: ExploreEmbedProps) => {
         })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exploreUrl])
+  }, [exploreParams])
+
+  if (!exploreParams || Object.keys(exploreParams).length === 0) {
+    return <></>
+  }
 
   return (
     <>

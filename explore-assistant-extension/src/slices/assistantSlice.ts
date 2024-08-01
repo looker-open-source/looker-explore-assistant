@@ -1,5 +1,15 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
+export interface ExploreParams {
+  fields?: string[]
+  filters?: Record<string, string>
+  pivots?: string[]
+  vis_config?: any
+  sorts?: string[]
+  limit?: string
+
+}
+
 export interface Setting {
   name: string
   description: string
@@ -31,7 +41,7 @@ interface Message {
 }
 
 interface ExploreMessage {
-  exploreUrl: string
+  exploreParams: ExploreParams
   actor: 'system'
   createdAt: number
   type: 'explore'
@@ -39,7 +49,7 @@ interface ExploreMessage {
 }
 
 interface SummarizeMesage {
-  exploreUrl: string
+  exploreParams: ExploreParams
   actor: 'system'
   createdAt: number
   type: 'summarize'
@@ -50,6 +60,7 @@ type ChatMessage = Message | ExploreMessage | SummarizeMesage
 type ExploreThread = {
   messages: ChatMessage[]
   exploreUrl: string
+  exploreParams: ExploreParams
   summarizedPrompt: string
   promptList: string[]
 }
@@ -60,7 +71,7 @@ export interface AssistantState {
   currentExploreThread: ExploreThread
   sidePanel: {
     isSidePanelOpen: boolean
-    exploreUrl: string
+    exploreParams: ExploreParams
   }
   history: HistoryItem[]
   dimensions: Field[]
@@ -88,12 +99,13 @@ export const initialState: AssistantState = {
   currentExploreThread: {
     messages: [],
     exploreUrl: '',
+    exploreParams: {},
     summarizedPrompt: '',
     promptList: [],
   },
   sidePanel: {
     isSidePanelOpen: false,
-    exploreUrl: '',
+    exploreParams: {},
   },
   history: [],
   dimensions: [],
@@ -147,8 +159,8 @@ export const assistantSlice = createSlice({
     closeSidePanel: (state) => {
       state.sidePanel.isSidePanelOpen = false
     },
-    setSidePanelExploreUrl: (state, action: PayloadAction<string>) => {
-      state.sidePanel.exploreUrl = action.payload
+    setSidePanelExploreParams: (state, action: PayloadAction<ExploreParams>) => {
+      state.sidePanel.exploreParams = action.payload
     },
     updateLastHistoryEntry: (state, action: PayloadAction<string>) => {
       state.history[state.history.length - 1] = {
@@ -173,6 +185,9 @@ export const assistantSlice = createSlice({
     },
     setMeasures: (state, action: PayloadAction<Field[]>) => {
       state.measures = action.payload
+    },
+    setExploreParams: (state, action: PayloadAction<ExploreParams>) => {
+      state.currentExploreThread.exploreParams = action.payload
     },
     setExploreUrl: (state, action: PayloadAction<string>) => {
       state.currentExploreThread.exploreUrl = action.payload
@@ -202,16 +217,10 @@ export const assistantSlice = createSlice({
     setModelName: (state, action: PayloadAction<string>) => {
       state.modelName = action.payload
     },
-    setExploreGenerationExamples(
-      state,
-      action: PayloadAction<AssistantState['examples']['exploreGeneration']>,
-    ) {
+    setExploreGenerationExamples(state, action: PayloadAction<AssistantState['examples']['exploreGenerationExamples']>) {
       state.examples.exploreGenerationExamples = action.payload
     },
-    setExploreRefinementExamples(
-      state,
-      action: PayloadAction<AssistantState['examples']['exploreRefinement']>,
-    ) {
+    setExploreRefinementExamples(state, action: PayloadAction<AssistantState['examples']['exploreRefinementExamples']>) {
       state.examples.exploreRefinementExamples = action.payload
     },
   },
@@ -228,7 +237,7 @@ export const {
   setHistory,
   setDimensions,
   setMeasures,
-  setExploreUrl,
+  setExploreParams,
   setQuery,
   resetChat,
   addMessage,
@@ -240,7 +249,7 @@ export const {
 
   openSidePanel,
   closeSidePanel,
-  setSidePanelExploreUrl,
+  setSidePanelExploreParams,
 
   setSetting,
   resetSettings,

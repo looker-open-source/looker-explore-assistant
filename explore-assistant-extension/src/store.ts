@@ -1,4 +1,4 @@
-import { configureStore } from '@reduxjs/toolkit'
+import { configureStore, Reducer } from '@reduxjs/toolkit'
 import { persistStore, persistReducer, createTransform } from 'redux-persist'
 import storage from 'redux-persist/lib/storage' // defaults to localStorage for web
 import { combineReducers } from 'redux'
@@ -34,6 +34,8 @@ const filterTransform = createTransform(
         }
       })
 
+      newState.settings = persistedSettings as Settings
+
       return newState
     }
     return inboundState
@@ -63,9 +65,16 @@ const persistConfig = {
   transforms: [filterTransform],
 }
 
-const rootReducer = combineReducers({
-  assistant: assistantReducer,
-})
+const rootReducer: Reducer<{
+  assistant: AssistantState;
+}> = (state, action) => {
+  if (state === undefined) {
+    return { assistant: initialState }
+  }
+  return combineReducers({
+    assistant: assistantReducer,
+  })(state, action)
+}
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)
 

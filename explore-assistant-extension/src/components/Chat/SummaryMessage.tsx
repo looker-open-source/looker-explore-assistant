@@ -3,30 +3,37 @@ import React, { useEffect } from 'react'
 import Message from './Message'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
 import MarkdownText from './MarkdownText'
+import { ExploreParams } from '../../slices/assistantSlice'
 
 interface SummaryMessageProps {
-  queryArgs: string
+  exploreParams: ExploreParams
+  onSummaryComplete: () => void
 }
 
-const SummaryMessage = ({ queryArgs }: SummaryMessageProps) => {
+const SummaryMessage = ({
+  exploreParams,
+  onSummaryComplete,
+}: SummaryMessageProps) => {
   const [loading, setLoading] = React.useState<boolean>(true)
   const [summary, setSummary] = React.useState<string>('')
 
   const { summarizeExplore } = useSendVertexMessage()
 
-  useEffect(() => {
-    const fetchSummary = async () => {
-      const response = await summarizeExplore(queryArgs)
-      if (!response) {
-        setSummary('There was an error summarizing the data')
-      } else {
-        setSummary(response)
-      }
-      setLoading(false)
+  const fetchSummary = async () => {
+    if (!exploreParams) return
+    const response = await summarizeExplore(exploreParams)
+    if (!response) {
+      setSummary('There was an error summarizing the data')
+    } else {
+      setSummary(response)
     }
-    fetchSummary()
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    fetchSummary().then(() => onSummaryComplete())
   }, [])
-  console.log(summary)
+
   return (
     <Message actor="system" createdAt={Date.now()}>
       <Section my={'u2'}>
@@ -37,7 +44,7 @@ const SummaryMessage = ({ queryArgs }: SummaryMessageProps) => {
           <>
             <div className="">
               <MarkdownText text={summary} />
-          </div>
+            </div>
           </>
         )}
       </Section>

@@ -16,7 +16,7 @@ import {
   openSidePanel,
   setIsQuerying,
   setQuery,
-  setSidePanelExploreUrl,
+  setSidePanelExploreParams,
   updateLastHistoryEntry,
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
@@ -28,18 +28,27 @@ const AgentPage = () => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
   const [expanded, setExpanded] = useState(false)
-  const { generateExploreUrl, isSummarizationPrompt, summarizePrompts } =
+  const { generateExploreParams, isSummarizationPrompt, summarizePrompts } =
     useSendVertexMessage()
 
   const {
     isChatMode,
     query,
+    isQuerying,
     currentExploreThread,
     sidePanel,
     dimensions,
     measures,
     examples,
   } = useSelector((state: RootState) => state.assistant)
+
+  const scrollIntoView = useCallback(() => {
+    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [endOfMessagesRef])
+
+  useEffect(() => {
+    scrollIntoView()
+  }, [currentExploreThread, query, isQuerying])
 
   const submitMessage = useCallback(async () => {
     dispatch(addPrompt(query))
@@ -67,7 +76,7 @@ const AgentPage = () => {
     }
 
     // update the history of the current thread
-    if(currentExploreThread.messages.length > 0) {
+    if (currentExploreThread.messages.length > 0) {
       // edit existing
       dispatch(updateLastHistoryEntry(promptSummary))
     } else {
@@ -75,26 +84,27 @@ const AgentPage = () => {
       dispatch(addToHistory(promptSummary))
     }
 
-    const newExploreUrl = await generateExploreUrl(promptSummary)
+    const newExploreParams = await generateExploreParams(promptSummary)
+
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
 
     if (isSummary) {
       dispatch(
         addMessage({
-          exploreUrl: newExploreUrl,
+          exploreParams: newExploreParams,
           actor: 'system',
           createdAt: Date.now(),
           type: 'summarize',
         }),
       )
     } else {
-      dispatch(setSidePanelExploreUrl(newExploreUrl))
+      dispatch(setSidePanelExploreParams(newExploreParams))
       dispatch(openSidePanel())
 
       dispatch(
         addMessage({
-          exploreUrl: newExploreUrl,
+          exploreParams: newExploreParams,
           summarizedPrompt: promptSummary,
           actor: 'system',
           createdAt: Date.now(),
@@ -102,6 +112,9 @@ const AgentPage = () => {
         }),
       )
     }
+
+    // scroll to bottom of message thread
+    scrollIntoView()
   }, [query])
 
   useEffect(() => {
@@ -109,8 +122,6 @@ const AgentPage = () => {
       return
     }
     submitMessage()
-
-    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [query])
 
   const toggleDrawer = () => {
@@ -132,7 +143,9 @@ const AgentPage = () => {
               Hello.
             </span>
           </h1>
-          <h1 className="text-3xl text-gray-400">Getting everything ready...</h1>
+          <h1 className="text-3xl text-gray-400">
+            Getting everything ready...
+          </h1>
           <div className="max-w-2xl text-blue-300">
             <LinearProgress color="inherit" />
           </div>
@@ -161,7 +174,7 @@ const AgentPage = () => {
               >
                 <div className="flex-grow overflow-y-auto max-h-full mb-36">
                   <div className="max-w-4xl mx-auto">
-                    <MessageThread />
+                    <MessageThread endOfMessageRef={endOfMessagesRef} />
                   </div>
                 </div>
                 <div
@@ -193,7 +206,7 @@ const AgentPage = () => {
                   </div>
                 </div>
                 <div className="bg-gray-200 border-l-2 border-r-2 border-gray-400 flex-grow">
-                  <ExploreEmbed exploreUrl={sidePanel.exploreUrl} />
+                  <ExploreEmbed exploreParams={sidePanel.exploreParams} />
                 </div>
                 <div className="bg-gray-400 text-white px-4 py-2 text-sm rounded-b-lg"></div>
               </div>
@@ -224,7 +237,6 @@ const AgentPage = () => {
             </>
           )}
         </div>
-        <div ref={endOfMessagesRef} /> {/* Ref for the last message */}
       </main>
     </div>
   )

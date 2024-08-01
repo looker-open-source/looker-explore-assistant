@@ -334,8 +334,7 @@ ${exploreRefinementExamples
         const field =
           dimensions.find((d) => d.name === filter.field_id) ||
           measures.find((m) => m.name === filter.field_id)
-        console.log(dimensions)
-        console.log(measures)
+
         if (!field) {
           console.log(`Invalid field: ${filter.field_id}`)
           return

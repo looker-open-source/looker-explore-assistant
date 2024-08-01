@@ -200,6 +200,24 @@ ${exploreRefinementExamples
 
   const summarizeExplore = useCallback(
     async (exploreParams: ExploreParams) => {
+
+      const filters: Record<string, string> = {}
+      if(exploreParams.filters !== undefined) {
+        const exploreFiltters = exploreParams.filters
+        Object.keys(exploreFiltters).forEach((key: string) => {
+          if(!exploreFiltters[key]) {
+            return
+          }
+          const filter: string[] | string = exploreFiltters[key]
+          if (typeof filter === 'string') {
+            filters[key] = filter
+          }
+          if(Array.isArray(filter)) {
+            filters[key] = filter.join(', ')
+          }
+        })
+      }
+
       // get the contents of the explore query
       const createQuery = await core40SDK.ok(
         core40SDK.create_query({
@@ -207,7 +225,7 @@ ${exploreRefinementExamples
           view: exploreName,
 
           fields: exploreParams.fields || [],
-          filters: exploreParams.filters || {},
+          filters: filters,
           sorts: exploreParams.sorts || [],
           limit: exploreParams.limit || '1000',
         }),

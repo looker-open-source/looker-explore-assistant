@@ -43,7 +43,7 @@ export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
 
   const { exploreId, settings } = useSelector((state: RootState) => state.assistant)
-  console.log('Inside ExploreEmbed', exploreParams)
+
   const canceller = (event: any) => {
     return { cancel: !event.modal }
   }
@@ -73,15 +73,14 @@ export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
           key_color: '#174ea6',
           background_color: '#f4f6fa',
         }),
-        toggle: 'pik,vis',
+        toggle: 'pik,vis,dat',
       }
 
 
       if(settings['show_explore_data'].value) {
-        paramsObj['toggle'] = 'pik,vis,data'
+        paramsObj['toggle'] = 'pik,vis'
       }
       
-
       const encodedParams = ExploreHelper.encodeExploreParams(exploreParams)
       for (const key in encodedParams) {
         paramsObj[key] = encodedParams[key]

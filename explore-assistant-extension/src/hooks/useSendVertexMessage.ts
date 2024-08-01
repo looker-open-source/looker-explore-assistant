@@ -483,11 +483,10 @@ ${exploreRefinementExamples
         return
       }
 
-      // get the filters
-      const filterResponseJSON = await generateFilterParams(prompt)
-
-      // get the base explore params
-      const responseJSON = await generateBaseExploreParams(prompt)
+      const [filterResponseJSON, responseJSON ] = await Promise.all([
+        generateFilterParams(prompt),
+        generateBaseExploreParams(prompt),
+      ])
 
       responseJSON['filters'] = filterResponseJSON
       console.log(responseJSON)

@@ -43,7 +43,7 @@ export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
 
   const { exploreId, settings } = useSelector((state: RootState) => state.assistant)
-
+  console.log('Inside ExploreEmbed', exploreParams)
   const canceller = (event: any) => {
     return { cancel: !event.modal }
   }
@@ -76,29 +76,25 @@ export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
         toggle: 'pik,vis',
       }
 
-      let toggleString = '&toggle=dat,pik,vis'
+
       if(settings['show_explore_data'].value) {
-        toggleString = '&toggle=pik,vis'
+        paramsObj['toggle'] = 'pik,vis,data'
       }
       
-      const finalParams: { [key: string]: string } = {};
-      for (const key in exploreParams) {
-        if (exploreParams.hasOwnProperty(key)) {
-          if (key.includes('filter_config') || key.includes('vis') || key.includes('fields') 
-              || key.startsWith('f[')) {
-            finalParams[key] = exploreParams[key]; // Do not re-encode JSON params, fields, or filters
-          } else {
-            finalParams[key] = encodeURIComponent(exploreParams[key]).replace(/%20/g, ' ')
-          }
-        }
+
+      const encodedParams = ExploreHelper.encodeExploreParams(exploreParams)
+      for (const key in encodedParams) {
+        paramsObj[key] = encodedParams[key]
       }
+
+      console.log('Final Params', paramsObj)
 
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
       LookerEmbedSDK.createExploreWithId(exploreId)
         .appendTo(el)
         .withClassName('looker-embed')
-        .withParams(finalParams)
+        .withParams(paramsObj)
         .on('explore:ready', () => handleQueryError())
         .on('drillmenu:click', canceller)
         .on('drillmodal:explore', canceller)
@@ -118,6 +114,10 @@ export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exploreParams])
+
+  if (!exploreParams || Object.keys(exploreParams).length === 0) {
+    return <></>
+  }
 
   return (
     <>

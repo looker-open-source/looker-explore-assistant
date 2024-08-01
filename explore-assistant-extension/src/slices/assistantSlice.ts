@@ -41,7 +41,7 @@ interface Message {
 }
 
 interface ExploreMessage {
-  exploreParams: ExploreParams | null
+  exploreParams: ExploreParams
   actor: 'system'
   createdAt: number
   type: 'explore'
@@ -49,7 +49,7 @@ interface ExploreMessage {
 }
 
 interface SummarizeMesage {
-  exploreParams: ExploreParams | null
+  exploreParams: ExploreParams
   actor: 'system'
   createdAt: number
   type: 'summarize'

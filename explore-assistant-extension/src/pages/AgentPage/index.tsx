@@ -76,6 +76,7 @@ const AgentPage = () => {
     }
 
     const newExploreParams = await generateExploreParams(promptSummary)
+    console.log('Final Params', newExploreParams)
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
 

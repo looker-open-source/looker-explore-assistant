@@ -499,7 +499,7 @@ ${exploreRefinementExamples
       )
       console.log(visualizationResponseJSON)
 
-      responseJSON['vis_config'] = visualizationResponseJSON
+      //responseJSON['vis_config'] = visualizationResponseJSON
 
       return responseJSON
     },

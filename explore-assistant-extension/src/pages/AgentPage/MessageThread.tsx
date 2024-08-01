@@ -19,12 +19,12 @@ const MessageThread = () => {
           return (
             <ExploreMessage
               key={index}
-              queryArgs={message.exploreUrl}
+              exploreParams={message.exploreParams}
               prompt={message.summarizedPrompt}
             />
           )
         } else if (message.type === 'summarize') {
-          return <SummaryMessage key={index} queryArgs={message.exploreUrl} />
+          return <SummaryMessage key={index} exploreParams={message.exploreParams} />
         } else {
           return (
             <Message

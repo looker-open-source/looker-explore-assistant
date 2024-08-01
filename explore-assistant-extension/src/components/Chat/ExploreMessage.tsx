@@ -22,7 +22,8 @@ const ExploreMessage = ({ prompt, exploreParams }: ExploreMessageProps) => {
   const dispatch = useDispatch()
   const { exploreId } = useSelector((state: RootState) => state.assistant)
   const { extensionSDK } = useContext(ExtensionContext)
-  const exploreHref = `/explore/${exploreId}?${ExploreHelper.exploreQueryArgumentString(exploreParams)}`
+
+  const exploreHref = `/explore/${exploreId}?${ExploreHelper.exploreQueryArgumentString(exploreParams)}&toggle=vis,data`
   const openExplore = () => {
     extensionSDK.openBrowserWindow(exploreHref, '_blank')
   }

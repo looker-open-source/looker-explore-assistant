@@ -2,15 +2,15 @@ import { ExploreParams } from '../slices/assistantSlice'
 
 export class ExploreHelper {
 
-  static exploreQueryArgumentString = (exploreParams: ExploreParams | null): string => {
+  static exploreQueryArgumentString = (exploreParams: ExploreParams): string => {
     const encodedParams = ExploreHelper.encodeExploreParams(exploreParams)
     return new URLSearchParams(encodedParams).toString()
   }
 
   static encodeExploreParams = (
-    exploreParams: ExploreParams | null,
+    exploreParams: ExploreParams ,
   ): { [key: string]: string } => {
-    if (!exploreParams) {
+    if (!exploreParams || Object.keys(exploreParams).length === 0) {
       return {}
     }
 

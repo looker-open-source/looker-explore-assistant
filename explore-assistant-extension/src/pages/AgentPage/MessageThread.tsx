@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import Message from '../../components/Chat/Message'
@@ -6,10 +6,18 @@ import ExploreMessage from '../../components/Chat/ExploreMessage'
 import SummaryMessage from '../../components/Chat/SummaryMessage'
 import { CircularProgress } from '@material-ui/core'
 
-const MessageThread = () => {
+interface MessageThreadProps {
+  endOfMessageRef: React.RefObject<HTMLDivElement>
+}
+
+const MessageThread = ({ endOfMessageRef }: MessageThreadProps) => {
   const { currentExploreThread, isQuerying } = useSelector(
     (state: RootState) => state.assistant,
   )
+
+  const handleSummaryComplete = useCallback(() => {
+    endOfMessageRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [endOfMessageRef])
 
   const messages = currentExploreThread.messages
   return (
@@ -24,7 +32,7 @@ const MessageThread = () => {
             />
           )
         } else if (message.type === 'summarize') {
-          return <SummaryMessage key={index} exploreParams={message.exploreParams} />
+          return <SummaryMessage key={index} exploreParams={message.exploreParams} onSummaryComplete={handleSummaryComplete} />
         } else {
           return (
             <Message
@@ -41,6 +49,7 @@ const MessageThread = () => {
           <CircularProgress color={'inherit'} size={'inherit'} />
         </div>
       )}
+      <div ref={endOfMessageRef} />
     </div>
   )
 }

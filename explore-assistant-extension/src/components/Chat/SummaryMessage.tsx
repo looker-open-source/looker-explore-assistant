@@ -6,29 +6,34 @@ import MarkdownText from './MarkdownText'
 import { ExploreParams } from '../../slices/assistantSlice'
 
 interface SummaryMessageProps {
-  exploreParams: ExploreParams | null
+  exploreParams: ExploreParams
+  onSummaryComplete: () => void
 }
 
-const SummaryMessage = ({ exploreParams }: SummaryMessageProps) => {
+const SummaryMessage = ({
+  exploreParams,
+  onSummaryComplete,
+}: SummaryMessageProps) => {
   const [loading, setLoading] = React.useState<boolean>(true)
   const [summary, setSummary] = React.useState<string>('')
 
   const { summarizeExplore } = useSendVertexMessage()
 
-  useEffect(() => {
-    const fetchSummary = async () => {
-      if (!exploreParams) return
-      const response = await summarizeExplore(exploreParams)
-      if (!response) {
-        setSummary('There was an error summarizing the data')
-      } else {
-        setSummary(response)
-      }
-      setLoading(false)
+  const fetchSummary = async () => {
+    if (!exploreParams) return
+    const response = await summarizeExplore(exploreParams)
+    if (!response) {
+      setSummary('There was an error summarizing the data')
+    } else {
+      setSummary(response)
     }
-    fetchSummary()
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    fetchSummary().then(() => onSummaryComplete())
   }, [])
-  console.log(summary)
+
   return (
     <Message actor="system" createdAt={Date.now()}>
       <Section my={'u2'}>
@@ -39,7 +44,7 @@ const SummaryMessage = ({ exploreParams }: SummaryMessageProps) => {
           <>
             <div className="">
               <MarkdownText text={summary} />
-          </div>
+            </div>
           </>
         )}
       </Section>

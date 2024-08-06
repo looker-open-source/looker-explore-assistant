@@ -32,6 +32,7 @@
     "@reduxjs/toolkit": "^2.2.2",
     "@types/crypto-js": "^4.2.2",
     "@types/react": "^17.0.80",
+    "@types/uuid": "^10.0.0",
     "clsx": "^2.1.1",
     "crypto-js": "^4.2.0",
     "highlight.js": "^11.9.0",
@@ -50,7 +51,8 @@
     "sass": "^1.72.0",
     "sass-loader": "^14.1.1",
     "styled-components": "^5.3.11",
-    "tailwindcss": "^3.4.7"
+    "tailwindcss": "^3.4.7",
+    "uuid": "^10.0.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.16.0",

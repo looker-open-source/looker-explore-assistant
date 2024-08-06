@@ -5,13 +5,14 @@ import Message from '../../components/Chat/Message'
 import ExploreMessage from '../../components/Chat/ExploreMessage'
 import SummaryMessage from '../../components/Chat/SummaryMessage'
 import { CircularProgress } from '@material-ui/core'
+import { ChatMessage } from '../../slices/assistantSlice'
 
 const MessageThread = () => {
   const { currentExploreThread, isQuerying } = useSelector(
     (state: RootState) => state.assistant,
   )
 
-  const messages = currentExploreThread.messages
+  const messages = currentExploreThread.messages as ChatMessage[]
   return (
     <div className="">
       {messages.map((message, index) => {
@@ -24,7 +25,7 @@ const MessageThread = () => {
             />
           )
         } else if (message.type === 'summarize') {
-          return <SummaryMessage key={index} queryArgs={message.exploreUrl} />
+          return <SummaryMessage key={index} message={message} />
         } else {
           return (
             <Message

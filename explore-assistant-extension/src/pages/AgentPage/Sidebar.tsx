@@ -7,9 +7,13 @@ import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   clearHistory,
+  ExploreThread,
+  openSidePanel,
   resetChat,
+  setCurrentThread,
   setIsChatMode,
   setQuery,
+  setSidePanelExploreUrl,
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
 import SettingsModal from './Settings'
@@ -56,17 +60,20 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
     }
   }
 
-  const handleHistoryClick = (message: string) => {
+  const handleHistoryClick = (thread: ExploreThread) => {
     dispatch(resetChat())
-    dispatch(setQuery(message))
+    dispatch(setCurrentThread(thread))
     dispatch(setIsChatMode(true))
+    dispatch(setSidePanelExploreUrl(thread.exploreUrl))
+    dispatch(openSidePanel())
+
   }
 
   const handleClearHistory = () => {
     dispatch(clearHistory())
   }
 
-  const reverseHistory = [...history].reverse()
+  const reverseHistory = [...history].reverse() as ExploreThread[]
 
   return (
     <div
@@ -138,11 +145,11 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
                 <div className="text-gray-400">No recent chats</div>
               )}
               {reverseHistory.map((item, index) => (
-                <Tooltip title={item.message} placement="right" arrow>
+                <Tooltip key={item.uuid} title={item.summarizedPrompt} placement="right" arrow>
                   <div
                     key={index}
                     className={`flex items-center cursor-pointer hover:underline`}
-                    onClick={() => handleHistoryClick(item.message)}
+                    onClick={() => handleHistoryClick(item)}
                   >
                     <div className="">
                       <ChatBubbleOutline
@@ -151,7 +158,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
                       />
                     </div>
                     <div className="line-clamp-1">
-                      <span className="ml-3">{item.message}</span>
+                      <span className="ml-3">{item.summarizedPrompt}</span>
                     </div>
                   </div>
                 </Tooltip>

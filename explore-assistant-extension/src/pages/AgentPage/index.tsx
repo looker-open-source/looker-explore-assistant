@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import PromptInput from './PromptInput'
 import Sidebar from './Sidebar'
+import { v4 as uuidv4 } from 'uuid'
 
 import './style.css'
 import SamplePrompts from '../../components/SamplePrompts'
@@ -14,9 +15,11 @@ import {
   addToHistory,
   closeSidePanel,
   openSidePanel,
+  setExploreUrl,
   setIsQuerying,
   setQuery,
   setSidePanelExploreUrl,
+  updateCurrentThread,
   updateLastHistoryEntry,
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
@@ -49,6 +52,7 @@ const AgentPage = () => {
 
     dispatch(
       addMessage({
+        uuid: uuidv4(),
         message: query,
         actor: 'user',
         createdAt: Date.now(),
@@ -66,25 +70,19 @@ const AgentPage = () => {
       return
     }
 
-    // update the history of the current thread
-    if(currentExploreThread.messages.length > 0) {
-      // edit existing
-      dispatch(updateLastHistoryEntry(promptSummary))
-    } else {
-      // create new
-      dispatch(addToHistory(promptSummary))
-    }
-
     const newExploreUrl = await generateExploreUrl(promptSummary)
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
+    dispatch(updateCurrentThread({ exploreUrl: newExploreUrl, summarizedPrompt: promptSummary }))
 
     if (isSummary) {
       dispatch(
         addMessage({
+          uuid: uuidv4(),
           exploreUrl: newExploreUrl,
           actor: 'system',
           createdAt: Date.now(),
+          summary: '',
           type: 'summarize',
         }),
       )
@@ -94,6 +92,7 @@ const AgentPage = () => {
 
       dispatch(
         addMessage({
+          uuid: uuidv4(),
           exploreUrl: newExploreUrl,
           summarizedPrompt: promptSummary,
           actor: 'system',
@@ -102,6 +101,9 @@ const AgentPage = () => {
         }),
       )
     }
+
+    // update the history with the current contents of the thread
+    dispatch(updateLastHistoryEntry())
   }, [query])
 
   useEffect(() => {

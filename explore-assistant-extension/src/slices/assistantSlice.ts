@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { v4 as uuidv4 } from 'uuid'
 
 export interface Setting {
   name: string
@@ -10,11 +11,6 @@ export interface Settings {
   [key: string]: Setting
 }
 
-interface HistoryItem {
-  message: string
-  createdAt: number
-}
-
 interface Field {
   name: string
   type: string
@@ -23,6 +19,7 @@ interface Field {
 }
 
 interface Message {
+  uuid: string
   message: string
   actor: 'user' | 'system'
   createdAt: number
@@ -31,6 +28,7 @@ interface Message {
 }
 
 interface ExploreMessage {
+  uuid: string
   exploreUrl: string
   actor: 'system'
   createdAt: number
@@ -39,15 +37,18 @@ interface ExploreMessage {
 }
 
 interface SummarizeMesage {
+  uuid: string
   exploreUrl: string
   actor: 'system'
   createdAt: number
   type: 'summarize'
+  summary: string
 }
 
 type ChatMessage = Message | ExploreMessage | SummarizeMesage
 
 type ExploreThread = {
+  uuid: string
   messages: ChatMessage[]
   exploreUrl: string
   summarizedPrompt: string
@@ -57,12 +58,12 @@ type ExploreThread = {
 export interface AssistantState {
   isQuerying: boolean
   isChatMode: boolean
-  currentExploreThread: ExploreThread
+  currentExploreThread: ExploreThread | null
   sidePanel: {
     isSidePanelOpen: boolean
     exploreUrl: string
   }
-  history: HistoryItem[]
+  history: ExploreThread[]
   dimensions: Field[]
   measures: Field[]
   query: string
@@ -82,15 +83,21 @@ export interface AssistantState {
   settings: Settings
 }
 
-export const initialState: AssistantState = {
-  isQuerying: false,
-  isChatMode: false,
-  currentExploreThread: {
+export const newThreadState = () => {
+  const thread: ExploreThread = {
+    uuid: uuidv4(),
     messages: [],
     exploreUrl: '',
     summarizedPrompt: '',
     promptList: [],
-  },
+  }
+  return thread
+}
+
+export const initialState: AssistantState = {
+  isQuerying: false,
+  isChatMode: false,
+  currentExploreThread: null,
   sidePanel: {
     isSidePanelOpen: false,
     exploreUrl: '',
@@ -127,18 +134,18 @@ export const assistantSlice = createSlice({
     },
     resetChatMode: (state) => {
       state.isChatMode = false
-      resetChat()
+      assistantSlice.caseReducers.resetChat(state)
     },
     resetSettings: (state) => {
       state.settings = initialState.settings
     },
     setSetting: (
       state,
-      action: PayloadAction<{ id: keyof Settings; value: boolean }>
+      action: PayloadAction<{ id: keyof Settings; value: boolean }>,
     ) => {
-      const { id, value } = action.payload;
+      const { id, value } = action.payload
       if (state.settings[id]) {
-        state.settings[id].value = value;
+        state.settings[id].value = value
       }
     },
     openSidePanel: (state) => {
@@ -150,20 +157,11 @@ export const assistantSlice = createSlice({
     setSidePanelExploreUrl: (state, action: PayloadAction<string>) => {
       state.sidePanel.exploreUrl = action.payload
     },
-    updateLastHistoryEntry: (state, action: PayloadAction<string>) => {
-      state.history[state.history.length - 1] = {
-        message: action.payload,
-        createdAt: Date.now(),
-      }
+    updateLastHistoryEntry: (state, action: PayloadAction<ExploreThread>) => {
+      state.history[state.history.length - 1] = action.payload
     },
-    addToHistory: (state, action: PayloadAction<string>) => {
-      state.history.push({
-        message: action.payload,
-        createdAt: Date.now(),
-      })
-    },
-    setHistory: (state, action: PayloadAction<HistoryItem[]>) => {
-      state.history = action.payload
+    addToHistory: (state, action: PayloadAction<ExploreThread>) => {
+      state.history.push(action.payload)
     },
     clearHistory: (state) => {
       state.history = []
@@ -175,22 +173,32 @@ export const assistantSlice = createSlice({
       state.measures = action.payload
     },
     setExploreUrl: (state, action: PayloadAction<string>) => {
+      if (state.currentExploreThread === null) {
+        state.currentExploreThread = newThreadState()
+      }
       state.currentExploreThread.exploreUrl = action.payload
     },
     setQuery: (state, action: PayloadAction<string>) => {
       state.query = action.payload
     },
     resetChat: (state) => {
-      state.currentExploreThread = initialState.currentExploreThread
+      state.currentExploreThread = newThreadState()
+      state.currentExploreThread.uuid = uuidv4()
       state.query = ''
       state.isChatMode = false
       state.isQuerying = false
       state.sidePanel = initialState.sidePanel
     },
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
+      if (state.currentExploreThread === null) {
+        state.currentExploreThread = newThreadState()
+      }
       state.currentExploreThread.messages.push(action.payload)
     },
     addPrompt: (state, action: PayloadAction<string>) => {
+      if (state.currentExploreThread === null) {
+        state.currentExploreThread = newThreadState()
+      }
       state.currentExploreThread.promptList.push(action.payload)
     },
     setExploreId: (state, action: PayloadAction<string>) => {
@@ -204,15 +212,32 @@ export const assistantSlice = createSlice({
     },
     setExploreGenerationExamples(
       state,
-      action: PayloadAction<AssistantState['examples']['exploreGeneration']>,
+      action: PayloadAction<
+        AssistantState['examples']['exploreGenerationExamples']
+      >,
     ) {
       state.examples.exploreGenerationExamples = action.payload
     },
     setExploreRefinementExamples(
       state,
-      action: PayloadAction<AssistantState['examples']['exploreRefinement']>,
+      action: PayloadAction<
+        AssistantState['examples']['exploreRefinementExamples']
+      >,
     ) {
       state.examples.exploreRefinementExamples = action.payload
+    },
+    updateSummaryMessage: (
+      state,
+      action: PayloadAction<{ uuid: string; summary: string }>,
+    ) => {
+      const { uuid, summary } = action.payload
+      if (state.currentExploreThread === null) {
+        state.currentExploreThread = newThreadState()
+      }
+      const message = state.currentExploreThread.messages.find(
+        (message) => message.uuid === uuid,
+      ) as SummarizeMesage
+      message.summary = summary
     },
   },
 })
@@ -225,7 +250,6 @@ export const {
   clearHistory,
   updateLastHistoryEntry,
   addPrompt,
-  setHistory,
   setDimensions,
   setMeasures,
   setExploreUrl,
@@ -244,6 +268,8 @@ export const {
 
   setSetting,
   resetSettings,
+
+  updateSummaryMessage,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

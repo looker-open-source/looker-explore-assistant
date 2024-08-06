@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, current, PayloadAction } from '@reduxjs/toolkit'
 import { v4 as uuidv4 } from 'uuid'
 
 export interface Setting {
@@ -18,7 +18,7 @@ interface Field {
   tags: string[]
 }
 
-interface Message {
+export interface Message {
   uuid: string
   message: string
   actor: 'user' | 'system'
@@ -27,7 +27,7 @@ interface Message {
   intent?: 'exploreRefinement' | 'summarize' | 'dataQuestion'
 }
 
-interface ExploreMessage {
+export interface ExploreMessage {
   uuid: string
   exploreUrl: string
   actor: 'system'
@@ -36,7 +36,7 @@ interface ExploreMessage {
   summarizedPrompt: string
 }
 
-interface SummarizeMesage {
+export interface SummarizeMesage {
   uuid: string
   exploreUrl: string
   actor: 'system'
@@ -45,9 +45,9 @@ interface SummarizeMesage {
   summary: string
 }
 
-type ChatMessage = Message | ExploreMessage | SummarizeMesage
+export type ChatMessage = Message | ExploreMessage | SummarizeMesage
 
-type ExploreThread = {
+export type ExploreThread = {
   uuid: string
   messages: ChatMessage[]
   exploreUrl: string
@@ -157,8 +157,22 @@ export const assistantSlice = createSlice({
     setSidePanelExploreUrl: (state, action: PayloadAction<string>) => {
       state.sidePanel.exploreUrl = action.payload
     },
-    updateLastHistoryEntry: (state, action: PayloadAction<ExploreThread>) => {
-      state.history[state.history.length - 1] = action.payload
+    updateLastHistoryEntry: (state) => {
+      if (state.currentExploreThread === null) {
+        return
+      }
+
+      if (state.history.length === 0) {
+        state.history.push({ ...state.currentExploreThread })
+      } else {
+        const currentUuid = state.currentExploreThread.uuid
+        const lastHistoryUuid = state.history[state.history.length - 1].uuid
+        if (currentUuid !== lastHistoryUuid) {
+          state.history.push({ ...state.currentExploreThread })
+        } else {
+          state.history[state.history.length - 1] = state.currentExploreThread
+        }
+      }
     },
     addToHistory: (state, action: PayloadAction<ExploreThread>) => {
       state.history.push(action.payload)
@@ -178,6 +192,21 @@ export const assistantSlice = createSlice({
       }
       state.currentExploreThread.exploreUrl = action.payload
     },
+    updateCurrentThread: (
+      state,
+      action: PayloadAction<Partial<ExploreThread>>,
+    ) => {
+      if (state.currentExploreThread === null) {
+        state.currentExploreThread = newThreadState()
+      }
+      state.currentExploreThread = {
+        ...state.currentExploreThread,
+        ...action.payload,
+      }
+    },
+    setCurrentThread: (state, action: PayloadAction<ExploreThread>) => {
+      state.currentExploreThread = { ...action.payload }
+    },
     setQuery: (state, action: PayloadAction<string>) => {
       state.query = action.payload
     },
@@ -192,6 +221,9 @@ export const assistantSlice = createSlice({
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
       if (state.currentExploreThread === null) {
         state.currentExploreThread = newThreadState()
+      }
+      if (action.payload.uuid === undefined) {
+        action.payload.uuid = uuidv4()
       }
       state.currentExploreThread.messages.push(action.payload)
     },
@@ -261,6 +293,9 @@ export const {
   setModelName,
   setExploreGenerationExamples,
   setExploreRefinementExamples,
+
+  updateCurrentThread,
+  setCurrentThread,
 
   openSidePanel,
   closeSidePanel,

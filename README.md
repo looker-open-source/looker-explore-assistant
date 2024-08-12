@@ -17,13 +17,14 @@ Additionally, the extension provides:
  - Flexible Deployment Options
  - Multi-turn
  - Insight Summarization
+ - Dynamic Explore Selection
 
 ### Technologies Used
 #### Frontend
 - [React](https://reactjs.org/)
 - [TypeScript](https://www.typescriptlang.org/)
 - [Webpack](https://webpack.js.org/).
-- [Styled components](https://www.styled-components.com/docs)
+- [Tailwind CSS](https://tailwindcss.com/)
 
 #### Looker
 - [Looker Extension SDK](https://github.com/looker-open-source/sdk-codegen/tree/main/packages/extension-sdk-react)
@@ -37,11 +38,11 @@ Additionally, the extension provides:
 
 ## Setup
 
-Getting started involves:
+Getting started involves (*in this order*):
 
-- Frontend Setup - setup Looker Extension Framework Applications by following [these instructions](./explore-assistant-extension/README.md).
 - Backend Setup - setup the GCP backend for communicating with the Vertex API [using these instructions.](./explore-assistant-backend/README.md)
 - Example generation - generate a list of examples and upload them to BigQuery [using these instructions.](./explore-assistant-examples/README.md)
+- Frontend Setup - setup Looker Extension Framework Applications by following [these instructions](./explore-assistant-extension/README.md).
 
 The local cloud function backend and example generation require some python packages. It is recommended to create a python virtual environment and install the dependencies:
 

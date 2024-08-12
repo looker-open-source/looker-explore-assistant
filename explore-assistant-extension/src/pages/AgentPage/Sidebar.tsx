@@ -81,8 +81,6 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
     }
   },[dispatch, sidebarMessage, bigQueryExamplesLoaded, lookerFieldsLoaded])
 
-
-
   const handleClearHistory = () => {
     dispatch(clearHistory())
   }

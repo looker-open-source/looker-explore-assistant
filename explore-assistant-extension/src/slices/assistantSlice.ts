@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import process from 'process'
 
 export interface Setting {
   name: string
@@ -10,9 +11,15 @@ export interface Settings {
   [key: string]: Setting
 }
 
-interface HistoryItem {
+export interface HistoryItem {
   message: string
   createdAt: number
+  exploreId: string
+}
+
+interface HistoryItemPayload {
+  message: string
+  exploreId: string
 }
 
 interface Field {
@@ -29,6 +36,13 @@ interface Message {
   type: 'text'
   intent?: 'exploreRefinement' | 'summarize' | 'dataQuestion'
 }
+
+interface Sample {
+  category: string
+  prompt: string
+  color: string
+}
+
 
 interface ExploreMessage {
   exploreUrl: string
@@ -69,6 +83,7 @@ export interface AssistantState {
   exploreId: string
   exploreName: string
   modelName: string
+  explores: string[]
   examples: {
     exploreGenerationExamples: {
       input: string
@@ -78,8 +93,15 @@ export interface AssistantState {
       input: string[]
       output: string
     }[]
-  }
-  settings: Settings
+    exploreSamples: {
+      explore_id: string
+      samples: string
+    }[]
+  },
+  settings: Settings,
+  lookerFieldsLoaded: boolean,
+  bigQueryExamplesLoaded: boolean,
+  sidebarMessage: ''
 }
 
 export const initialState: AssistantState = {
@@ -102,9 +124,11 @@ export const initialState: AssistantState = {
   exploreId: '',
   exploreName: '',
   modelName: '',
+  explores: [],
   examples: {
     exploreGenerationExamples: [],
     exploreRefinementExamples: [],
+    exploreSamples: []
   },
   settings: {
     show_explore_data: {
@@ -113,6 +137,9 @@ export const initialState: AssistantState = {
       value: false,
     },
   },
+  lookerFieldsLoaded: false,
+  bigQueryExamplesLoaded: false,
+  sidebarMessage: ''
 }
 
 export const assistantSlice = createSlice({
@@ -150,16 +177,18 @@ export const assistantSlice = createSlice({
     setSidePanelExploreUrl: (state, action: PayloadAction<string>) => {
       state.sidePanel.exploreUrl = action.payload
     },
-    updateLastHistoryEntry: (state, action: PayloadAction<string>) => {
+    updateLastHistoryEntry: (state, action: PayloadAction<HistoryItemPayload>) => {
       state.history[state.history.length - 1] = {
-        message: action.payload,
+        message: action.payload.message,
         createdAt: Date.now(),
+        exploreId: action.payload.exploreId
       }
     },
-    addToHistory: (state, action: PayloadAction<string>) => {
+    addToHistory: (state, action: PayloadAction<HistoryItemPayload>) => {
       state.history.push({
-        message: action.payload,
+        message: action.payload.message,
         createdAt: Date.now(),
+        exploreId: action.payload.exploreId
       })
     },
     setHistory: (state, action: PayloadAction<HistoryItem[]>) => {
@@ -202,17 +231,41 @@ export const assistantSlice = createSlice({
     setModelName: (state, action: PayloadAction<string>) => {
       state.modelName = action.payload
     },
+    setExplores: (state, action: PayloadAction<string[]>) => {
+      state.explores = action.payload
+    },
     setExploreGenerationExamples(
       state,
-      action: PayloadAction<AssistantState['examples']['exploreGeneration']>,
+      action: PayloadAction<AssistantState['examples']['exploreGenerationExamples']>,
     ) {
       state.examples.exploreGenerationExamples = action.payload
     },
     setExploreRefinementExamples(
       state,
-      action: PayloadAction<AssistantState['examples']['exploreRefinement']>,
+      action: PayloadAction<AssistantState['examples']['exploreRefinementExamples']>,
     ) {
       state.examples.exploreRefinementExamples = action.payload
+    },
+    setExploreSamples(
+      state,
+      action: PayloadAction<AssistantState['examples']['exploreSamples']>,
+    ) {
+      state.examples.exploreSamples = action.payload
+    },
+    setLookerFieldsLoaded: (
+      state, 
+      action: PayloadAction<boolean>
+    ) => {
+      state.lookerFieldsLoaded = action.payload
+    },
+    setBigQueryExamplesLoaded: (
+      state, 
+      action: PayloadAction<boolean>
+    ) => {
+      state.bigQueryExamplesLoaded = action.payload
+    },
+    setSidebarMessage: (state, action: PayloadAction<string>) => {
+      state.sidebarMessage = action.payload
     },
   },
 })
@@ -235,8 +288,14 @@ export const {
   setExploreId,
   setExploreName,
   setModelName,
+  setExplores,
   setExploreGenerationExamples,
   setExploreRefinementExamples,
+  setExploreSamples,
+
+  setBigQueryExamplesLoaded,
+  setLookerFieldsLoaded,
+  setSidebarMessage,
 
   openSidePanel,
   closeSidePanel,

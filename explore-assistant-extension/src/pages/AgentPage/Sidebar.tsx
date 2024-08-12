@@ -10,6 +10,11 @@ import {
   resetChat,
   setIsChatMode,
   setQuery,
+  setExploreId,
+  setExploreName,
+  setModelName,
+  HistoryItemPayload,
+  setSidebarMessage
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
 import SettingsModal from './Settings'
@@ -23,7 +28,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const dispatch = useDispatch()
   const [isExpanded, setIsExpanded] = React.useState(expanded)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
-  const { isChatMode, isQuerying, history } = useSelector(
+  const { isChatMode, isQuerying, history, exploreId, bigQueryExamplesLoaded, lookerFieldsLoaded, sidebarMessage } = useSelector(
     (state: RootState) => state.assistant,
   )
 
@@ -56,11 +61,27 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
     }
   }
 
-  const handleHistoryClick = (message: string) => {
-    dispatch(resetChat())
-    dispatch(setQuery(message))
-    dispatch(setIsChatMode(true))
-  }
+  const handleHistoryClick = async (message: HistoryItemPayload) => {
+    // Combine related state updates
+    const [modelName, exploreName] = message.exploreId.split("/");
+    dispatch(setExploreId(message.exploreId))
+    dispatch(setExploreName(exploreName))
+    dispatch(setModelName(modelName))
+    dispatch(setSidebarMessage(message.message))
+
+    console.log("Current: ", exploreId, " Next: ", message);
+  };
+
+  React.useEffect(() => {
+    if(bigQueryExamplesLoaded && lookerFieldsLoaded && sidebarMessage !== '') {
+        dispatch(resetChat())
+        dispatch(setQuery(sidebarMessage))
+        dispatch(setIsChatMode(true))
+
+    }
+  },[dispatch, sidebarMessage, bigQueryExamplesLoaded, lookerFieldsLoaded])
+
+
 
   const handleClearHistory = () => {
     dispatch(clearHistory())
@@ -142,7 +163,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
                   <div
                     key={index}
                     className={`flex items-center cursor-pointer hover:underline`}
-                    onClick={() => handleHistoryClick(item.message)}
+                    onClick={() => handleHistoryClick(item)}
                   >
                     <div className="">
                       <ChatBubbleOutline

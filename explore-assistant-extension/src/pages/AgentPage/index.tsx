@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import PromptInput from './PromptInput'
 import Sidebar from './Sidebar'
-
 import './style.css'
 import SamplePrompts from '../../components/SamplePrompts'
 import { ExploreEmbed } from '../../components/ExploreEmbed'
@@ -17,6 +16,7 @@ import {
   setIsQuerying,
   setQuery,
   setSidePanelExploreUrl,
+  setSidebarMessage,
   updateLastHistoryEntry,
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
@@ -39,9 +39,13 @@ const AgentPage = () => {
     dimensions,
     measures,
     examples,
+    exploreId,
+    bigQueryExamplesLoaded,
+    lookerFieldsLoaded
   } = useSelector((state: RootState) => state.assistant)
 
   const submitMessage = useCallback(async () => {
+    dispatch(setSidebarMessage(''))
     dispatch(addPrompt(query))
     dispatch(setIsQuerying(true))
 
@@ -66,16 +70,17 @@ const AgentPage = () => {
       return
     }
 
-    // update the history of the current thread
+    // update the history of the current thread and track explore id for update explore state when going back to prior conversations
     if(currentExploreThread.messages.length > 0) {
       // edit existing
-      dispatch(updateLastHistoryEntry(promptSummary))
+      dispatch(updateLastHistoryEntry({ message: promptSummary, exploreId: exploreId }))
     } else {
       // create new
-      dispatch(addToHistory(promptSummary))
+      dispatch(addToHistory({ message: promptSummary, exploreId: exploreId }))
     }
-
-    const newExploreUrl = await generateExploreUrl(promptSummary)
+    
+    const newExploreUrl = await generateExploreUrl(promptSummary,dimensions, measures, examples.exploreGenerationExamples)
+    console.log("New Explore URL: ", newExploreUrl)
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
 
@@ -102,16 +107,21 @@ const AgentPage = () => {
         }),
       )
     }
-  }, [query])
+  }, [generateExploreUrl, dispatch, query, dimensions, measures, examples])
+
+  const isDataLoaded = bigQueryExamplesLoaded && lookerFieldsLoaded
 
   useEffect(() => {
-    if (!query) {
+    if (!query || query === '') {
       return
     }
-    submitMessage()
 
-    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [query])
+    if(query !== '' && isDataLoaded) {
+      submitMessage()
+      endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+
+  }, [query,isDataLoaded, submitMessage])
 
   const toggleDrawer = () => {
     setExpanded(!expanded)
@@ -159,9 +169,24 @@ const AgentPage = () => {
                   sidePanel.isSidePanelOpen ? 'w-2/5' : 'w-full',
                 )}
               >
-                <div className="flex-grow overflow-y-auto max-h-full mb-36">
+                <div className="flex-grow overflow-y-auto max-h-full mb-36 ">
                   <div className="max-w-4xl mx-auto">
-                    <MessageThread />
+                    {!isDataLoaded 
+                      ? (
+                        <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
+                          <h1 className="text-5xl font-bold">
+                            <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
+                              Hello.
+                            </span>
+                          </h1>
+                          <h1 className="text-3xl text-gray-400">Loading the conversation and LookML Metadata... </h1>
+                          <div className="max-w-2xl text-blue-300">
+                            <LinearProgress color="inherit" />
+                          </div>
+                        </div>
+                      )
+                      : <MessageThread />
+                    }
                   </div>
                 </div>
                 <div

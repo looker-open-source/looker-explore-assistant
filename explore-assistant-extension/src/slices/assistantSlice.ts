@@ -12,18 +12,18 @@ export interface Settings {
 }
 
 export interface ExploreSamples {
-  [explore_id: string]: Sample[]
+  [exploreKey: string]: Sample[]
 }
 
 export interface ExploreExamples {
-  [explore_id: string]: {
+  [exploreKey: string]: {
     input: string
     output: string
   }[]
 }
 
 export interface RefinementExamples {
-  [explore_id: string]: {
+  [exploreKey: string]: {
     input: string[]
     output: string
   }[]
@@ -85,6 +85,9 @@ export type ExploreThread = {
 export interface SemanticModel {
   dimensions: Field[]
   measures: Field[]
+  exploreKey: string
+  exploreId: string
+  modelName: string
 }
 
 export interface AssistantState {
@@ -92,6 +95,7 @@ export interface AssistantState {
   isChatMode: boolean
   currentExploreThread: ExploreThread | null
   currentExplore: {
+    exploreKey: string
     modelName: string
     exploreId: string
   }
@@ -101,7 +105,7 @@ export interface AssistantState {
   }
   history: ExploreThread[]
   semanticModels: {
-    [explore: string]: SemanticModel
+    [exploreKey: string]: SemanticModel
   }
   query: string
   examples: {
@@ -110,7 +114,6 @@ export interface AssistantState {
     exploreSamples: ExploreSamples
   },
   settings: Settings,
-  lookerFieldsLoaded: boolean,
   isBigQueryMetadataLoaded: boolean,
   isSemanticModelLoaded: boolean
 }
@@ -133,6 +136,7 @@ export const initialState: AssistantState = {
   isChatMode: false,
   currentExploreThread: null,
   currentExplore: {
+    exploreKey: '',
     modelName: '',
     exploreId: ''
   },
@@ -155,7 +159,6 @@ export const initialState: AssistantState = {
       value: false,
     },
   },
-  lookerFieldsLoaded: false,
   isBigQueryMetadataLoaded: false,
   isSemanticModelLoaded: false
 }
@@ -290,12 +293,6 @@ export const assistantSlice = createSlice({
     ) {
       state.examples.exploreSamples = action.payload
     },
-    setLookerFieldsLoaded: (
-      state, 
-      action: PayloadAction<boolean>
-    ) => {
-      state.lookerFieldsLoaded = action.payload
-    },
     setisBigQueryMetadataLoaded: (
       state, 
       action: PayloadAction<boolean>
@@ -330,7 +327,6 @@ export const {
   setExploreSamples,
 
   setisBigQueryMetadataLoaded,
-  setLookerFieldsLoaded,
 
   updateCurrentThread,
   setCurrentThread,

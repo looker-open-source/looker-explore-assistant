@@ -109,9 +109,11 @@ export const useBigQueryExamples = () => {
       response.forEach((row: any) => {
         exploreSamples[row['explore_id']] = JSON.parse(row['samples'])
       })
-      const [modelName, exploreId] = (response[0]['explore_id'] as string).split(':')
+      const exploreKey: string = response[0]['explore_id']
+      const [modelName, exploreId] = exploreKey.split(':')
       dispatch(setExploreSamples(exploreSamples))
       dispatch(setCurrenExplore({
+        exploreKey,
         modelName,
         exploreId
       }))

@@ -29,10 +29,11 @@ export const useLookerFields = () => {
     }
 
     const fetchSemanticModel = async (
-      lookerModel: string,
-      lookerExplore: string,
+      modelName: string,
+      exploreId: string,
+      exploreKey: string,
     ): Promise<SemanticModel | undefined> => {
-      if (!lookerModel || !lookerExplore) {
+      if (!modelName || !exploreId) {
         showBoundary({
           message: 'Default Looker Model or Explore is blank or unspecified',
         })
@@ -42,8 +43,8 @@ export const useLookerFields = () => {
       try {
         const response = await core40SDK.ok(
           core40SDK.lookml_model_explore({
-            lookml_model_name: lookerModel,
-            explore_name: lookerExplore,
+            lookml_model_name: modelName,
+            explore_name: exploreId,
             fields: 'fields',
           }),
         )
@@ -75,12 +76,15 @@ export const useLookerFields = () => {
           }))
 
         return {
+          exploreId,
+          modelName,
+          exploreKey,
           dimensions,
           measures,
         }
       } catch (error) {
         showBoundary({
-          message: `Failed to fetch semantic model for ${lookerModel}::${lookerExplore}`,
+          message: `Failed to fetch semantic model for ${modelName}::${exploreId}`,
         })
         return undefined
       }
@@ -88,19 +92,19 @@ export const useLookerFields = () => {
 
     const loadSemanticModels = async () => {
       try {
-        const fetchPromises = supportedExplores.map((explore) => {
-          const [lookerModel, lookerExplore] = explore.split('::')
-          return fetchSemanticModel(lookerModel, lookerExplore).then(
-            (model) => ({ explore, model })
+        const fetchPromises = supportedExplores.map((exploreKey) => {
+          const [modelName, exploreId] = exploreKey.split(':')
+          return fetchSemanticModel(modelName, exploreId, exploreKey).then(
+            (model) => ({ exploreKey, model })
           )
         })
 
         const results = await Promise.all(fetchPromises)
         const semanticModels: { [explore: string]: SemanticModel } = {}
 
-        results.forEach(({ explore, model }) => {
+        results.forEach(({ exploreKey, model }) => {
           if (model) {
-            semanticModels[explore] = model
+            semanticModels[exploreKey] = model
           }
         })
 

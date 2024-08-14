@@ -159,10 +159,6 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
                 </Tooltip>
               ))}
             </div>
-
-            {reverseHistory.length === 0 && (
-              <div className="text-gray-400">No recent chats</div>
-            )}
           </div>
         )}
       </nav>

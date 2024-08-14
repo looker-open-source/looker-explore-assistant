@@ -59,10 +59,8 @@ const AgentPage = () => {
     currentExploreThread,
     currentExplore,
     sidePanel,
-    dimensions,
-    measures,
     examples,
-    lookerFieldsLoaded,
+    semanticModels,
     isBigQueryMetadataLoaded,
     isSemanticModelLoaded,
   } = useSelector((state: RootState) => state.assistant as AssistantState)
@@ -103,11 +101,14 @@ const AgentPage = () => {
       return
     }
 
+    const { dimensions, measures } = semanticModels[currentExplore.exploreKey]
+    const exploreGenerationExamples = examples.exploreGenerationExamples[currentExplore.exploreKey]
+
     const newExploreUrl = await generateExploreUrl(
       promptSummary,
       dimensions,
       measures,
-      examples.exploreGenerationExamples,
+      exploreGenerationExamples,
     )
     console.log('New Explore URL: ', newExploreUrl)
     dispatch(setIsQuerying(false))
@@ -159,16 +160,13 @@ const AgentPage = () => {
     // update the history with the current contents of the thread
     dispatch(updateLastHistoryEntry())
   }, [
-    generateExploreUrl,
-    dispatch,
     query,
-    dimensions,
-    measures,
+    semanticModels,
     examples,
     currentExplore,
   ])
 
-  const isDataLoaded = isBigQueryMetadataLoaded && lookerFieldsLoaded
+  const isDataLoaded = isBigQueryMetadataLoaded && isSemanticModelLoaded
 
   useEffect(() => {
     if (!query || query === '') {

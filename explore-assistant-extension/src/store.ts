@@ -11,10 +11,10 @@ import assistantReducer, {
 
 // Define keys that should never be persisted
 const neverPersistKeys: (keyof AssistantState)[] = [
-  'dimensions',
-  'measures',
+  'semanticModels',
   'examples',
   'isBigQueryMetadataLoaded',
+  'isSemanticModelLoaded',
 ]
 
 // Create a transform function to filter out specific keys

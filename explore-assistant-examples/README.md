@@ -45,8 +45,14 @@ python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_I
 
 Load the refinement examples
 ```bash
- python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_refinement_examples --json_file refinement_examples.json 
- ```
+ python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_refinement_examples --json_file refinement_examples.json
+```
+
+Load the samples
+
+```bash
+ python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_samples --column_name samples --json_file samples.json
+
 ### Description
 
 This Python script is designed to manage data uploads from a JSON file into a Google BigQuery table, particularly focusing on scenarios where specific entries identified by an `explore_id` need to be refreshed or updated in the dataset.

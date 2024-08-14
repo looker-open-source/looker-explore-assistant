@@ -8,6 +8,7 @@ def parse_arguments():
     parser.add_argument('--project_id', type=str, required=True, help='Google Cloud project ID')
     parser.add_argument('--dataset_id', type=str, help='BigQuery dataset ID', default='explore_assistant')
     parser.add_argument('--table_id', type=str, help='BigQuery table ID', default='explore_assistant_examples')
+    parser.add_argument('--column_name', type=str, help='Column name, if different than "examples"', default='examples')
     parser.add_argument('--explore_id', type=str, required=True, help='The name of the explore in the model:explore_name format')
     parser.add_argument('--json_file', type=str, help='Path to the JSON file containing the data', default='examples.json')
     return parser.parse_args()
@@ -35,14 +36,14 @@ def load_data_from_file(json_file_path):
     with open(json_file_path, 'r') as file:
         return json.load(file)
 
-def insert_data_into_bigquery(client, dataset_id, table_id, explore_id, data):
+def insert_data_into_bigquery(client, dataset_id, table_id, column_name, explore_id, data):
     """Insert data into BigQuery using a SQL INSERT statement."""
     # Convert the data to a JSON string
     data_json = json.dumps(data)
 
     # Create a BigQuery SQL INSERT statement
     insert_query = f"""
-    INSERT INTO `{dataset_id}.{table_id}` (explore_id, examples)
+    INSERT INTO `{dataset_id}.{table_id}` (explore_id, `{column_name}`)
     VALUES (@explore_id, @examples)
     """
 
@@ -73,7 +74,7 @@ def main():
 
     # load data from file and insert into BigQuery
     data = load_data_from_file(args.json_file)
-    insert_data_into_bigquery(client, args.dataset_id, args.table_id, args.explore_id, data)
+    insert_data_into_bigquery(client, args.dataset_id, args.table_id, args.column_name, args.explore_id, data)
 
 if __name__ == '__main__':
     main()

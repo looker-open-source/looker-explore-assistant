@@ -71,8 +71,14 @@ const useSendVertexMessage = () => {
   const VERTEX_BIGQUERY_MODEL_ID = process.env.VERTEX_BIGQUERY_MODEL_ID || ''
 
   const { core40SDK } = useContext(ExtensionContext)
-  const { dimensions, measures, messageThread, exploreName, modelName } =
+  const { dimensions, measures, messageThread, exploreName, modelName, bigQueryExamplesLoaded, lookerFieldsLoaded } =
     useSelector((state: RootState) => state.assistant)
+  
+  const isDataLoaded = bigQueryExamplesLoaded && lookerFieldsLoaded
+
+  const settings = useSelector<RootState, Settings>(
+    (state) => state.assistant.settings,
+  )
 
   const settings = useSelector<RootState, Settings>(
     (state) => state.assistant.settings,
@@ -321,74 +327,79 @@ ${exploreRefinementExamples
   )
 
   const generateExploreUrl = useCallback(
-    async (prompt: string) => {
-      const contents = `
-        Context
-        ----------
-    
-        You are a developer who would transalate questions to a structured Looker URL query based on the following instructions.
-        
-        Instructions:
-          - choose only the fields in the below lookml metadata
-          - prioritize the field description, label, tags, and name for what field(s) to use for a given description
-          - generate only one answer, no more.
-          - use the Examples (at the bottom) for guidance on how to structure the Looker url query
-          - try to avoid adding dynamic_fields, provide them when very similar example is found in the bottom
-          - never respond with sql, always return an looker explore url as a single string
-          - response should start with fields= , as in the Examples section at the bottom  
-    
-        LookML Metadata
-        ----------
-    
-        Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
-          
-      ${dimensions.map(formatContent).join('\n')}
-          
-        Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):
-      
-      ${measures.map(formatContent).join('\n')}
-    
-        Example
-        ----------
-    
-      ${exploreGenerationExamples
-        .map((item) => `input: "${item.input}" ; output: ${item.output}`)
-        .join('\n')}
+    async (prompt: string, dimensions: any[], measures: any[], exploreGenerationExamples: any[]) => {
+      try {
+        console.log("From Vertex: ", exploreName, modelName, dimensions, measures, exploreGenerationExamples,isDataLoaded)
+        const contents = `
+            Context
+            ----------
 
-        Input
-        ----------
-        ${prompt}
+            You are a developer who would transalate questions to a structured Looker URL query based on the following instructions.
 
-    
-        Output
-        ----------
-    `
-      const parameters = {
-        max_output_tokens: 1000,
+            Instructions:
+              - choose only the fields in the below lookml metadata
+              - prioritize the field description, label, tags, and name for what field(s) to use for a given description
+              - generate only one answer, no more.
+              - use the Examples (at the bottom) for guidance on how to structure the Looker url query
+              - try to avoid adding dynamic_fields, provide them when very similar example is found in the bottom
+              - never respond with sql, always return an looker explore url as a single string
+              - response should start with fields= , as in the Examples section at the bottom  
+
+            LookML Metadata
+            ----------
+
+            Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
+
+          ${dimensions.map(formatContent).join('\n')}
+
+            Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):
+
+          ${measures.map(formatContent).join('\n')}
+
+            Example
+            ----------
+
+          ${exploreGenerationExamples
+            .map((item) => `input: "${item.input}" ; output: ${item.output}`)
+            .join('\n')}
+
+            Input
+            ----------
+            ${prompt}
+
+            Output
+            ----------
+        `
+        const parameters = {
+          max_output_tokens: 1000,
+        }
+        console.log(contents)
+        const response = await sendMessage(contents, parameters)
+
+        const unquoteResponse = (response: string) => {
+          return response
+            .substring(response.indexOf('fields='))
+            .replace(/^`+|`+$/g, '')
+            .trim()
+        }
+        const cleanResponse = unquoteResponse(response)
+        console.log(cleanResponse)
+
+        let toggleString = '&toggle=dat,pik,vis'
+        if(settings['show_explore_data'].value) {
+          toggleString = '&toggle=pik,vis'
+        }
+
+        const newExploreUrl = cleanResponse + toggleString
+
+
+        return newExploreUrl
+      } catch (error) {
+        console.error("Error waiting for data (lookml fields & training examples) to load:", error);
+        showBoundary({message: "Error waiting for data (lookml fields & training examples) to load:", error})
       }
-      console.log(contents)
-      const response = await sendMessage(contents, parameters)
-
-      const unquoteResponse = (response: string) => {
-        return response
-          .substring(response.indexOf('fields='))
-          .replace(/^`+|`+$/g, '')
-          .trim()
-      }
-      const cleanResponse = unquoteResponse(response)
-      console.log(cleanResponse)
-
-      let toggleString = '&toggle=dat,pik,vis'
-      if(settings['show_explore_data'].value) {
-        toggleString = '&toggle=pik,vis'
-      }
-
-      const newExploreUrl = cleanResponse + toggleString
-
-
-      return newExploreUrl
     },
-    [dimensions, measures, exploreGenerationExamples, settings],
+    [settings, exploreName, modelName],
   )
 
   const sendMessage = async (message: string, parameters: ModelParameters) => {

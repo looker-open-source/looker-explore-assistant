@@ -1,5 +1,14 @@
 # Changelog
+## v3.1
 
+### Added
+- Explore dropdown for asking questions against different explores
+  - only loads explores that exist in examples table on bigquery end
+  - extension frontend picks up explores without redeployment of app
+- Dynamic explore samples loaded from samples table in BigQuery
+  - terraform update to deploy samples table
+  - bigquery loader script update to upload samples per explore
+  
 ## v3.0
 
 ### Added

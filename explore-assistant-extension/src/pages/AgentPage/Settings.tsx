@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import {
   Modal,
   Box,
@@ -8,10 +8,13 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
+  MenuItem,
+  Select,
+  SelectChangeEvent
 } from '@mui/material'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store'
-import { setSetting, Settings } from '../../slices/assistantSlice'
+import { setSetting, setExploreName, setExploreId, setModelName, resetChat } from '../../slices/assistantSlice'
 
 interface SettingsModalProps {
   open: boolean
@@ -20,9 +23,17 @@ interface SettingsModalProps {
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const dispatch = useDispatch()
-  const settings = useSelector<RootState, Settings>(
-    (state) => state.assistant.settings,
+  const { settings, exploreId, explores } = useSelector(
+    (state: RootState) => state.assistant,
   )
+
+  const setSelectedExplore = (e: SelectChangeEvent<any>) => {
+    const parsedExploreID = e.target.value.split(":")
+    dispatch(setExploreName(parsedExploreID[1]))
+    dispatch(setModelName(parsedExploreID[0]))
+    dispatch(setExploreId(e.target.value.replace(":","/")))
+    dispatch(resetChat())
+  }
 
   const handleToggle = (id: string) => {
     dispatch(
@@ -53,7 +64,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         </Typography>
         <List>
           {Object.entries(settings).map(([id, setting]) => (
-            <ListItem key={id} className="py-2">
+            <ListItem key={id + setting.name} className="py-2">
               <ListItemText
                 primary={setting.name}
                 secondary={setting.description}
@@ -61,14 +72,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
               />
               <ListItemSecondaryAction>
                 <Switch
-                  edge="end"
-                  onChange={() => handleToggle(id)}
-                  checked={setting.value}
-                  inputProps={{ 'aria-labelledby': `switch-${id}` }}
+                edge="end"
+                onChange={() => handleToggle(id)}
+                checked={setting.value}
+                inputProps={{ 'aria-labelledby': `switch-${id}` }}
                 />
               </ListItemSecondaryAction>
             </ListItem>
           ))}
+          <ListItem key={'explore-select'} className="py-2">
+            <ListItemText
+                primary={"Select your Explore"}
+                secondary={"Load a conversation with a different Explore. These explores are configured in the Backend deployment of Explore Assistant and are loaded dynamically from a table."}
+                className="pr-4"
+              />
+              <ListItemSecondaryAction>
+                <Select
+                  labelId="demo-simple-select-label"
+                  id="demo-simple-select"
+                  value={exploreId.replace("/",":")}
+                  label="Explore Select"
+                  onChange={setSelectedExplore}
+                >
+                  {explores.length > 0 && explores.map((explore, index) => (
+                    <MenuItem key={index} value={explore.explore_id}>{explore.explore_id.split(":")[1]}</MenuItem>
+                  ))}
+                </Select>
+              </ListItemSecondaryAction>
+          </ListItem>
         </List>
       </Box>
     </Modal>

@@ -1,24 +1,30 @@
 import React, { useEffect } from 'react'
 import { hot } from 'react-hot-loader/root'
 import { Route, Switch, Redirect } from 'react-router-dom'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import {
   setExploreId,
   setExploreName,
   setModelName,
 } from './slices/assistantSlice'
+import { RootState } from './store'
 import { useLookerFields } from './hooks/useLookerFields'
 import { useBigQueryExamples } from './hooks/useBigQueryExamples'
 import AgentPage from './pages/AgentPage'
 
 const ExploreApp = () => {
   const dispatch = useDispatch()
+  const {
+    exploreName,
+    modelName,
+    exploreId,
+  } = useSelector((state: RootState) => state.assistant)
   const LOOKER_EXPLORE_ID =
-    `${process.env.LOOKER_MODEL}/${process.env.LOOKER_EXPLORE}` || ''
+    exploreId || `${process.env.LOOKER_MODEL}/${process.env.LOOKER_EXPLORE}` || ''
   useEffect(() => {
     dispatch(setExploreId(LOOKER_EXPLORE_ID))
-    dispatch(setModelName(process.env.LOOKER_MODEL || ''))
-    dispatch(setExploreName(process.env.LOOKER_EXPLORE || ''))
+    dispatch(setModelName(modelName || process.env.LOOKER_MODEL || ''))
+    dispatch(setExploreName(exploreName || process.env.LOOKER_EXPLORE || ''))
   }, [])
 
 

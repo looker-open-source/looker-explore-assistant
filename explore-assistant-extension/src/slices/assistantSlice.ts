@@ -18,6 +18,12 @@ interface Field {
   tags: string[]
 }
 
+interface Sample {
+  category: string
+  prompt: string
+  color: string
+}
+
 export interface Message {
   uuid: string
   message: string
@@ -70,6 +76,7 @@ export interface AssistantState {
   exploreId: string
   exploreName: string
   modelName: string
+  explores: string[]
   examples: {
     exploreGenerationExamples: {
       input: string
@@ -79,8 +86,15 @@ export interface AssistantState {
       input: string[]
       output: string
     }[]
-  }
-  settings: Settings
+    exploreSamples: {
+      explore_id: string
+      samples: Sample[]
+    }[]
+  },
+  settings: Settings,
+  lookerFieldsLoaded: boolean,
+  bigQueryExamplesLoaded: boolean,
+  sidebarMessage: ''
 }
 
 export const newThreadState = () => {
@@ -109,9 +123,11 @@ export const initialState: AssistantState = {
   exploreId: '',
   exploreName: '',
   modelName: '',
+  explores: [],
   examples: {
     exploreGenerationExamples: [],
     exploreRefinementExamples: [],
+    exploreSamples: []
   },
   settings: {
     show_explore_data: {
@@ -120,6 +136,9 @@ export const initialState: AssistantState = {
       value: false,
     },
   },
+  lookerFieldsLoaded: false,
+  bigQueryExamplesLoaded: false,
+  sidebarMessage: ''
 }
 
 export const assistantSlice = createSlice({
@@ -173,12 +192,6 @@ export const assistantSlice = createSlice({
           state.history[state.history.length - 1] = state.currentExploreThread
         }
       }
-    },
-    addToHistory: (state, action: PayloadAction<ExploreThread>) => {
-      state.history.push(action.payload)
-    },
-    clearHistory: (state) => {
-      state.history = []
     },
     setDimensions: (state, action: PayloadAction<Field[]>) => {
       state.dimensions = action.payload
@@ -242,19 +255,18 @@ export const assistantSlice = createSlice({
     setModelName: (state, action: PayloadAction<string>) => {
       state.modelName = action.payload
     },
+    setExplores: (state, action: PayloadAction<string[]>) => {
+      state.explores = action.payload
+    },
     setExploreGenerationExamples(
       state,
-      action: PayloadAction<
-        AssistantState['examples']['exploreGenerationExamples']
-      >,
+      action: PayloadAction<AssistantState['examples']['exploreGenerationExamples']>,
     ) {
       state.examples.exploreGenerationExamples = action.payload
     },
     setExploreRefinementExamples(
       state,
-      action: PayloadAction<
-        AssistantState['examples']['exploreRefinementExamples']
-      >,
+      action: PayloadAction<AssistantState['examples']['exploreRefinementExamples']>,
     ) {
       state.examples.exploreRefinementExamples = action.payload
     },
@@ -271,6 +283,24 @@ export const assistantSlice = createSlice({
       ) as SummarizeMesage
       message.summary = summary
     },
+    setExploreSamples(
+      state,
+      action: PayloadAction<Sample[]>,
+    ) {
+      state.examples.exploreSamples = action.payload
+    },
+    setLookerFieldsLoaded: (
+      state, 
+      action: PayloadAction<boolean>
+    ) => {
+      state.lookerFieldsLoaded = action.payload
+    },
+    setBigQueryExamplesLoaded: (
+      state, 
+      action: PayloadAction<boolean>
+    ) => {
+      state.bigQueryExamplesLoaded = action.payload
+    },
   },
 })
 
@@ -278,8 +308,6 @@ export const {
   setIsQuerying,
   setIsChatMode,
   resetChatMode,
-  addToHistory,
-  clearHistory,
   updateLastHistoryEntry,
   addPrompt,
   setDimensions,
@@ -291,8 +319,13 @@ export const {
   setExploreId,
   setExploreName,
   setModelName,
+  setExplores,
   setExploreGenerationExamples,
   setExploreRefinementExamples,
+  setExploreSamples,
+
+  setBigQueryExamplesLoaded,
+  setLookerFieldsLoaded,
 
   updateCurrentThread,
   setCurrentThread,

@@ -80,7 +80,7 @@ terraform plan
 terraform apply
 ```
 
-You will hvae to wait 1-2 minutes for the APIs to turn on. You will also have to wait a couple of minutes for the service account for the BigQuery connection to appear.
+You will have to wait 1-2 minutes for the APIs to turn on. You will also have to wait a couple of minutes for the service account for the BigQuery connection to appear.
 
 If you use the defaults, you can test whether everything is working by running:
 

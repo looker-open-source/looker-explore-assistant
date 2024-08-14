@@ -11,7 +11,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
 import {
   addMessage,
-  addPrompt,
+  AssistantState,
   closeSidePanel,
   openSidePanel,
   setIsQuerying,
@@ -23,7 +23,28 @@ import {
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
 import { Close } from '@material-ui/icons'
-import { LinearProgress, Tooltip } from '@mui/material'
+import {
+  FormControl,
+  InputLabel,
+  LinearProgress,
+  MenuItem,
+  Select,
+  Tooltip,
+} from '@mui/material'
+import { Expand } from '@mui/icons-material'
+
+const toCamelCase = (input: string): string => {
+  // Remove underscores, make following letter uppercase
+  let result = input.replace(
+    /_([a-z])/g,
+    (_match, letter) => ' ' + letter.toUpperCase(),
+  )
+
+  // Capitalize the first letter of the string
+  result = result.charAt(0).toUpperCase() + result.slice(1)
+
+  return result
+}
 
 const AgentPage = () => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
@@ -36,20 +57,30 @@ const AgentPage = () => {
     isChatMode,
     query,
     currentExploreThread,
+    currentExplore,
     sidePanel,
     dimensions,
     measures,
     examples,
-    exploreId,
-    bigQueryExamplesLoaded,
-    lookerFieldsLoaded
-  } = useSelector((state: RootState) => state.assistant)
+    lookerFieldsLoaded,
+    bigQueryMetadataLoaded,
+  } = useSelector((state: RootState) => state.assistant as AssistantState)
+
+  const explores = Object.keys(examples.exploreSamples).map((key) => {
+    const exploreParts = key.split(':')
+    return {
+      modelName: exploreParts[0],
+      exploreId: exploreParts[1],
+    }
+  })
 
   const submitMessage = useCallback(async () => {
-    dispatch(addPrompt(query))
     dispatch(setIsQuerying(true))
 
-    const promptList = [...currentExploreThread.promptList, query]
+    let promptList = [query]
+    if (currentExploreThread && currentExploreThread.promptList) {
+      promptList = [...currentExploreThread.promptList, query]
+    }
 
     dispatch(
       addMessage({
@@ -70,12 +101,32 @@ const AgentPage = () => {
       dispatch(setIsQuerying(false))
       return
     }
-    
-    const newExploreUrl = await generateExploreUrl(promptSummary,dimensions, measures, examples.exploreGenerationExamples)
-    console.log("New Explore URL: ", newExploreUrl)
+
+    const newExploreUrl = await generateExploreUrl(
+      promptSummary,
+      dimensions,
+      measures,
+      examples.exploreGenerationExamples,
+    )
+    console.log('New Explore URL: ', newExploreUrl)
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
-    dispatch(updateCurrentThread({ exploreUrl: newExploreUrl, summarizedPrompt: promptSummary }))
+
+    // If the newExploreUrl is empty, do not update the current thread
+    if (
+      newExploreUrl === '' ||
+      newExploreUrl === null ||
+      newExploreUrl === undefined
+    ) {
+      return
+    }
+
+    dispatch(
+      updateCurrentThread({
+        exploreUrl: newExploreUrl,
+        summarizedPrompt: promptSummary,
+      }),
+    )
 
     if (isSummary) {
       dispatch(
@@ -106,21 +157,28 @@ const AgentPage = () => {
 
     // update the history with the current contents of the thread
     dispatch(updateLastHistoryEntry())
-  }, [generateExploreUrl, dispatch, query, dimensions, measures, examples])
+  }, [
+    generateExploreUrl,
+    dispatch,
+    query,
+    dimensions,
+    measures,
+    examples,
+    currentExplore,
+  ])
 
-  const isDataLoaded = bigQueryExamplesLoaded && lookerFieldsLoaded
+  const isDataLoaded = bigQueryMetadataLoaded && lookerFieldsLoaded
 
   useEffect(() => {
     if (!query || query === '') {
       return
     }
 
-    if(query !== '' && isDataLoaded) {
+    if (query !== '' && isDataLoaded) {
       submitMessage()
       endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-
-  }, [query,isDataLoaded, submitMessage])
+  }, [query, isDataLoaded, submitMessage])
 
   const toggleDrawer = () => {
     setExpanded(!expanded)
@@ -130,7 +188,8 @@ const AgentPage = () => {
     dimensions.length > 0 &&
     measures.length > 0 &&
     examples.exploreGenerationExamples.length > 0 &&
-    examples.exploreRefinementExamples.length > 0
+    examples.exploreRefinementExamples.length > 0 &&
+    bigQueryMetadataLoaded
 
   if (!isAgentReady) {
     return (
@@ -141,7 +200,9 @@ const AgentPage = () => {
               Hello.
             </span>
           </h1>
-          <h1 className="text-3xl text-gray-400">Getting everything ready...</h1>
+          <h1 className="text-3xl text-gray-400">
+            Getting everything ready...
+          </h1>
           <div className="max-w-2xl text-blue-300">
             <LinearProgress color="inherit" />
           </div>
@@ -170,22 +231,23 @@ const AgentPage = () => {
               >
                 <div className="flex-grow overflow-y-auto max-h-full mb-36 ">
                   <div className="max-w-4xl mx-auto">
-                    {!isDataLoaded 
-                      ? (
-                        <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
-                          <h1 className="text-5xl font-bold">
-                            <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-                              Hello.
-                            </span>
-                          </h1>
-                          <h1 className="text-3xl text-gray-400">Loading the conversation and LookML Metadata... </h1>
-                          <div className="max-w-2xl text-blue-300">
-                            <LinearProgress color="inherit" />
-                          </div>
+                    {!isDataLoaded ? (
+                      <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
+                        <h1 className="text-5xl font-bold">
+                          <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
+                            Hello.
+                          </span>
+                        </h1>
+                        <h1 className="text-3xl text-gray-400">
+                          Loading the conversation and LookML Metadata...{' '}
+                        </h1>
+                        <div className="max-w-2xl text-blue-300">
+                          <LinearProgress color="inherit" />
                         </div>
-                      )
-                      : <MessageThread />
-                    }
+                      </div>
+                    ) : (
+                      <MessageThread />
+                    )}
                   </div>
                 </div>
                 <div
@@ -224,7 +286,7 @@ const AgentPage = () => {
             </div>
           ) : (
             <>
-              <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
+              <div className="flex flex-col space-y-4 mx-auto max-w-3xl p-4">
                 <h1 className="text-5xl font-bold">
                   <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
                     Hello.
@@ -235,7 +297,24 @@ const AgentPage = () => {
                 </h1>
               </div>
 
-              <div className="flex justify-center items-center mt-16">
+              <div className="flex flex-col max-w-3xl m-auto mt-16">
+                {explores.length > 1 && (
+                  <div className="text-md border-b-2 p-2 max-w-3xl">
+                    <FormControl className="">
+                      <InputLabel>Explore</InputLabel>
+                      <Select value={currentExplore.exploreId} label="Explore">
+                        {explores.map((oneExplore) => (
+                          <MenuItem
+                            key={oneExplore.exploreId}
+                            value={oneExplore.exploreId}
+                          >
+                            {toCamelCase(oneExplore.exploreId)}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </div>
+                )}
                 <SamplePrompts />
               </div>
 

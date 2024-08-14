@@ -5,8 +5,9 @@ import {
   setExploreGenerationExamples,
   setExploreRefinementExamples,
   setExploreSamples,
-  setExplores,
-  setBigQueryExamplesLoaded
+  ExploreSamples,
+  setBigQueryMetadataLoaded,
+  setCurrenExplore
 } from '../slices/assistantSlice'
 
 import { ExtensionContext } from '@looker/extension-sdk-react'
@@ -52,18 +53,6 @@ export const useBigQueryExamples = () => {
     }
   }
 
-  const getExplores = async () => {
-    const sql = `
-      SELECT DISTINCT
-        explore_id
-      FROM
-        \`${datasetName}.explore_assistant_examples\`
-    `
-    return runExampleQuery(sql).then((response) => {
-      dispatch(setExplores(response))
-    }).catch((error) => showBoundary(error))
-  }
-
   const getExamplePrompts = async () => {
     const sql = `
       SELECT
@@ -73,6 +62,9 @@ export const useBigQueryExamples = () => {
         WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
     `
     return runExampleQuery(sql).then((response) => {
+      if(response.length === 0 || !Array.isArray(response)) {
+        return
+      }
       const generationExamples = JSON.parse(response[0]['examples'])
       dispatch(setExploreGenerationExamples(generationExamples))
     }).catch((error) => showBoundary(error))
@@ -87,6 +79,9 @@ export const useBigQueryExamples = () => {
       WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
   `
     return runExampleQuery(sql).then((response) => {
+      if(response.length === 0 || !Array.isArray(response)) {
+        return
+      }
       const refinementExamples = JSON.parse(response[0]['examples'])
       dispatch(setExploreRefinementExamples(refinementExamples))
     }).catch((error) => showBoundary(error))
@@ -101,28 +96,33 @@ export const useBigQueryExamples = () => {
         \`${datasetName}.explore_assistant_samples\`
     `
     return runExampleQuery(sql).then((response) => {
-      console.log(response)
-      const generationSamples = response
-      dispatch(setExploreSamples(generationSamples))
+      const exploreSamples: ExploreSamples = {}
+      if(response.length === 0 || !Array.isArray(response)) {
+        return
+      }
+      response.forEach((row: any) => {
+        exploreSamples[row['explore_id']] = JSON.parse(row['samples'])
+      })
+      const [modelName, exploreId] = (response[0]['explore_id'] as string).split(':')
+      dispatch(setExploreSamples(exploreSamples))
+      dispatch(setCurrenExplore({
+        modelName,
+        exploreId
+      }))
     }).catch((error) => showBoundary(error))
   }
 
-  // only run once
-  useEffect(() => {
-    getExplores()
-    getSamples()
-  },[showBoundary])
 
   // get the example prompts provide completion status
   useEffect(() => {
-    dispatch(setBigQueryExamplesLoaded(false))
-    Promise.all([getExamplePrompts(), getRefinementPrompts()])
+    dispatch(setBigQueryMetadataLoaded(false))
+    Promise.all([getExamplePrompts(), getRefinementPrompts(), getSamples()])
       .then(() => {
-        dispatch(setBigQueryExamplesLoaded(true))
+        dispatch(setBigQueryMetadataLoaded(true))
       })
       .catch((error) => {
         showBoundary(error)
-        dispatch(setBigQueryExamplesLoaded(true))
+        dispatch(setBigQueryMetadataLoaded(false))
       })
-  }, [modelName, exploreName, showBoundary])
+  }, [showBoundary])
 }

@@ -1,7 +1,6 @@
 import React from 'react'
 
 import Message from './Message'
-import { Link } from '@looker/components'
 import { useContext } from 'react'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useDispatch, useSelector } from 'react-redux'
@@ -10,7 +9,7 @@ import {
   openSidePanel,
   setSidePanelExploreUrl,
 } from '../../slices/assistantSlice'
-import { Explore, OpenInNew, Share } from '@material-ui/icons'
+import { OpenInNew } from '@material-ui/icons'
 
 interface ExploreMessageProps {
   prompt: string

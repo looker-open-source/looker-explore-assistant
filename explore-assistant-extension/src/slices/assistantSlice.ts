@@ -11,6 +11,10 @@ export interface Settings {
   [key: string]: Setting
 }
 
+export interface ExploreSamples {
+  [explore_id: string]: Sample[]
+}
+
 interface Field {
   name: string
   type: string
@@ -55,6 +59,8 @@ export type ChatMessage = Message | ExploreMessage | SummarizeMesage
 
 export type ExploreThread = {
   uuid: string
+  exploreId: string
+  exploreName: string
   messages: ChatMessage[]
   exploreUrl: string
   summarizedPrompt: string
@@ -65,6 +71,10 @@ export interface AssistantState {
   isQuerying: boolean
   isChatMode: boolean
   currentExploreThread: ExploreThread | null
+  currentExplore: {
+    modelName: string
+    exploreId: string
+  }
   sidePanel: {
     isSidePanelOpen: boolean
     exploreUrl: string
@@ -73,10 +83,6 @@ export interface AssistantState {
   dimensions: Field[]
   measures: Field[]
   query: string
-  exploreId: string
-  exploreName: string
-  modelName: string
-  explores: string[]
   examples: {
     exploreGenerationExamples: {
       input: string
@@ -86,20 +92,19 @@ export interface AssistantState {
       input: string[]
       output: string
     }[]
-    exploreSamples: {
-      explore_id: string
-      samples: Sample[]
-    }[]
+    exploreSamples: ExploreSamples
   },
   settings: Settings,
   lookerFieldsLoaded: boolean,
-  bigQueryExamplesLoaded: boolean,
+  bigQueryMetadataLoaded: boolean,
   sidebarMessage: ''
 }
 
 export const newThreadState = () => {
-  const thread: ExploreThread = {
+  const thread: ExploreThread = {    
     uuid: uuidv4(),
+    exploreId: '',
+    exploreName: '',
     messages: [],
     exploreUrl: '',
     summarizedPrompt: '',
@@ -112,6 +117,10 @@ export const initialState: AssistantState = {
   isQuerying: false,
   isChatMode: false,
   currentExploreThread: null,
+  currentExplore: {
+    modelName: '',
+    exploreId: ''
+  },
   sidePanel: {
     isSidePanelOpen: false,
     exploreUrl: '',
@@ -120,14 +129,10 @@ export const initialState: AssistantState = {
   dimensions: [],
   measures: [],
   query: '',
-  exploreId: '',
-  exploreName: '',
-  modelName: '',
-  explores: [],
   examples: {
     exploreGenerationExamples: [],
     exploreRefinementExamples: [],
-    exploreSamples: []
+    exploreSamples: {}
   },
   settings: {
     show_explore_data: {
@@ -137,7 +142,7 @@ export const initialState: AssistantState = {
     },
   },
   lookerFieldsLoaded: false,
-  bigQueryExamplesLoaded: false,
+  bigQueryMetadataLoaded: false,
   sidebarMessage: ''
 }
 
@@ -175,6 +180,9 @@ export const assistantSlice = createSlice({
     },
     setSidePanelExploreUrl: (state, action: PayloadAction<string>) => {
       state.sidePanel.exploreUrl = action.payload
+    },
+    clearHistory : (state) => {
+      state.history = []
     },
     updateLastHistoryEntry: (state) => {
       if (state.currentExploreThread === null) {
@@ -240,24 +248,6 @@ export const assistantSlice = createSlice({
       }
       state.currentExploreThread.messages.push(action.payload)
     },
-    addPrompt: (state, action: PayloadAction<string>) => {
-      if (state.currentExploreThread === null) {
-        state.currentExploreThread = newThreadState()
-      }
-      state.currentExploreThread.promptList.push(action.payload)
-    },
-    setExploreId: (state, action: PayloadAction<string>) => {
-      state.exploreId = action.payload
-    },
-    setExploreName: (state, action: PayloadAction<string>) => {
-      state.exploreName = action.payload
-    },
-    setModelName: (state, action: PayloadAction<string>) => {
-      state.modelName = action.payload
-    },
-    setExplores: (state, action: PayloadAction<string[]>) => {
-      state.explores = action.payload
-    },
     setExploreGenerationExamples(
       state,
       action: PayloadAction<AssistantState['examples']['exploreGenerationExamples']>,
@@ -285,7 +275,7 @@ export const assistantSlice = createSlice({
     },
     setExploreSamples(
       state,
-      action: PayloadAction<Sample[]>,
+      action: PayloadAction<ExploreSamples>,
     ) {
       state.examples.exploreSamples = action.payload
     },
@@ -295,12 +285,15 @@ export const assistantSlice = createSlice({
     ) => {
       state.lookerFieldsLoaded = action.payload
     },
-    setBigQueryExamplesLoaded: (
+    setBigQueryMetadataLoaded: (
       state, 
       action: PayloadAction<boolean>
     ) => {
-      state.bigQueryExamplesLoaded = action.payload
+      state.bigQueryMetadataLoaded = action.payload
     },
+    setCurrenExplore: (state, action: PayloadAction<AssistantState['currentExplore']>) => {
+      state.currentExplore = action.payload
+    }
   },
 })
 
@@ -308,23 +301,21 @@ export const {
   setIsQuerying,
   setIsChatMode,
   resetChatMode,
+
   updateLastHistoryEntry,
-  addPrompt,
+  clearHistory,
+
   setDimensions,
   setMeasures,
   setExploreUrl,
   setQuery,
   resetChat,
   addMessage,
-  setExploreId,
-  setExploreName,
-  setModelName,
-  setExplores,
   setExploreGenerationExamples,
   setExploreRefinementExamples,
   setExploreSamples,
 
-  setBigQueryExamplesLoaded,
+  setBigQueryMetadataLoaded,
   setLookerFieldsLoaded,
 
   updateCurrentThread,
@@ -338,6 +329,8 @@ export const {
   resetSettings,
 
   updateSummaryMessage,
+
+  setCurrenExplore,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

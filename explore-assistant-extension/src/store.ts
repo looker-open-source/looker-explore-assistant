@@ -14,6 +14,7 @@ const neverPersistKeys: (keyof AssistantState)[] = [
   'dimensions',
   'measures',
   'examples',
+  'bigQueryMetadataLoaded',
 ]
 
 // Create a transform function to filter out specific keys

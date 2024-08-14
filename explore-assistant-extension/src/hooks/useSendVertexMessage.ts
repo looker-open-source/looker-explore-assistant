@@ -6,7 +6,7 @@ import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
 import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
-import { Settings } from 'http2'
+import { Settings } from '../slices/assistantSlice'
 
 interface ModelParameters {
   max_output_tokens?: number
@@ -75,10 +75,6 @@ const useSendVertexMessage = () => {
     useSelector((state: RootState) => state.assistant)
   
   const isDataLoaded = bigQueryExamplesLoaded && lookerFieldsLoaded
-
-  const settings = useSelector<RootState, Settings>(
-    (state) => state.assistant.settings,
-  )
 
   const settings = useSelector<RootState, Settings>(
     (state) => state.assistant.settings,

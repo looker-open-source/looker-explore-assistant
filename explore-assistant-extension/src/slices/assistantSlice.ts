@@ -15,6 +15,20 @@ export interface ExploreSamples {
   [explore_id: string]: Sample[]
 }
 
+export interface ExploreExamples {
+  [explore_id: string]: {
+    input: string
+    output: string
+  }[]
+}
+
+export interface RefinementExamples {
+  [explore_id: string]: {
+    input: string[]
+    output: string
+  }[]
+}
+
 interface Field {
   name: string
   type: string
@@ -60,11 +74,17 @@ export type ChatMessage = Message | ExploreMessage | SummarizeMesage
 export type ExploreThread = {
   uuid: string
   exploreId: string
-  exploreName: string
+  modelName: string
   messages: ChatMessage[]
   exploreUrl: string
   summarizedPrompt: string
   promptList: string[]
+}
+
+
+export interface SemanticModel {
+  dimensions: Field[]
+  measures: Field[]
 }
 
 export interface AssistantState {
@@ -80,31 +100,26 @@ export interface AssistantState {
     exploreUrl: string
   }
   history: ExploreThread[]
-  dimensions: Field[]
-  measures: Field[]
+  semanticModels: {
+    [explore: string]: SemanticModel
+  }
   query: string
   examples: {
-    exploreGenerationExamples: {
-      input: string
-      output: string
-    }[]
-    exploreRefinementExamples: {
-      input: string[]
-      output: string
-    }[]
+    exploreGenerationExamples: ExploreExamples
+    exploreRefinementExamples: RefinementExamples
     exploreSamples: ExploreSamples
   },
   settings: Settings,
   lookerFieldsLoaded: boolean,
-  bigQueryMetadataLoaded: boolean,
-  sidebarMessage: ''
+  isBigQueryMetadataLoaded: boolean,
+  isSemanticModelLoaded: boolean
 }
 
 export const newThreadState = () => {
   const thread: ExploreThread = {    
     uuid: uuidv4(),
     exploreId: '',
-    exploreName: '',
+    modelName: '',
     messages: [],
     exploreUrl: '',
     summarizedPrompt: '',
@@ -126,12 +141,11 @@ export const initialState: AssistantState = {
     exploreUrl: '',
   },
   history: [],
-  dimensions: [],
-  measures: [],
   query: '',
+  semanticModels: {},
   examples: {
-    exploreGenerationExamples: [],
-    exploreRefinementExamples: [],
+    exploreGenerationExamples: {},
+    exploreRefinementExamples: {},
     exploreSamples: {}
   },
   settings: {
@@ -142,8 +156,8 @@ export const initialState: AssistantState = {
     },
   },
   lookerFieldsLoaded: false,
-  bigQueryMetadataLoaded: false,
-  sidebarMessage: ''
+  isBigQueryMetadataLoaded: false,
+  isSemanticModelLoaded: false
 }
 
 export const assistantSlice = createSlice({
@@ -201,11 +215,8 @@ export const assistantSlice = createSlice({
         }
       }
     },
-    setDimensions: (state, action: PayloadAction<Field[]>) => {
-      state.dimensions = action.payload
-    },
-    setMeasures: (state, action: PayloadAction<Field[]>) => {
-      state.measures = action.payload
+    setSemanticModels: (state, action: PayloadAction<AssistantState['semanticModels']>) => {
+      state.semanticModels = action.payload
     },
     setExploreUrl: (state, action: PayloadAction<string>) => {
       if (state.currentExploreThread === null) {
@@ -285,11 +296,14 @@ export const assistantSlice = createSlice({
     ) => {
       state.lookerFieldsLoaded = action.payload
     },
-    setBigQueryMetadataLoaded: (
+    setisBigQueryMetadataLoaded: (
       state, 
       action: PayloadAction<boolean>
     ) => {
-      state.bigQueryMetadataLoaded = action.payload
+      state.isBigQueryMetadataLoaded = action.payload
+    },
+    setIsSemanticModelLoaded: (state, action: PayloadAction<boolean>) => {
+      state.isSemanticModelLoaded = action.payload
     },
     setCurrenExplore: (state, action: PayloadAction<AssistantState['currentExplore']>) => {
       state.currentExplore = action.payload
@@ -305,8 +319,8 @@ export const {
   updateLastHistoryEntry,
   clearHistory,
 
-  setDimensions,
-  setMeasures,
+  setSemanticModels,
+  setIsSemanticModelLoaded,
   setExploreUrl,
   setQuery,
   resetChat,
@@ -315,7 +329,7 @@ export const {
   setExploreRefinementExamples,
   setExploreSamples,
 
-  setBigQueryMetadataLoaded,
+  setisBigQueryMetadataLoaded,
   setLookerFieldsLoaded,
 
   updateCurrentThread,

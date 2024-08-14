@@ -13,10 +13,7 @@ import {
   setCurrentThread,
   setIsChatMode,
   setSidePanelExploreUrl,
-  setQuery,
-  setExploreId,
-  setExploreName,
-  setModelName,
+  AssistantState,
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
 import SettingsModal from './Settings'
@@ -30,18 +27,9 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const dispatch = useDispatch()
   const [isExpanded, setIsExpanded] = React.useState(expanded)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
-  const { isChatMode, isQuerying, history, bigQueryExamplesLoaded, lookerFieldsLoaded, sidebarMessage } = useSelector(
-    (state: RootState) => state.assistant,
+  const { isChatMode, isQuerying, history } = useSelector(
+    (state: RootState) => state.assistant as AssistantState,
   )
-
-  const sidebarItems = [
-    { text: 'New chat' },
-    { text: 'Ready to Assist' },
-    { text: 'Which Extensions?' },
-    { text: 'Embedding Videos' },
-    { text: 'Corrected Dagster' },
-    { text: 'Camel in the Desert' },
-  ]
 
   const handleClick = () => {
     if (expanded) {
@@ -69,23 +57,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
     dispatch(setIsChatMode(true))
     dispatch(setSidePanelExploreUrl(thread.exploreUrl))
     dispatch(openSidePanel())
-
-    const [modelName, exploreName] = message.exploreId.split("/");
-
-    dispatch(setExploreId(message.exploreId))
-    dispatch(setExploreName(exploreName))
-    dispatch(setModelName(modelName))
-
   }
-
-  React.useEffect(() => {
-    if(bigQueryExamplesLoaded && lookerFieldsLoaded && sidebarMessage !== '') {
-        dispatch(resetChat())
-        dispatch(setQuery(sidebarMessage))
-        dispatch(setIsChatMode(true))
-
-    }
-  },[dispatch, sidebarMessage, bigQueryExamplesLoaded, lookerFieldsLoaded])
 
   const handleClearHistory = () => {
     dispatch(clearHistory())
@@ -163,7 +135,12 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
                 <div className="text-gray-400">No recent chats</div>
               )}
               {reverseHistory.map((item, index) => (
-                <Tooltip key={item.uuid} title={item.summarizedPrompt} placement="right" arrow>
+                <Tooltip
+                  key={item.uuid}
+                  title={item.summarizedPrompt}
+                  placement="right"
+                  arrow
+                >
                   <div
                     key={index}
                     className={`flex items-center cursor-pointer hover:underline`}
@@ -183,7 +160,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
               ))}
             </div>
 
-            {sidebarItems.length === 0 && (
+            {reverseHistory.length === 0 && (
               <div className="text-gray-400">No recent chats</div>
             )}
           </div>
@@ -208,7 +185,10 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
           </div>
         </Tooltip>
       </div>
-      <SettingsModal open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal
+        open={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   )
 }

@@ -63,7 +63,8 @@ const AgentPage = () => {
     measures,
     examples,
     lookerFieldsLoaded,
-    bigQueryMetadataLoaded,
+    isBigQueryMetadataLoaded,
+    isSemanticModelLoaded,
   } = useSelector((state: RootState) => state.assistant as AssistantState)
 
   const explores = Object.keys(examples.exploreSamples).map((key) => {
@@ -167,7 +168,7 @@ const AgentPage = () => {
     currentExplore,
   ])
 
-  const isDataLoaded = bigQueryMetadataLoaded && lookerFieldsLoaded
+  const isDataLoaded = isBigQueryMetadataLoaded && lookerFieldsLoaded
 
   useEffect(() => {
     if (!query || query === '') {
@@ -184,12 +185,7 @@ const AgentPage = () => {
     setExpanded(!expanded)
   }
 
-  const isAgentReady =
-    dimensions.length > 0 &&
-    measures.length > 0 &&
-    examples.exploreGenerationExamples.length > 0 &&
-    examples.exploreRefinementExamples.length > 0 &&
-    bigQueryMetadataLoaded
+  const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded
 
   if (!isAgentReady) {
     return (

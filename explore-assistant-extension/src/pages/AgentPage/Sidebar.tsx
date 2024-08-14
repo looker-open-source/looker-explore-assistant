@@ -12,7 +12,6 @@ import {
   resetChat,
   setCurrentThread,
   setIsChatMode,
-  setQuery,
   setSidePanelExploreUrl,
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'

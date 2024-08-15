@@ -73,12 +73,34 @@ const AgentPage = () => {
   })
 
   const submitMessage = useCallback(async () => {
+    if(query === '') {
+      return
+    }
+
     dispatch(setIsQuerying(true))
 
+    // update the prompt list
     let promptList = [query]
     if (currentExploreThread && currentExploreThread.promptList) {
       promptList = [...currentExploreThread.promptList, query]
     }
+
+    dispatch(
+      updateCurrentThread({
+        promptList,
+      }),
+    )
+
+    // set the explore if it is not set
+    if(!currentExploreThread?.modelName || !currentExploreThread?.exploreId) {
+      dispatch(updateCurrentThread({
+        exploreId: currentExplore.exploreId,
+        modelName: currentExplore.modelName,
+      }))
+    }
+
+    console.log('Prompt List: ', promptList)
+    console.log(currentExploreThread)
 
     dispatch(
       addMessage({
@@ -101,7 +123,8 @@ const AgentPage = () => {
     }
 
     const { dimensions, measures } = semanticModels[currentExplore.exploreKey]
-    const exploreGenerationExamples = examples.exploreGenerationExamples[currentExplore.exploreKey]
+    const exploreGenerationExamples =
+      examples.exploreGenerationExamples[currentExplore.exploreKey]
 
     const newExploreUrl = await generateExploreUrl(
       promptSummary,
@@ -158,12 +181,7 @@ const AgentPage = () => {
 
     // update the history with the current contents of the thread
     dispatch(updateLastHistoryEntry())
-  }, [
-    query,
-    semanticModels,
-    examples,
-    currentExplore,
-  ])
+  }, [query, semanticModels, examples, currentExplore, currentExploreThread])
 
   const isDataLoaded = isBigQueryMetadataLoaded && isSemanticModelLoaded
 

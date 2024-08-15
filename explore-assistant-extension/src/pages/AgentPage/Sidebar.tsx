@@ -134,29 +134,29 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
               {history.length == 0 && (
                 <div className="text-gray-400">No recent chats</div>
               )}
-              {reverseHistory.map((item, index) => (
-                <Tooltip
-                  key={item.uuid}
-                  title={item.summarizedPrompt}
-                  placement="right"
-                  arrow
-                >
-                  <div
-                    key={index}
-                    className={`flex items-center cursor-pointer hover:underline`}
-                    onClick={() => handleHistoryClick(item)}
+              {reverseHistory.map((item) => (
+                <div key={'history-' + item.uuid}>
+                  <Tooltip
+                    title={item.summarizedPrompt}
+                    placement="right"
+                    arrow
                   >
-                    <div className="">
-                      <ChatBubbleOutline
-                        fontSize="small"
-                        className="mr-2 text-gray-600"
-                      />
+                    <div
+                      className={`flex items-center cursor-pointer hover:underline`}
+                      onClick={() => handleHistoryClick(item)}
+                    >
+                      <div className="">
+                        <ChatBubbleOutline
+                          fontSize="small"
+                          className="mr-2 text-gray-600"
+                        />
+                      </div>
+                      <div className="line-clamp-1">
+                        <span className="ml-3">{item.summarizedPrompt}</span>
+                      </div>
                     </div>
-                    <div className="line-clamp-1">
-                      <span className="ml-3">{item.summarizedPrompt}</span>
-                    </div>
-                  </div>
-                </Tooltip>
+                  </Tooltip>
+                </div>
               ))}
             </div>
           </div>

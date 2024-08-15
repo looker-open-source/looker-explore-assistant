@@ -170,6 +170,9 @@ export const assistantSlice = createSlice({
   name: 'assistant',
   initialState,
   reducers: {
+    resetExploreAssistant: () => {
+      return initialState
+    },
     setIsQuerying: (state, action: PayloadAction<boolean>) => {
       state.isQuerying = action.payload
     },
@@ -344,6 +347,8 @@ export const {
   updateSummaryMessage,
 
   setCurrenExplore,
+
+  resetExploreAssistant,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

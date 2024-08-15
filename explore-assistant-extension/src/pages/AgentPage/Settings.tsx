@@ -1,13 +1,12 @@
 import React from 'react'
-import {
-  Modal,
-  Box,
-  Typography,
-  Switch,
-} from '@mui/material'
+import { Modal, Box, Typography, Switch } from '@mui/material'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store'
-import { setSetting, AssistantState } from '../../slices/assistantSlice'
+import {
+  setSetting,
+  AssistantState,
+  resetExploreAssistant,
+} from '../../slices/assistantSlice'
 
 interface SettingsModalProps {
   open: boolean
@@ -27,6 +26,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         value: !settings[id].value,
       }),
     )
+  }
+
+  const handleReset = () => {
+    dispatch(resetExploreAssistant())
+    setInterval(() => {
+      window.location.reload()
+    }, 100)
   }
 
   if (!settings) return null
@@ -67,6 +73,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
             </li>
           ))}
         </ul>
+        <div
+          onClick={handleReset}
+          className="flex justify-start text-xs text-blue-500 hover:text-blue-600 cursor-pointer hover:underline mt-4"
+        >
+          reset explore assistant
+        </div>
       </Box>
     </Modal>
   )

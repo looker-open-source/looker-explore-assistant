@@ -39,7 +39,6 @@ interface Field {
 interface Sample {
   category: string
   prompt: string
-  color: string
 }
 
 export interface Message {

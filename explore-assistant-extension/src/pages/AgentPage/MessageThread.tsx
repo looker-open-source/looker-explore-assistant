@@ -24,6 +24,8 @@ const MessageThread = () => {
           return (
             <ExploreMessage
               key={message.uuid}
+              modelName={currentExploreThread.modelName}
+              exploreId={currentExploreThread.exploreId}
               queryArgs={message.exploreUrl}
               prompt={message.summarizedPrompt}
             />

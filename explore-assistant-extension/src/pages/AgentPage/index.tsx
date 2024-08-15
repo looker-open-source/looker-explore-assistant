@@ -14,6 +14,7 @@ import {
   AssistantState,
   closeSidePanel,
   openSidePanel,
+  setCurrenExplore,
   setIsQuerying,
   setQuery,
   setSidePanelExploreUrl,
@@ -22,18 +23,16 @@ import {
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
-import { Close, Home } from '@material-ui/icons'
+import { Close } from '@material-ui/icons'
 import {
-  Breadcrumbs,
   FormControl,
   InputLabel,
   LinearProgress,
   MenuItem,
   Select,
+  SelectChangeEvent,
   Tooltip,
-  Typography,
 } from '@mui/material'
-import { current } from '@reduxjs/toolkit'
 import { getRelativeTimeString } from '../../utils/time'
 
 const toCamelCase = (input: string): string => {
@@ -71,6 +70,7 @@ const AgentPage = () => {
   const explores = Object.keys(examples.exploreSamples).map((key) => {
     const exploreParts = key.split(':')
     return {
+      exploreKey: key,
       modelName: exploreParts[0],
       exploreId: exploreParts[1],
     }
@@ -95,18 +95,22 @@ const AgentPage = () => {
       }),
     )
 
+    const exploreKey = currentExploreThread?.exploreKey || currentExplore.exploreKey
+
     // set the explore if it is not set
     if (!currentExploreThread?.modelName || !currentExploreThread?.exploreId) {
       dispatch(
         updateCurrentThread({
           exploreId: currentExplore.exploreId,
           modelName: currentExplore.modelName,
+          exploreKey: currentExplore.exploreKey,
         }),
       )
     }
 
     console.log('Prompt List: ', promptList)
     console.log(currentExploreThread)
+    console.log(currentExplore)
 
     dispatch(
       addMessage({
@@ -128,9 +132,9 @@ const AgentPage = () => {
       return
     }
 
-    const { dimensions, measures } = semanticModels[currentExplore.exploreKey]
+    const { dimensions, measures } = semanticModels[exploreKey]
     const exploreGenerationExamples =
-      examples.exploreGenerationExamples[currentExplore.exploreKey]
+      examples.exploreGenerationExamples[exploreKey]
 
     const newExploreUrl = await generateExploreUrl(
       promptSummary,
@@ -204,6 +208,18 @@ const AgentPage = () => {
 
   const toggleDrawer = () => {
     setExpanded(!expanded)
+  }
+
+  const handleExploreChange = (event: SelectChangeEvent) => {
+    const exploreKey = event.target.value
+    const [modelName, exploreId] = exploreKey.split(':')
+    dispatch(
+      setCurrenExplore({
+        modelName,
+        exploreId,
+        exploreKey,
+      }),
+    )
   }
 
   const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded
@@ -350,7 +366,11 @@ const AgentPage = () => {
                   </div>
                 </div>
                 <div className="bg-gray-200 border-l-2 border-r-2 border-gray-400 flex-grow">
-                  <ExploreEmbed exploreUrl={sidePanel.exploreUrl} />
+                  <ExploreEmbed
+                    modelName={currentExploreThread?.modelName}
+                    exploreId={currentExploreThread?.exploreId}
+                    exploreUrl={sidePanel.exploreUrl}
+                  />
                 </div>
                 <div className="bg-gray-400 text-white px-4 py-2 text-sm rounded-b-lg"></div>
               </div>
@@ -373,11 +393,15 @@ const AgentPage = () => {
                   <div className="text-md border-b-2 p-2 max-w-3xl">
                     <FormControl className="">
                       <InputLabel>Explore</InputLabel>
-                      <Select value={currentExplore.exploreId} label="Explore">
+                      <Select
+                        value={currentExplore.exploreKey}
+                        label="Explore"
+                        onChange={handleExploreChange}
+                      >
                         {explores.map((oneExplore) => (
                           <MenuItem
-                            key={oneExplore.exploreId}
-                            value={oneExplore.exploreId}
+                            key={oneExplore.exploreKey}
+                            value={oneExplore.exploreKey}
                           >
                             {toCamelCase(oneExplore.exploreId)}
                           </MenuItem>

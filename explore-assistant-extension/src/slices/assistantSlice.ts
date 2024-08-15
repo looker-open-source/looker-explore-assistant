@@ -74,6 +74,7 @@ export type ExploreThread = {
   uuid: string
   exploreId: string
   modelName: string
+  exploreKey: string
   messages: ChatMessage[]
   exploreUrl: string
   summarizedPrompt: string
@@ -121,6 +122,7 @@ export interface AssistantState {
 export const newThreadState = () => {
   const thread: ExploreThread = {    
     uuid: uuidv4(),
+    exploreKey: '',
     exploreId: '',
     modelName: '',
     messages: [],

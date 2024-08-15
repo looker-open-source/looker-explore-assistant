@@ -148,7 +148,7 @@ const useSendVertexMessage = () => {
 
       Here are some example prompts the user has asked so far and how to summarize them:
 
-${exploreRefinementExamples
+${exploreRefinementExamples && exploreRefinementExamples
   .map((item) => {
     const inputText = '"' + item.input.join('", "') + '"'
     return `- The sequence of prompts from the user: ${inputText}. The summarized prompts: "${item.output}"`
@@ -329,7 +329,7 @@ ${exploreRefinementExamples
             Example
             ----------
 
-          ${exploreGenerationExamples
+          ${exploreGenerationExamples && exploreGenerationExamples
             .map((item) => `input: "${item.input}" ; output: ${item.output}`)
             .join('\n')}
 

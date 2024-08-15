@@ -31,7 +31,6 @@ import {
   Select,
   Tooltip,
 } from '@mui/material'
-import { Expand } from '@mui/icons-material'
 
 const toCamelCase = (input: string): string => {
   // Remove underscores, make following letter uppercase
@@ -177,7 +176,7 @@ const AgentPage = () => {
       submitMessage()
       endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [query, isDataLoaded, submitMessage])
+  }, [query, isDataLoaded])
 
   const toggleDrawer = () => {
     setExpanded(!expanded)

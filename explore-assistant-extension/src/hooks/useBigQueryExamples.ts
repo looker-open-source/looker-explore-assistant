@@ -1,5 +1,5 @@
-import { useContext, useEffect } from 'react'
-import { useDispatch } from 'react-redux'
+import { useContext, useEffect, useRef } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import {
   setExploreGenerationExamples,
   setExploreRefinementExamples,
@@ -8,19 +8,22 @@ import {
   setisBigQueryMetadataLoaded,
   setCurrenExplore,
   RefinementExamples,
-  ExploreExamples
+  ExploreExamples,
+  AssistantState
 } from '../slices/assistantSlice'
 
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
+import { RootState } from '../store'
 
 export const useBigQueryExamples = () => {
   const connectionName = process.env.BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME || ''
   const datasetName = process.env.BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME || 'explore_assistant'
 
   const dispatch = useDispatch()
-  const { showBoundary } = useErrorBoundary();
+  const { showBoundary } = useErrorBoundary()
+  const { isBigQueryMetadataLoaded } = useSelector((state: RootState) => state.assistant as AssistantState)
 
   const { core40SDK } = useContext(ExtensionContext)
 
@@ -120,9 +123,17 @@ export const useBigQueryExamples = () => {
     }).catch((error) => showBoundary(error))
   }
 
+  // Create a ref to track if the hook has already been called
+  const hasFetched = useRef(false)
 
   // get the example prompts provide completion status
   useEffect(() => {
+    if (hasFetched.current) return
+    hasFetched.current = true
+
+    // if we already fetch everything, return
+    if(isBigQueryMetadataLoaded) return
+
     dispatch(setisBigQueryMetadataLoaded(false))
     Promise.all([getExamplePrompts(), getRefinementPrompts(), getSamples()])
       .then(() => {

@@ -1,4 +1,4 @@
-import { useContext, useEffect } from 'react'
+import { useContext, useEffect, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   AssistantState,
@@ -13,6 +13,7 @@ import { useErrorBoundary } from 'react-error-boundary'
 export const useLookerFields = () => {
   const {
     examples: { exploreSamples },
+    isSemanticModelLoaded,
   } = useSelector((state: RootState) => state.assistant as AssistantState)
 
   const supportedExplores = Object.keys(exploreSamples)
@@ -22,11 +23,21 @@ export const useLookerFields = () => {
 
   const { core40SDK } = useContext(ExtensionContext)
 
+  // Create a ref to track if the hook has already been called
+  const hasFetched = useRef(false)
+
   // Load LookML metadata and provide completion status
   useEffect(() => {
-    if (supportedExplores.length === 0) {
+    // if the hook has already been called, return
+    if (hasFetched.current) return
+
+    // if there are no supported explores or the semantic model is already loaded, return
+    if (supportedExplores.length === 0 || isSemanticModelLoaded) {
       return
     }
+    
+    // mark
+    hasFetched.current = true
 
     const fetchSemanticModel = async (
       modelName: string,
@@ -118,5 +129,5 @@ export const useLookerFields = () => {
     }
 
     loadSemanticModels()
-  }, [showBoundary, supportedExplores, core40SDK, dispatch])
+  }, [supportedExplores])
 }

@@ -22,15 +22,19 @@ import {
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
-import { Close } from '@material-ui/icons'
+import { Close, Home } from '@material-ui/icons'
 import {
+  Breadcrumbs,
   FormControl,
   InputLabel,
   LinearProgress,
   MenuItem,
   Select,
   Tooltip,
+  Typography,
 } from '@mui/material'
+import { current } from '@reduxjs/toolkit'
+import { getRelativeTimeString } from '../../utils/time'
 
 const toCamelCase = (input: string): string => {
   // Remove underscores, make following letter uppercase
@@ -73,7 +77,7 @@ const AgentPage = () => {
   })
 
   const submitMessage = useCallback(async () => {
-    if(query === '') {
+    if (query === '') {
       return
     }
 
@@ -92,11 +96,13 @@ const AgentPage = () => {
     )
 
     // set the explore if it is not set
-    if(!currentExploreThread?.modelName || !currentExploreThread?.exploreId) {
-      dispatch(updateCurrentThread({
-        exploreId: currentExplore.exploreId,
-        modelName: currentExplore.modelName,
-      }))
+    if (!currentExploreThread?.modelName || !currentExploreThread?.exploreId) {
+      dispatch(
+        updateCurrentThread({
+          exploreId: currentExplore.exploreId,
+          modelName: currentExplore.modelName,
+        }),
+      )
     }
 
     console.log('Prompt List: ', promptList)
@@ -232,8 +238,60 @@ const AgentPage = () => {
         } h-screen`}
       >
         <div className="flex-grow">
+          {isChatMode && (
+            <div className="z-10 flex flex-row items-start text-xs fixed inset w-full h-10 pl-2 bg-gray-50 border-b border-gray-200">
+              <ol
+                role="list"
+                className="flex w-full max-w-screen-xl space-x-4 px-4 sm:px-6 lg:px-4"
+              >
+                <li className="flex">
+                  <div className="flex items-center">Explore Assistant</div>
+                </li>
+
+                <li className="flex">
+                  <div className="flex items-center h-10 ">
+                    <svg
+                      fill="currentColor"
+                      viewBox="0 0 44 44"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                      className="h-full w-6 flex-shrink-0 text-gray-300"
+                    >
+                      <path d="M.293 0l22 22-22 22h1.414l22-22-22-22H.293z" />
+                    </svg>
+                    <div className="ml-4 text-xs font-medium text-gray-500 hover:text-gray-700">
+                      {toCamelCase(currentExploreThread?.exploreId || '')}
+                    </div>
+                  </div>
+                </li>
+
+                <li className="flex">
+                  <div className="flex items-center h-10">
+                    <svg
+                      fill="currentColor"
+                      viewBox="0 0 44 44"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                      className="h-full w-6 flex-shrink-0 text-gray-300"
+                    >
+                      <path d="M.293 0l22 22-22 22h1.414l22-22-22-22H.293z" />
+                    </svg>
+                    <div className="ml-4 text-xs font-medium text-gray-500 hover:text-gray-700">
+                      Chat (started{' '}
+                      {getRelativeTimeString(
+                        currentExploreThread?.createdAt
+                          ? new Date(currentExploreThread.createdAt)
+                          : new Date(),
+                      )}
+                      )
+                    </div>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          )}
           {isChatMode ? (
-            <div className="relative flex flex-row h-screen px-4 pt-4 ">
+            <div className="relative flex flex-row h-screen px-4 pt-6 ">
               <div
                 className={clsx(
                   'flex flex-col relative',
@@ -257,7 +315,9 @@ const AgentPage = () => {
                         </div>
                       </div>
                     ) : (
-                      <MessageThread />
+                      <div className="pt-8">
+                        <MessageThread />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -270,7 +330,7 @@ const AgentPage = () => {
 
               <div
                 className={clsx(
-                  'flex-grow flex flex-col pb-2 pl-2 transition-all duration-300 ease-in-out transform max-w-0',
+                  'flex-grow flex flex-col pb-2 pl-2 pt-8 transition-all duration-300 ease-in-out transform max-w-0',
                   sidePanel.isSidePanelOpen
                     ? 'max-w-full translate-x-0 opacity-100'
                     : 'translate-x-full opacity-0',

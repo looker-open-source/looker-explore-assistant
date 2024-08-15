@@ -79,6 +79,7 @@ export type ExploreThread = {
   exploreUrl: string
   summarizedPrompt: string
   promptList: string[]
+  createdAt: number
 }
 
 
@@ -127,6 +128,7 @@ export const newThreadState = () => {
     exploreUrl: '',
     summarizedPrompt: '',
     promptList: [],
+    createdAt: Date.now()
   }
   return thread
 }

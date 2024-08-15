@@ -60,7 +60,7 @@ const SummaryMessage = ({ message }: SummaryMessageProps) => {
           <Spinner size={20} my={'u2'} />
         ) : (
           <>
-            <div className="">
+            <div className="text-sm mt-6">
               <MarkdownText text={summary} />
             </div>
           </>

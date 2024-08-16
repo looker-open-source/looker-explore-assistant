@@ -80,10 +80,6 @@ const useSendVertexMessage = () => {
     (state) => state.assistant.settings,
   )
 
-  const settings = useSelector<RootState, Settings>(
-    (state) => state.assistant.settings,
-  )
-
   const { exploreGenerationExamples, exploreRefinementExamples } = useSelector(
     (state: RootState) => state.assistant.examples,
   )

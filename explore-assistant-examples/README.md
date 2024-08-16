@@ -21,6 +21,7 @@ source .venv/bin/activate
 cd ./explore-assistant-examples
 pip3 install -r requirements.txt
 ```
+
 ## Usage
 
 ### Script Parameters
@@ -44,6 +45,7 @@ python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_I
 ```
 
 Load the refinement examples
+
 ```bash
  python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_refinement_examples --json_file refinement_examples.json
 ```
@@ -52,24 +54,30 @@ Load the samples
 
 ```bash
  python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_samples --column_name samples --json_file samples.json
+```
 
 ### Description
 
 This Python script is designed to manage data uploads from a JSON file into a Google BigQuery table, particularly focusing on scenarios where specific entries identified by an `explore_id` need to be refreshed or updated in the dataset.
 
 1. **Command Line Interface (CLI)**:
+
    - The script uses `argparse` to define and handle command line inputs that specify the Google Cloud project, dataset, and table details, as well as the path to the JSON data file.
 
 2. **BigQuery Client Initialization**:
+
    - It initializes a BigQuery client using the Google Cloud project ID provided through the CLI. This client facilitates interactions with BigQuery, such as running queries and managing data.
 
 3. **Data Deletion**:
+
    - Before inserting new data, the script deletes existing rows in the specified BigQuery table that match the given `explore_id`. This is crucial for use cases where the data associated with an `explore_id` needs to be refreshed or updated without duplication.
 
 4. **Data Loading from JSON**:
+
    - The script reads data from a specified JSON file. This data is expected to be in a format that BigQuery can ingest.
 
 5. **Data Insertion into BigQuery**:
+
    - After deletion of old data, the script inserts the new data from the JSON file into the BigQuery table. It constructs a SQL `INSERT` statement and executes it using the BigQuery client. Proper parameterization of the query is utilized to safeguard against SQL injection.
 
 6. **Error Handling**:

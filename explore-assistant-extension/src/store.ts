@@ -8,11 +8,13 @@ import assistantReducer, {
   Settings,
 } from './slices/assistantSlice'
 
+
 // Define keys that should never be persisted
 const neverPersistKeys: (keyof AssistantState)[] = [
-  'dimensions',
-  'measures',
+  'semanticModels',
   'examples',
+  'isBigQueryMetadataLoaded',
+  'isSemanticModelLoaded',
 ]
 
 // Create a transform function to filter out specific keys
@@ -57,9 +59,10 @@ const filterTransform = createTransform(
 )
 
 const persistConfig = {
-  key: 'root',
+  key: 'explore-assistant-state',
+  version: 1,
   storage,
-  whitelist: ['assistant'], // only assistant will be persisted
+  whitelist: ['assistant'],
   transforms: [filterTransform],
 }
 

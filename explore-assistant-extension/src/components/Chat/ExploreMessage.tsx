@@ -1,27 +1,26 @@
 import React from 'react'
 
 import Message from './Message'
-import { Link } from '@looker/components'
 import { useContext } from 'react'
 import { ExtensionContext } from '@looker/extension-sdk-react'
-import { useDispatch, useSelector } from 'react-redux'
-import { RootState } from '../../store'
+import { useDispatch } from 'react-redux'
 import {
   openSidePanel,
   setSidePanelExploreUrl,
 } from '../../slices/assistantSlice'
-import { Explore, OpenInNew, Share } from '@material-ui/icons'
+import { OpenInNew } from '@material-ui/icons'
 
 interface ExploreMessageProps {
+  exploreId: string
+  modelName: string
   prompt: string
   queryArgs: string
 }
 
-const ExploreMessage = ({ prompt, queryArgs }: ExploreMessageProps) => {
+const ExploreMessage = ({ modelName, exploreId, prompt, queryArgs }: ExploreMessageProps) => {
   const dispatch = useDispatch()
-  const { exploreId } = useSelector((state: RootState) => state.assistant)
   const { extensionSDK } = useContext(ExtensionContext)
-  const exploreHref = `/explore/${exploreId}?${queryArgs}`
+  const exploreHref = `/explore/${modelName}/${exploreId}?${queryArgs}`
   const openExplore = () => {
     extensionSDK.openBrowserWindow(exploreHref, '_blank')
   }

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import Message from '../../components/Chat/Message'
@@ -16,9 +16,17 @@ const MessageThread = ({ endOfMessageRef }: MessageThreadProps) => {
     (state: RootState) => state.assistant as AssistantState,
   )
 
-  const handleSummaryComplete = useCallback(() => {
+  const scrollIntoView = useCallback(() => {
     endOfMessageRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [endOfMessageRef])
+
+  const handleSummaryComplete = () => {
+    scrollIntoView()
+  }
+
+  useEffect(() => {
+    scrollIntoView()
+  }, [currentExploreThread])
 
   if(currentExploreThread === null) {
     return <></>

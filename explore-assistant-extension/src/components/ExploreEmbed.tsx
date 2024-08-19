@@ -92,7 +92,7 @@ export const ExploreEmbed = ({
         paramsObj[key] = encodedParams[key]
       }
 
-      console.log('Final Params', paramsObj)
+      console.log('Explore Embed - Params', paramsObj)
 
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)

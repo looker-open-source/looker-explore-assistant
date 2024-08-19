@@ -7,16 +7,6 @@ import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
 import { AssistantState } from '../slices/assistantSlice'
 
-const unquoteResponse = (response: string | null | undefined) => {
-  if (!response) {
-    return ''
-  }
-  return response
-    .substring(response.indexOf('fields='))
-    .replace(/^`+|`+$/g, '')
-    .trim()
-}
-
 import looker_filter_doc from '../documents/looker_filter_doc.md'
 import looker_visualization_doc from '../documents/looker_visualization_doc.md'
 
@@ -25,7 +15,11 @@ import { BigQueryHelper } from '../utils/BigQueryHelper'
 import { ExploreParams } from '../slices/assistantSlice'
 import { ExploreFilterValidator, FieldType } from '../utils/ExploreFilterHelper'
 
-const parseJSONResponse = (jsonString: string) => {
+const parseJSONResponse = (jsonString: string | null | undefined) => {
+  if(!jsonString) {
+    return ''
+  }
+  
   if (jsonString.startsWith('```json') && jsonString.endsWith('```')) {
     jsonString = jsonString.slice(7, -3).trim()
   }

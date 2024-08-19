@@ -5,7 +5,7 @@ import dotenv from 'dotenv'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { Provider } from 'react-redux'
 import { ErrorBoundary } from 'react-error-boundary'
-import { setDimensions, setMeasures } from '../src/slices/assistantSlice'
+import { setSemanticModels } from '../src/slices/assistantSlice'
 import { store } from '../src/store'
 
 dotenv.config()
@@ -35,29 +35,37 @@ const FallbackRender = ({ error }: { error: Error }) => (
 describe('useSendVertexMessage', () => {
   let result: ReturnType<typeof useSendVertexMessage>
 
+  const dimensions =  [
+    {
+      name: 'orders.created_date',
+      type: 'string',
+      description: 'desc1',
+      tags: ['tag1'],
+    },
+  ]
+
+  const measures = [
+    {
+      name: 'orders.sum_revenue',
+      type: 'number',
+      description: 'The sum of the revenue',
+      tags: ['tag1'],
+    },
+  ]
+  const semanticModels = {
+    'ecommerce:orders': {
+      exploreKey: 'ecommerce:orders',
+      modelName: 'ecommerce',
+      exploreId: 'orders',
+      dimensions,
+      measures,
+    }
+  }
+
   beforeEach(async () => {
     // Set initial dimensions and measures
     await act(async () => {
-      store.dispatch(
-        setDimensions([
-          {
-            name: 'orders.created_date',
-            type: 'string',
-            description: 'desc1',
-            tags: ['tag1'],
-          },
-        ]),
-      )
-      store.dispatch(
-        setMeasures([
-          {
-            name: 'orders.sum_revenue',
-            type: 'number',
-            description: 'The sum of the revenue',
-            tags: ['tag1'],
-          },
-        ]),
-      )
+      store.dispatch(setSemanticModels(semanticModels))
     })
 
     const { result: hookResult } = renderHook(() => useSendVertexMessage(), {
@@ -79,7 +87,11 @@ describe('useSendVertexMessage', () => {
     const prompt = 'Show me the sales data for this year'
 
     await act(async () => {
-      const filterParams = await result.generateFilterParams(prompt)
+      const filterParams = await result.generateFilterParams(
+        prompt,
+        dimensions,
+        measures,
+      )
 
       expect(
         Object.prototype.hasOwnProperty.call(

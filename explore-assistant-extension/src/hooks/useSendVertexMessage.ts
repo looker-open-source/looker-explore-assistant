@@ -437,6 +437,12 @@ ${
         return
       }
       const currentDateTime = new Date().toISOString()
+
+      let exampleText = ''
+      if(exploreGenerationExamples && exploreGenerationExamples.length > 0) {
+        exampleText = exploreGenerationExamples.map((item) => `input: "${item.input}" ; output: ${item.output}`).join('\n')
+      }
+
       const contents = `
       # Context
       
@@ -483,9 +489,7 @@ ${
       # Examples
         Examples Below were taken at a different date. ALL DATE RANGES ARE WRONG COMPARING TO CURRENT DATE.
         (BE CAREFUL WITH DATES, DO NOT OUTPUT THE Examples 1:1,  as changes could happen with timeframes and date ranges)
-      ${exploreGenerationExamples
-        .map((item) => `input: "${item.input}" ; output: ${item.output}`)
-        .join('\n')}
+      ${exampleText}
       
       
       Output

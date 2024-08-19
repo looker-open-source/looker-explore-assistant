@@ -63,7 +63,6 @@ export interface Message {
 export interface ExploreMessage {
   uuid: string
   exploreParams: ExploreParams
-  exploreUrl: string
   actor: 'system'
   createdAt: number
   type: 'explore'

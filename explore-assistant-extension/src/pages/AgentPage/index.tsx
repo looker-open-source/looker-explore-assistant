@@ -317,7 +317,7 @@ const AgentPage = () => {
                 )}
               >
                 <div className="flex-grow overflow-y-auto max-h-full mb-36 ">
-                  <div className="max-w-4xl mx-auto">
+                  <div className="max-w-4xl mx-auto mt-8">
                     <MessageThread endOfMessageRef={endOfMessagesRef} />
                   </div>
                 </div>

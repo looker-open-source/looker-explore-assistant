@@ -34,15 +34,23 @@ import { ExploreHelper } from '../utils/ExploreHelper'
 import { ExploreParams } from '../slices/assistantSlice'
 
 export interface ExploreEmbedProps {
+  modelName: string | null | undefined
+  exploreId: string | null | undefined
   exploreParams: ExploreParams
 }
 
+export const ExploreEmbed = ({
+  modelName,
+  exploreId,
+  exploreParams,
+}: ExploreEmbedProps) => {
+  if (!modelName || !exploreId || !exploreParams) {
+    return <></>
+  }
 
-export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
   const { extensionSDK } = useContext(ExtensionContext)
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
-
-  const { exploreId, settings } = useSelector((state: RootState) => state.assistant)
+  const { settings } = useSelector((state: RootState) => state.assistant)
 
   const canceller = (event: any) => {
     return { cancel: !event.modal }
@@ -64,7 +72,6 @@ export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
     const hostUrl = extensionSDK?.lookerHostData?.hostUrl
     const el = ref.current
     if (el && hostUrl && exploreParams) {
-
       const paramsObj: any = {
         // For Looker Original use window.origin for Looker Core use hostUrl
         embed_domain: hostUrl, //window.origin, //hostUrl,
@@ -76,11 +83,10 @@ export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
         toggle: 'pik,vis,dat',
       }
 
-
-      if(settings['show_explore_data'].value) {
+      if (settings['show_explore_data'].value) {
         paramsObj['toggle'] = 'pik,vis'
       }
-      
+
       const encodedParams = ExploreHelper.encodeExploreParams(exploreParams)
       for (const key in encodedParams) {
         paramsObj[key] = encodedParams[key]
@@ -90,7 +96,7 @@ export const ExploreEmbed = ({ exploreParams }: ExploreEmbedProps) => {
 
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
-      LookerEmbedSDK.createExploreWithId(exploreId)
+      LookerEmbedSDK.createExploreWithId(modelName + '/' + exploreId)
         .appendTo(el)
         .withClassName('looker-embed')
         .withParams(paramsObj)

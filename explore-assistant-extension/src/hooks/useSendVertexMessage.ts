@@ -5,7 +5,17 @@ import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
 import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
-import { Settings } from 'http2'
+import { AssistantState } from '../slices/assistantSlice'
+
+const unquoteResponse = (response: string | null | undefined) => {
+  if (!response) {
+    return ''
+  }
+  return response
+    .substring(response.indexOf('fields='))
+    .replace(/^`+|`+$/g, '')
+    .trim()
+}
 
 import looker_filter_doc from '../documents/looker_filter_doc.md'
 import looker_visualization_doc from '../documents/looker_visualization_doc.md'
@@ -58,17 +68,13 @@ const useSendVertexMessage = () => {
   const VERTEX_BIGQUERY_MODEL_ID = process.env.VERTEX_BIGQUERY_MODEL_ID || ''
 
   const { core40SDK } = useContext(ExtensionContext)
-  const { dimensions, measures, exploreName, modelName } = useSelector(
-    (state: RootState) => state.assistant,
+  const { settings, examples, currentExplore } = useSelector(
+    (state: RootState) => state.assistant as AssistantState,
   )
 
-  const settings = useSelector<RootState, Settings>(
-    (state) => state.assistant.settings,
-  )
-
-  const { exploreGenerationExamples, exploreRefinementExamples } = useSelector(
-    (state: RootState) => state.assistant.examples,
-  )
+  const currentExploreKey = currentExplore.exploreKey
+  const exploreRefinementExamples =
+    examples.exploreRefinementExamples[currentExploreKey]
 
   const vertexBigQuery = async (
     contents: string,
@@ -135,12 +141,15 @@ const useSendVertexMessage = () => {
 
       Here are some example prompts the user has asked so far and how to summarize them:
 
-${exploreRefinementExamples
-  .map((item) => {
-    const inputText = '"' + item.input.join('", "') + '"'
-    return `- The sequence of prompts from the user: ${inputText}. The summarized prompts: "${item.output}"`
-  })
-  .join('\n')}
+${
+  exploreRefinementExamples &&
+  exploreRefinementExamples
+    .map((item) => {
+      const inputText = '"' + item.input.join('", "') + '"'
+      return `- The sequence of prompts from the user: ${inputText}. The summarized prompts: "${item.output}"`
+    })
+    .join('\n')
+}
 
       Conversation so far
       ----------
@@ -222,8 +231,8 @@ ${exploreRefinementExamples
       // get the contents of the explore query
       const createQuery = await core40SDK.ok(
         core40SDK.create_query({
-          model: modelName,
-          view: exploreName,
+          model: currentExplore.modelName,
+          view: currentExplore.exploreId,
 
           fields: exploreParams.fields || [],
           filters: filters,
@@ -270,10 +279,10 @@ ${exploreRefinementExamples
       const refinedResponse = await sendMessage(refinedContents, {})
       return refinedResponse
     },
-    [exploreName, modelName],
+    [currentExplore],
   )
   const generateFilterParams = useCallback(
-    async (prompt: string) => {
+    async (prompt: string, dimensions: any[], measures: any[]) => {
       // get the filters
       const filterContents = `
   
@@ -369,7 +378,7 @@ ${exploreRefinementExamples
 
       return filterResponseJSON
     },
-    [dimensions, measures],
+    [],
   )
 
   const generateVisualizationParams = async (
@@ -417,7 +426,12 @@ ${exploreRefinementExamples
   }
 
   const generateBaseExploreParams = useCallback(
-    async (prompt: string) => {
+    async (
+      prompt: string,
+      dimensions: any[],
+      measures: any[],
+      exploreGenerationExamples: any[],
+    ) => {
       if (!dimensions.length || !measures.length) {
         showBoundary(new Error('Dimensions or measures are not defined'))
         return
@@ -451,8 +465,8 @@ ${exploreRefinementExamples
           
       # LookML Metadata
       
-      Model: ${modelName}
-      Explore: ${exploreName}
+      Model: ${currentExplore.modelName}
+      Explore: ${currentExplore.exploreId}
       
       Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
       
@@ -480,8 +494,8 @@ ${exploreRefinementExamples
       Return a JSON that is compatible with the Looker API run_inline_query function as per the spec. Here is an example:
       
       {
-        "model":"${modelName}",
-        "view":"${exploreName}",
+        "model":"${currentExplore.modelName}",
+        "view":"${currentExplore.exploreId}",
         "fields":["category.name","inventory_items.days_in_inventory_tier","products.count"],
         "filters":{"category.name":"socks"},
         "sorts":["products.count desc 0"],
@@ -513,19 +527,24 @@ ${exploreRefinementExamples
 
       return responseJSON
     },
-    [dimensions, measures, exploreGenerationExamples],
+    [currentExplore],
   )
 
   const generateExploreParams = useCallback(
-    async (prompt: string) => {
+    async (
+      prompt: string,
+      dimensions: any[],
+      measures: any[],
+      exploreGenerationExamples: any[],
+    ) => {
       if (!dimensions.length || !measures.length) {
         showBoundary(new Error('Dimensions or measures are not defined'))
         return
       }
 
       const [filterResponseJSON, responseJSON] = await Promise.all([
-        generateFilterParams(prompt),
-        generateBaseExploreParams(prompt),
+        generateFilterParams(prompt, dimensions, measures),
+        generateBaseExploreParams(prompt, dimensions, measures, exploreGenerationExamples),
       ])
 
       responseJSON['filters'] = filterResponseJSON
@@ -542,7 +561,7 @@ ${exploreRefinementExamples
 
       return responseJSON
     },
-    [dimensions, measures, exploreGenerationExamples, settings],
+    [settings],
   )
 
   const sendMessage = async (message: string, parameters: ModelParameters) => {
@@ -577,6 +596,7 @@ ${exploreRefinementExamples
       return response
     } catch (error) {
       showBoundary(error)
+      return
     }
 
     return ''

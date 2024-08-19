@@ -73,8 +73,6 @@ jsonPayload.component="explore-assistant-metadata"
    Regardless of the backend, you're going to need:
 
    ```
-   LOOKER_MODEL=<This is your Looker model name>
-   LOOKER_EXPLORE=<This is your Looker explore name>
    VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME=<This is the connection name in Looker with the BQ project that has access to the remote connection and model>
    BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME=<The BQ connection name in Looker that has query access to example prompts. This may be the same as the Vertex Connection Name if using just one gcp project>
    BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME=<This is the dataset and project that contain the Example prompt data, assuming that differs from the Looker connection>

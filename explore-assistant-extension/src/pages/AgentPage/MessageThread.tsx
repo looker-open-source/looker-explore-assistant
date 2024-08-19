@@ -5,6 +5,7 @@ import Message from '../../components/Chat/Message'
 import ExploreMessage from '../../components/Chat/ExploreMessage'
 import SummaryMessage from '../../components/Chat/SummaryMessage'
 import { CircularProgress } from '@material-ui/core'
+import { AssistantState, ChatMessage } from '../../slices/assistantSlice'
 
 interface MessageThreadProps {
   endOfMessageRef: React.RefObject<HTMLDivElement>
@@ -12,31 +13,37 @@ interface MessageThreadProps {
 
 const MessageThread = ({ endOfMessageRef }: MessageThreadProps) => {
   const { currentExploreThread, isQuerying } = useSelector(
-    (state: RootState) => state.assistant,
+    (state: RootState) => state.assistant as AssistantState,
   )
 
   const handleSummaryComplete = useCallback(() => {
     endOfMessageRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [endOfMessageRef])
 
-  const messages = currentExploreThread.messages
+  if(currentExploreThread === null) {
+    return <></>
+  }
+
+  const messages = currentExploreThread.messages as ChatMessage[]
   return (
     <div className="">
-      {messages.map((message, index) => {
+      {messages.map((message) => {
         if (message.type === 'explore') {
           return (
             <ExploreMessage
-              key={index}
+              key={message.uuid}
               exploreParams={message.exploreParams}
+              modelName={currentExploreThread.modelName}
+              exploreId={currentExploreThread.exploreId}
               prompt={message.summarizedPrompt}
             />
           )
         } else if (message.type === 'summarize') {
-          return <SummaryMessage key={index} exploreParams={message.exploreParams} onSummaryComplete={handleSummaryComplete} />
+          return <SummaryMessage key={message.uuid} message={message}  onSummaryComplete={handleSummaryComplete}/>
         } else {
           return (
             <Message
-              key={index}
+              key={message.uuid}
               message={message.message}
               actor={message.actor}
               createdAt={message.createdAt}

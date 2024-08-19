@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { v4 as uuidv4 } from 'uuid'
 
 export interface ExploreParams {
   fields?: string[]
@@ -20,9 +21,22 @@ export interface Settings {
   [key: string]: Setting
 }
 
-interface HistoryItem {
-  message: string
-  createdAt: number
+export interface ExploreSamples {
+  [exploreKey: string]: Sample[]
+}
+
+export interface ExploreExamples {
+  [exploreKey: string]: {
+    input: string
+    output: string
+  }[]
+}
+
+export interface RefinementExamples {
+  [exploreKey: string]: {
+    input: string[]
+    output: string
+  }[]
 }
 
 interface Field {
@@ -32,7 +46,13 @@ interface Field {
   tags: string[]
 }
 
-interface Message {
+interface Sample {
+  category: string
+  prompt: string
+}
+
+export interface Message {
+  uuid: string
   message: string
   actor: 'user' | 'system'
   createdAt: number
@@ -40,83 +60,111 @@ interface Message {
   intent?: 'exploreRefinement' | 'summarize' | 'dataQuestion'
 }
 
-interface ExploreMessage {
+export interface ExploreMessage {
+  uuid: string
   exploreParams: ExploreParams
+  exploreUrl: string
   actor: 'system'
   createdAt: number
   type: 'explore'
   summarizedPrompt: string
 }
 
-interface SummarizeMesage {
+export interface SummarizeMesage {
+  uuid: string
   exploreParams: ExploreParams
   actor: 'system'
   createdAt: number
   type: 'summarize'
+  summary: string
 }
 
-type ChatMessage = Message | ExploreMessage | SummarizeMesage
+export type ChatMessage = Message | ExploreMessage | SummarizeMesage
 
-type ExploreThread = {
+export type ExploreThread = {
+  uuid: string
+  exploreId: string
+  modelName: string
+  exploreKey: string
   messages: ChatMessage[]
-  exploreUrl: string
   exploreParams: ExploreParams
   summarizedPrompt: string
   promptList: string[]
+  createdAt: number
+}
+
+
+export interface SemanticModel {
+  dimensions: Field[]
+  measures: Field[]
+  exploreKey: string
+  exploreId: string
+  modelName: string
 }
 
 export interface AssistantState {
   isQuerying: boolean
   isChatMode: boolean
-  currentExploreThread: ExploreThread
+  currentExploreThread: ExploreThread | null
+  currentExplore: {
+    exploreKey: string
+    modelName: string
+    exploreId: string
+  }
   sidePanel: {
     isSidePanelOpen: boolean
     exploreParams: ExploreParams
   }
-  history: HistoryItem[]
-  dimensions: Field[]
-  measures: Field[]
-  query: string
-  exploreId: string
-  exploreName: string
-  modelName: string
-  examples: {
-    exploreGenerationExamples: {
-      input: string
-      output: string
-    }[]
-    exploreRefinementExamples: {
-      input: string[]
-      output: string
-    }[]
+  history: ExploreThread[]
+  semanticModels: {
+    [exploreKey: string]: SemanticModel
   }
-  settings: Settings
+  query: string
+  examples: {
+    exploreGenerationExamples: ExploreExamples
+    exploreRefinementExamples: RefinementExamples
+    exploreSamples: ExploreSamples
+  },
+  settings: Settings,
+  isBigQueryMetadataLoaded: boolean,
+  isSemanticModelLoaded: boolean
+}
+
+export const newThreadState = () => {
+  const thread: ExploreThread = {    
+    uuid: uuidv4(),
+    exploreKey: '',
+    exploreId: '',
+    modelName: '',
+    messages: [],
+    exploreParams: {},
+    summarizedPrompt: '',
+    promptList: [],
+    createdAt: Date.now()
+  }
+  return thread
 }
 
 export const initialState: AssistantState = {
   isQuerying: false,
   isChatMode: false,
-  currentExploreThread: {
-    messages: [],
-    exploreUrl: '',
-    exploreParams: {},
-    summarizedPrompt: '',
-    promptList: [],
+  currentExploreThread: null,
+  currentExplore: {
+    exploreKey: '',
+    modelName: '',
+    exploreId: ''
   },
   sidePanel: {
     isSidePanelOpen: false,
     exploreParams: {},
   },
   history: [],
-  dimensions: [],
-  measures: [],
   query: '',
-  exploreId: '',
-  exploreName: '',
-  modelName: '',
+  semanticModels: {},
   examples: {
-    exploreGenerationExamples: [],
-    exploreRefinementExamples: [],
+    exploreGenerationExamples: {},
+    exploreRefinementExamples: {},
+    exploreSamples: {}
   },
   settings: {
     show_explore_data: {
@@ -125,12 +173,17 @@ export const initialState: AssistantState = {
       value: false,
     },
   },
+  isBigQueryMetadataLoaded: false,
+  isSemanticModelLoaded: false
 }
 
 export const assistantSlice = createSlice({
   name: 'assistant',
   initialState,
   reducers: {
+    resetExploreAssistant: () => {
+      return initialState
+    },
     setIsQuerying: (state, action: PayloadAction<boolean>) => {
       state.isQuerying = action.payload
     },
@@ -139,18 +192,18 @@ export const assistantSlice = createSlice({
     },
     resetChatMode: (state) => {
       state.isChatMode = false
-      resetChat()
+      assistantSlice.caseReducers.resetChat(state)
     },
     resetSettings: (state) => {
       state.settings = initialState.settings
     },
     setSetting: (
       state,
-      action: PayloadAction<{ id: keyof Settings; value: boolean }>
+      action: PayloadAction<{ id: keyof Settings; value: boolean }>,
     ) => {
-      const { id, value } = action.payload;
+      const { id, value } = action.payload
       if (state.settings[id]) {
-        state.settings[id].value = value;
+        state.settings[id].value = value
       }
     },
     openSidePanel: (state) => {
@@ -162,67 +215,113 @@ export const assistantSlice = createSlice({
     setSidePanelExploreParams: (state, action: PayloadAction<ExploreParams>) => {
       state.sidePanel.exploreParams = action.payload
     },
-    updateLastHistoryEntry: (state, action: PayloadAction<string>) => {
-      state.history[state.history.length - 1] = {
-        message: action.payload,
-        createdAt: Date.now(),
-      }
-    },
-    addToHistory: (state, action: PayloadAction<string>) => {
-      state.history.push({
-        message: action.payload,
-        createdAt: Date.now(),
-      })
-    },
-    setHistory: (state, action: PayloadAction<HistoryItem[]>) => {
-      state.history = action.payload
-    },
-    clearHistory: (state) => {
+    clearHistory : (state) => {
       state.history = []
     },
-    setDimensions: (state, action: PayloadAction<Field[]>) => {
-      state.dimensions = action.payload
+    updateLastHistoryEntry: (state) => {
+      if (state.currentExploreThread === null) {
+        return
+      }
+
+      if (state.history.length === 0) {
+        state.history.push({ ...state.currentExploreThread })
+      } else {
+        const currentUuid = state.currentExploreThread.uuid
+        const lastHistoryUuid = state.history[state.history.length - 1].uuid
+        if (currentUuid !== lastHistoryUuid) {
+          state.history.push({ ...state.currentExploreThread })
+        } else {
+          state.history[state.history.length - 1] = state.currentExploreThread
+        }
+      }
     },
-    setMeasures: (state, action: PayloadAction<Field[]>) => {
-      state.measures = action.payload
+    setSemanticModels: (state, action: PayloadAction<AssistantState['semanticModels']>) => {
+      state.semanticModels = action.payload
     },
     setExploreParams: (state, action: PayloadAction<ExploreParams>) => {
+      if (state.currentExploreThread === null) {
+        state.currentExploreThread = newThreadState()
+      }
       state.currentExploreThread.exploreParams = action.payload
     },
-    setExploreUrl: (state, action: PayloadAction<string>) => {
-      state.currentExploreThread.exploreUrl = action.payload
+    updateCurrentThread: (
+      state,
+      action: PayloadAction<Partial<ExploreThread>>,
+    ) => {
+      if (state.currentExploreThread === null) {
+        state.currentExploreThread = newThreadState()
+      }
+      state.currentExploreThread = {
+        ...state.currentExploreThread,
+        ...action.payload,
+      }
+    },
+    setCurrentThread: (state, action: PayloadAction<ExploreThread>) => {
+      state.currentExploreThread = { ...action.payload }
     },
     setQuery: (state, action: PayloadAction<string>) => {
       state.query = action.payload
     },
     resetChat: (state) => {
-      state.currentExploreThread = initialState.currentExploreThread
+      state.currentExploreThread = newThreadState()
+      state.currentExploreThread.uuid = uuidv4()
       state.query = ''
       state.isChatMode = false
       state.isQuerying = false
       state.sidePanel = initialState.sidePanel
     },
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
+      if (state.currentExploreThread === null) {
+        state.currentExploreThread = newThreadState()
+      }
+      if (action.payload.uuid === undefined) {
+        action.payload.uuid = uuidv4()
+      }
       state.currentExploreThread.messages.push(action.payload)
     },
-    addPrompt: (state, action: PayloadAction<string>) => {
-      state.currentExploreThread.promptList.push(action.payload)
-    },
-    setExploreId: (state, action: PayloadAction<string>) => {
-      state.exploreId = action.payload
-    },
-    setExploreName: (state, action: PayloadAction<string>) => {
-      state.exploreName = action.payload
-    },
-    setModelName: (state, action: PayloadAction<string>) => {
-      state.modelName = action.payload
-    },
-    setExploreGenerationExamples(state, action: PayloadAction<AssistantState['examples']['exploreGenerationExamples']>) {
+    setExploreGenerationExamples(
+      state,
+      action: PayloadAction<AssistantState['examples']['exploreGenerationExamples']>,
+    ) {
       state.examples.exploreGenerationExamples = action.payload
     },
-    setExploreRefinementExamples(state, action: PayloadAction<AssistantState['examples']['exploreRefinementExamples']>) {
+    setExploreRefinementExamples(
+      state,
+      action: PayloadAction<AssistantState['examples']['exploreRefinementExamples']>,
+    ) {
       state.examples.exploreRefinementExamples = action.payload
     },
+    updateSummaryMessage: (
+      state,
+      action: PayloadAction<{ uuid: string; summary: string }>,
+    ) => {
+      const { uuid, summary } = action.payload
+      if (state.currentExploreThread === null) {
+        state.currentExploreThread = newThreadState()
+      }
+      const message = state.currentExploreThread.messages.find(
+        (message) => message.uuid === uuid,
+      ) as SummarizeMesage
+      message.summary = summary
+    },
+    setExploreSamples(
+      state,
+      action: PayloadAction<ExploreSamples>,
+    ) {
+      state.examples.exploreSamples = action.payload
+    },
+    setisBigQueryMetadataLoaded: (
+      state, 
+      action: PayloadAction<boolean>
+    ) => {
+      state.isBigQueryMetadataLoaded = action.payload
+    },
+    setIsSemanticModelLoaded: (state, action: PayloadAction<boolean>) => {
+      state.isSemanticModelLoaded = action.payload
+    },
+    setCurrenExplore: (state, action: PayloadAction<AssistantState['currentExplore']>) => {
+      state.currentExplore = action.payload
+    }
   },
 })
 
@@ -230,22 +329,24 @@ export const {
   setIsQuerying,
   setIsChatMode,
   resetChatMode,
-  addToHistory,
-  clearHistory,
+
   updateLastHistoryEntry,
-  addPrompt,
-  setHistory,
-  setDimensions,
-  setMeasures,
+  clearHistory,
+
+  setSemanticModels,
+  setIsSemanticModelLoaded,
   setExploreParams,
   setQuery,
   resetChat,
   addMessage,
-  setExploreId,
-  setExploreName,
-  setModelName,
   setExploreGenerationExamples,
   setExploreRefinementExamples,
+  setExploreSamples,
+
+  setisBigQueryMetadataLoaded,
+
+  updateCurrentThread,
+  setCurrentThread,
 
   openSidePanel,
   closeSidePanel,
@@ -253,6 +354,12 @@ export const {
 
   setSetting,
   resetSettings,
+
+  updateSummaryMessage,
+
+  setCurrenExplore,
+
+  resetExploreAssistant,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

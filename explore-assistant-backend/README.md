@@ -13,7 +13,7 @@ Here we list the reasons and tradeoffs of each deployment approach in an effort 
 **Regardless of Backend**:
 * Any Looker database connection can be used for fetching the actual data returned from the natural language query url
 * They implement the same API, as in no Looker Credentials are stored in the backends and the arguments are the same (*ie. model parameters and a prompt*)
-* By default both approaches fetch examples from a BigQuery table out of simplicity. For Cloud Functions you can modify [this React Hook](../explore-assistant-extension/src/hooks/useExampleData.ts) and change the `connection_name` on line 18 to point to the non BQ database connection in Looker that houses your example prompts/training data.
+* By default both approaches fetch examples from a BigQuery table out of simplicity. For Cloud Functions you can modify [this React Hook](../explore-assistant-extension/src/hooks/useBigQueryExamples.ts) and change the `connection_name` on line 18 to point to the non BQ database connection in Looker that houses your example prompts/training data.
 
 **For Cloud Function/Run**:
 * Generally speaking, this approach is recommended for folks who want more development control on the backend

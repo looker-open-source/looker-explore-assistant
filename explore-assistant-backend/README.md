@@ -57,7 +57,7 @@ To deploy the Cloud Function backend:
 
 ```bash
 cd terraform 
-export TF_VAR_project_id=XXX
+export TF_VAR_project_id=(PASTE BQ PROJECT ID HERE)
 export TF_VAR_use_bigquery_backend=0
 export TF_VAR_use_cloud_function_backend=1
 export TF_VAR_looker_auth_token=$(cat ../../.vertex_cf_auth_token)
@@ -72,7 +72,7 @@ To deploy the BigQuery backend:
 
 ```bash
 cd terraform 
-export TF_VAR_project_id=XXX
+export TF_VAR_project_id=(PASTE BQ PROJECT ID HERE)
 export TF_VAR_use_bigquery_backend=1
 export TF_VAR_use_cloud_function_backend=0
 terraform init
@@ -80,7 +80,7 @@ terraform plan
 terraform apply
 ```
 
-You will hvae to wait 1-2 minutes for the APIs to turn on. You will also have to wait a couple of minutes for the service account for the BigQuery connection to appear.
+You will have to wait 1-2 minutes for the APIs to turn on. You will also have to wait a couple of minutes for the service account for the BigQuery connection to appear.
 
 If you use the defaults, you can test whether everything is working by running:
 

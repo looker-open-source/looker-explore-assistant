@@ -1,4 +1,4 @@
-
+################### To be commented out if you're running with provided GCP project ###################
 resource "google_service_account" "explore-assistant-bq-sa" {
   account_id   = "explore-assistant-bq-sa"
   display_name = "Looker Explore Assistant BigQuery SA"
@@ -15,6 +15,7 @@ resource "google_project_iam_member" "iam_permission_bq_job_user" {
   role    = "roles/bigquery.jobUser"
   member  = format("serviceAccount:%s", google_service_account.explore-assistant-bq-sa.email)
 }
+#######################################################################################################
 
 resource "google_bigquery_job" "create_explore_assistant_examples_table" {
   job_id = "create_explore_assistant_examples_table-${formatdate("YYYYMMDDhhmmss", timestamp())}"
@@ -24,7 +25,7 @@ resource "google_bigquery_job" "create_explore_assistant_examples_table" {
         explore_id STRING OPTIONS (description = 'Explore id of the explore to pull examples for in a format of -> lookml_model:lookml_explore'),
         examples STRING OPTIONS (description = 'Examples for Explore Assistant training. JSON document with list hashes each with input and output keys.')
     )
-  EOF  
+  EOF
     create_disposition = ""
     write_disposition  = ""
     allow_large_results = false
@@ -51,7 +52,7 @@ resource "google_bigquery_job" "create_explore_assistant_refinement_examples_tab
         explore_id STRING OPTIONS (description = 'Explore id of the explore to pull examples for in a format of -> lookml_model:lookml_explore'),
         examples STRING OPTIONS (description = 'Examples for Explore Assistant training. JSON document with list hashes each with input and output keys.')
     )
-  EOF  
+  EOF
     create_disposition = ""
     write_disposition  = ""
     allow_large_results = false

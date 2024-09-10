@@ -35,10 +35,15 @@ variable "cloud_run_service_name" {
 
 #
 # BIGQUERY VARIABLES
-# 
+#
 
 variable "dataset_id_name" {
     type = string
     default = "explore_assistant"
+}
+
+variable "connection_id" {
+    type = string
+    default = "explore_assistant_llm"
 }
 

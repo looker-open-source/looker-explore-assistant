@@ -10,8 +10,12 @@ variable "dataset_id" {
     type = string
 }
 
+variable "connection_id" {
+    type = string
+}
+
 resource "google_bigquery_connection" "connection" {
-  connection_id = "explore_assistant_llm"
+  connection_id = var.connection_id
   project       = var.project_id
   location      = var.deployment_region
   cloud_resource {}
@@ -28,10 +32,10 @@ resource "google_bigquery_job" "create_bq_model_llm" {
   job_id = "create_looker_llm_model-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   query {
     query              = <<EOF
-CREATE OR REPLACE MODEL `${var.dataset_id}.explore_assistant_llm` 
-REMOTE WITH CONNECTION `${google_bigquery_connection.connection.name}` 
+CREATE OR REPLACE MODEL `${var.dataset_id}.explore_assistant_llm`
+REMOTE WITH CONNECTION `${google_bigquery_connection.connection.name}`
 OPTIONS (endpoint = 'gemini-1.5-flash')
-EOF  
+EOF
     create_disposition = ""
     write_disposition  = ""
     allow_large_results = false

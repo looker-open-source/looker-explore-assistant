@@ -3,20 +3,15 @@ import React, { useEffect } from 'react'
 import Message from './Message'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
 import MarkdownText from './MarkdownText'
+import { ExploreParams, SummarizeMesage, updateLastHistoryEntry, updateSummaryMessage } from '../../slices/assistantSlice'
 import { useDispatch } from 'react-redux'
-import {
-  SummarizeMesage,
-  updateLastHistoryEntry,
-  updateSummaryMessage,
-} from '../../slices/assistantSlice'
 
 interface SummaryMessageProps {
   message: SummarizeMesage
+  onSummaryComplete: () => void
 }
 
-const SummaryMessage = ({ message }: SummaryMessageProps) => {
-  const queryArgs = message.exploreUrl
-
+const SummaryMessage = ({ message, onSummaryComplete }: SummaryMessageProps) => {
   const dispatch = useDispatch()
   const [loading, setLoading] = React.useState<boolean>(true)
   const [summary, setSummary] = React.useState<string>('')
@@ -31,7 +26,7 @@ const SummaryMessage = ({ message }: SummaryMessageProps) => {
     }
 
     const fetchSummary = async () => {
-      const response = await summarizeExplore(queryArgs)
+      const response = await summarizeExplore(message.exploreParams)
       if (!response) {
         setSummary('There was an error summarizing the data')
       } else {
@@ -45,6 +40,9 @@ const SummaryMessage = ({ message }: SummaryMessageProps) => {
         // update the history with the current contents of the thread
         dispatch(updateLastHistoryEntry())
       }
+
+      // call the parent component to scroll to the bottom
+      onSummaryComplete()
 
       setLoading(false)
     }

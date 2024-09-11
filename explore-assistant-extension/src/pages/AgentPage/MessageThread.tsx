@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import Message from '../../components/Chat/Message'
@@ -7,10 +7,26 @@ import SummaryMessage from '../../components/Chat/SummaryMessage'
 import { CircularProgress } from '@material-ui/core'
 import { AssistantState, ChatMessage } from '../../slices/assistantSlice'
 
-const MessageThread = () => {
+interface MessageThreadProps {
+  endOfMessageRef: React.RefObject<HTMLDivElement>
+}
+
+const MessageThread = ({ endOfMessageRef }: MessageThreadProps) => {
   const { currentExploreThread, isQuerying } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
+
+  const scrollIntoView = useCallback(() => {
+    endOfMessageRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [endOfMessageRef])
+
+  const handleSummaryComplete = () => {
+    scrollIntoView()
+  }
+
+  useEffect(() => {
+    scrollIntoView()
+  }, [currentExploreThread])
 
   if(currentExploreThread === null) {
     return <></>
@@ -24,14 +40,14 @@ const MessageThread = () => {
           return (
             <ExploreMessage
               key={message.uuid}
+              exploreParams={message.exploreParams}
               modelName={currentExploreThread.modelName}
               exploreId={currentExploreThread.exploreId}
-              queryArgs={message.exploreUrl}
               prompt={message.summarizedPrompt}
             />
           )
         } else if (message.type === 'summarize') {
-          return <SummaryMessage key={message.uuid} message={message} />
+          return <SummaryMessage key={message.uuid} message={message}  onSummaryComplete={handleSummaryComplete}/>
         } else {
           return (
             <Message
@@ -48,6 +64,7 @@ const MessageThread = () => {
           <CircularProgress color={'inherit'} size={'inherit'} />
         </div>
       )}
+      <div ref={endOfMessageRef} />
     </div>
   )
 }

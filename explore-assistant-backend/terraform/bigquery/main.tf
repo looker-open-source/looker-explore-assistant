@@ -14,26 +14,29 @@ variable "connection_id" {
     type = string
 }
 
-resource "google_bigquery_connection" "connection" {
-  connection_id = var.connection_id
-  project       = var.project_id
-  location      = var.deployment_region
-  cloud_resource {}
-}
+################### To be commented out if you're running with provided GCP project ###################
+# resource "google_bigquery_connection" "connection" {
+#   connection_id = var.connection_id
+#   project       = var.project_id
+#   location      = var.deployment_region
+#   cloud_resource {}
+# }
 
 # IAM for connection to be able to execute vertex ai queries through BQ
-resource "google_project_iam_member" "bigquery_connection_remote_model" {
-  project    = var.project_id
-  role       = "roles/aiplatform.user"
-  member     = format("serviceAccount:%s", google_bigquery_connection.connection.cloud_resource[0].service_account_id)
-}
+# resource "google_project_iam_member" "bigquery_connection_remote_model" {
+#   project    = var.project_id
+#   role       = "roles/aiplatform.user"
+#   member     = format("serviceAccount:%s", google_bigquery_connection.connection.cloud_resource[0].service_account_id)
+# }
+#######################################################################################################
+
 
 resource "google_bigquery_job" "create_bq_model_llm" {
   job_id = "create_looker_llm_model-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   query {
     query              = <<EOF
 CREATE OR REPLACE MODEL `${var.dataset_id}.explore_assistant_llm`
-REMOTE WITH CONNECTION `${google_bigquery_connection.connection.name}`
+REMOTE WITH CONNECTION `projects/739825782560/locations/asia-southeast1/connections/explore_assistant_llm`
 OPTIONS (endpoint = 'gemini-1.5-flash')
 EOF
     create_disposition = ""

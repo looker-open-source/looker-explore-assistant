@@ -1,6 +1,10 @@
+##This script will upload samples to a selected bigquery dataset
+
+#!/bin/sh
+
 PROJECT_ID=”PROJECT_ID”
 DATASET_ID=”DATASET_ID”
-EXPLORE_ID=”PROJECT:EXPLORE_ID”
+EXPLORE_ID=”MODEL:EXPLORE_ID”
 TABLE_ID=”explore_assistant_samples”
 JSON_FILE=”samples.json”
 

@@ -35,27 +35,43 @@ The script accepts several command line arguments to specify the details require
 
 ### Running the Script
 
-To run the script, use the following command format in your terminal (make sure the .sh files are all updated to reference your project_id, dataset_id and explore_id):
+To run the script, use the following command format in your terminal (make sure the .sh files in this directory are all updated to reference your project_id, dataset_id and explore_id):
 
 Load the general examples:
+>After modifying the load_examples.sh file, run the script below to modify the permissions for the file so it can be run via command line
+```bash
+chmod +x load_examples.sh
+```
 >This script will upload examples to a selected bigquery dataset
 ```bash
 ./load_examples.sh
 ```
 
 Load the refinement examples:
+>After modifying the update_refinements.sh file, run the script below to modify the permissions for the file so it can be run via command line
+```bash
+chmod +x update_refinements.sh
+```
 >This script will upload refinement_examples to a selected bigquery dataset
 ```bash
  ./update_refinements.sh
 ```
 
 Load the samples:
+>After modifying the update_samples.sh file, run the script below to modify the permissions for the file so it can be run via command line
+```bash
+chmod +x update_samples.sh
+```
 >This script will upload samples to a selected bigquery dataset
 ```bash
 ./update_samples.sh
 ```
 
 Update the general examples:
+>After modifying the update_examples.sh file, run the script below to modify the permissions for the file so it can be run via command line
+```bash
+chmod +x update_examples.sh
+```
 >This script will upload new examples from examples_outputfull to a selected bigquery dataset
 ```bash
 ./update_examples.sh

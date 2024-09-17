@@ -432,10 +432,87 @@ ${
       }
       const currentDateTime = new Date().toISOString()
 
-      let exampleText = ''
-      if(exploreGenerationExamples && exploreGenerationExamples.length > 0) {
-        exampleText = exploreGenerationExamples.map((item) => `input: "${item.input}" ; output: ${item.output}`).join('\n')
-      }
+const parseLookerURL = (url: string): { [key: string]: any } => {
+  // Split URL and extract model & explore
+  const [rootURL, queryString] = url.split("?");
+  const rootURLElements = rootURL.split("/");
+  const model = rootURLElements[rootURLElements.length - 2];
+  const explore = rootURLElements[rootURLElements.length - 1];
+
+  // Initialize lookerEncoding object
+
+
+  const lookerEncoding: { [key: string]: any } = {};
+  lookerEncoding['model'] = model
+  lookerEncoding['explore'] = explore
+  lookerEncoding['fields'] = []
+  lookerEncoding['pivots'] = []
+  lookerEncoding['fill_fields'] = []
+  lookerEncoding['filters'] = {}
+  lookerEncoding['filter_expression'] = null
+  lookerEncoding['sorts'] = []
+  lookerEncoding['limit'] = 500
+  lookerEncoding['column_limit'] = 50
+  lookerEncoding['total'] = null
+  lookerEncoding['row_total'] = null
+  lookerEncoding['subtotals'] = null
+  lookerEncoding['vis'] = []
+  
+
+  // Split query string and iterate key-value pairs
+  const keyValuePairs = queryString.split("&");
+  for (const qq of keyValuePairs) {
+    const [key, value] = qq.split('=');
+    switch (key) {
+      case "fields":
+      case "pivots":
+      case "fill_fields":
+      case "sorts":
+        lookerEncoding[key] = value.split(",");
+        break;
+      case "filter_expression":
+      case "total":
+      case "row_total":
+      case "subtotals":
+        lookerEncoding[key] = value;
+        break;
+      case "limit":
+      case "column_limit":
+        lookerEncoding[key] = parseInt(value);
+        break;
+      case "vis":
+        lookerEncoding[key] = JSON.parse(decodeURIComponent(value));
+        break;
+      default:
+        if (key.startsWith("f[")) {
+          const filterKey = key.slice(2, -1);
+          lookerEncoding.filters[filterKey] = value;
+        } else if (key.includes(".")) {
+          const path = key.split(".");
+          let currentObject = lookerEncoding;
+          for (let i = 0; i < path.length - 1; i++) {
+            const segment = path[i];
+            if (!currentObject[segment]) {
+              currentObject[segment] = {};
+            }
+            currentObject = currentObject[segment];
+          }
+          currentObject[path[path.length - 1]] = value;
+        }
+    }
+  }
+
+  return lookerEncoding;
+ 
+};
+
+
+
+
+let exampleText = ''
+if(exploreGenerationExamples && exploreGenerationExamples.length > 0) {
+    exampleText = exploreGenerationExamples.map((item) => `input: "${item.input}" ; output: ${JSON.stringify(parseLookerURL(item.output))}`).join('\n')
+}      
 
       const contents = `
       # Context

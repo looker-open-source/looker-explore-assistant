@@ -35,7 +35,9 @@ The script accepts several command line arguments to specify the details require
 
 ### Running the Script
 
-To run the script, use the following command format in your terminal (make sure the .sh files in this directory are all updated to reference your project_id, dataset_id and explore_id):
+ **Before Running:** make sure the .env file in this directory is updated to reference your project_id, dataset_id and explore_id
+
+To run the script, use the following command format in your terminal:
 
 Load the general examples:
 >After modifying the load_examples.sh file, run the script below to modify the permissions for the file so it can be run via command line

@@ -16,10 +16,10 @@ Before you run this script, you need to ensure that your environment is set up w
 To run this script, you will need to install its dependencies. It is recommended to use a virtual environment at the top level of the repo:
 
 ```bash
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 cd ./explore-assistant-examples
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 ```
 ## Usage
 
@@ -35,23 +35,49 @@ The script accepts several command line arguments to specify the details require
 
 ### Running the Script
 
+ **Before Running:** make sure the .env file in this directory is updated to reference your project_id, dataset_id and explore_id
+
 To run the script, use the following command format in your terminal:
 
 Load the general examples:
-
+>After modifying the load_examples.sh file, run the script below to modify the permissions for the file so it can be run via command line
 ```bash
-python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_examples --json_file examples.json
+chmod +x load_examples.sh
+```
+>This script will upload examples to a selected bigquery dataset
+```bash
+./load_examples.sh
 ```
 
-Load the refinement examples
+Load the refinement examples:
+>After modifying the update_refinements.sh file, run the script below to modify the permissions for the file so it can be run via command line
 ```bash
- python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_refinement_examples --json_file refinement_examples.json
+chmod +x update_refinements.sh
+```
+>This script will upload refinement_examples to a selected bigquery dataset
+```bash
+ ./update_refinements.sh
 ```
 
-Load the samples
-
+Load the samples:
+>After modifying the update_samples.sh file, run the script below to modify the permissions for the file so it can be run via command line
 ```bash
- python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id explore_assistant_samples --column_name samples --json_file samples.json
+chmod +x update_samples.sh
+```
+>This script will upload samples to a selected bigquery dataset
+```bash
+./update_samples.sh
+```
+
+Update the general examples:
+>After modifying the update_examples.sh file, run the script below to modify the permissions for the file so it can be run via command line
+```bash
+chmod +x update_examples.sh
+```
+>This script will upload new examples from examples_outputfull to a selected bigquery dataset
+```bash
+./update_examples.sh
+```
 
 ### Description
 

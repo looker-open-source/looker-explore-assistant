@@ -1,0 +1,16 @@
+name: Terraform PR dev
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - explore-assistant-backend/terraform/**
+
+jobs:
+  plan:
+    uses: Exabeam/actions-reusable-workflows/.github/workflows/terraform.yaml@master
+    with:
+      env: dev
+      terraform-version: 1.3.6
+    secrets: inherit

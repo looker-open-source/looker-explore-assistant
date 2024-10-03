@@ -29,6 +29,10 @@ export interface RefinementExamples {
   }[]
 }
 
+export interface TrustedDashboards {
+  [exploreKey: string]: string // the string is a lookml dashboard text
+}
+
 interface Field {
   name: string
   type: string
@@ -113,6 +117,7 @@ export interface AssistantState {
     exploreGenerationExamples: ExploreExamples
     exploreRefinementExamples: RefinementExamples
     exploreSamples: ExploreSamples
+    trustedDashboards: TrustedDashboards
   },
   settings: Settings,
   isBigQueryMetadataLoaded: boolean,
@@ -153,7 +158,8 @@ export const initialState: AssistantState = {
   examples: {
     exploreGenerationExamples: {},
     exploreRefinementExamples: {},
-    exploreSamples: {}
+    exploreSamples: {},
+    trustedDashboards: {},
   },
   settings: {
     show_explore_data: {
@@ -310,7 +316,13 @@ export const assistantSlice = createSlice({
     },
     setCurrenExplore: (state, action: PayloadAction<AssistantState['currentExplore']>) => {
       state.currentExplore = action.payload
-    }
+    },
+    setTrustedDashboardExamples(
+      state,
+      action: PayloadAction<AssistantState['examples']['trustedDashboards']>,
+    ) {
+      state.examples.trustedDashboards = action.payload
+    },
   },
 })
 
@@ -331,7 +343,8 @@ export const {
   setExploreGenerationExamples,
   setExploreRefinementExamples,
   setExploreSamples,
-
+  setTrustedDashboardExamples,
+  
   setisBigQueryMetadataLoaded,
 
   updateCurrentThread,

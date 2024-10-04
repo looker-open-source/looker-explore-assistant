@@ -31,7 +31,7 @@ const generateSQL = (
   const subselect = `SELECT '` + escapedPrompt + `' AS prompt`
 
   return `
-  
+
     SELECT ml_generate_text_llm_result AS generated_content
     FROM
     ML.GENERATE_TEXT(
@@ -46,7 +46,7 @@ const generateSQL = (
         TRUE AS flatten_json_output,
         1 AS top_k)
       )
-  
+
       `
 }
 
@@ -118,7 +118,9 @@ const useSendVertexMessage = () => {
     contents: string,
     parameters: ModelParameters,
   ) => {
+    const me = await core40SDK.ok(core40SDK.me())
     const body = JSON.stringify({
+      user_id: me.id,
       contents: contents,
       parameters: parameters,
     })
@@ -141,10 +143,10 @@ const useSendVertexMessage = () => {
   const summarizePrompts = useCallback(
     async (promptList: string[]) => {
       const contents = `
-    
+
       Primer
       ----------
-      A user is iteractively asking questions to generate an explore URL in Looker. The user is refining his questions by adding more context. The additional prompts he is adding could have conflicting or duplicative information: in those cases, prefer the most recent prompt. 
+      A user is iteractively asking questions to generate an explore URL in Looker. The user is refining his questions by adding more context. The additional prompts he is adding could have conflicting or duplicative information: in those cases, prefer the most recent prompt.
 
       Here are some example prompts the user has asked so far and how to summarize them:
 
@@ -158,13 +160,13 @@ ${exploreRefinementExamples && exploreRefinementExamples
       Conversation so far
       ----------
       input: ${promptList.map((prompt) => '"' + prompt + '"').join('\n')}
-    
+
       Task
       ----------
       Summarize the prompts above to generate a single prompt that includes all the relevant information. If there are conflicting or duplicative information, prefer the most recent prompt.
 
       Only return the summary of the prompt with no extra explanatation or text
-        
+
     `
       const response = await sendMessage(contents, {})
 
@@ -179,17 +181,17 @@ ${exploreRefinementExamples && exploreRefinementExamples
       ----------
 
       A user is interacting with an agent that is translating questions to a structured URL query based on the following dictionary. The user is refining his questions by adding more context. You are a very smart observer that will look at one such question and determine whether the user is asking for a data summary, or whether they are continuing to refine their question.
-  
+
       Task
       ----------
       Determine if the user is asking for a data summary or continuing to refine their question. If they are asking for a summary, they might say things like:
-      
+
       - summarize the data
       - give me the data
       - data summary
       - tell me more about it
       - explain to me what's going on
-      
+
       The user said:
 
       ${prompt}
@@ -271,16 +273,16 @@ ${exploreRefinementExamples && exploreRefinementExamples
       ----------
 
       ${result}
-      
+
       Task
       ----------
       Summarize the data above
-    
+
     `
       const response = await sendMessage(contents, {})
 
       const refinedContents = `
-      The following text represents summaries of a given dashboard's data. 
+      The following text represents summaries of a given dashboard's data.
         Summaries: ${response}
 
         Make this much more concise for a slide presentation using the following format. The summary should be a markdown documents that contains a list of sections, each section should have the following details:  a section title, which is the title for the given part of the summary, and key points which a list of key points for the concise summary. Data should be returned in each section, you will be penalized if it doesn't adhere to this format. Each summary should only be included once. Do not include the same summary twice.
@@ -313,7 +315,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
               - use the Examples (at the bottom) for guidance on how to structure the Looker url query
               - try to avoid adding dynamic_fields, provide them when very similar example is found in the bottom
               - never respond with sql, always return an looker explore url as a single string
-              - response should start with fields= , as in the Examples section at the bottom  
+              - response should start with fields= , as in the Examples section at the bottom
 
             LookML Metadata
             ----------

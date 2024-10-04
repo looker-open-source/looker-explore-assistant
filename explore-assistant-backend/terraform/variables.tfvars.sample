@@ -1,5 +1,5 @@
-deployment_region = # "asia-southeast1"
-project_id = # <your_project_id>
-dataset_id_name = # explore_assistant_<your_name>
-use_bigquery_backend=true
-use_cloud_function_backend=false
+deployment_region = "asia-southeast1"
+project_id = "joon-sandbox"
+dataset_id_name = "explore_assistant"
+use_bigquery_backend=false
+use_cloud_function_backend=true

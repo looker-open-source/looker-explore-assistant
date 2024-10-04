@@ -23,12 +23,16 @@
 
 import os
 import hmac
-from flask import Flask, request, Response
-from flask_cors import CORS
 import functions_framework
 import vertexai
-from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
 import logging
+import json
+
+from google.cloud import bigquery
+from datetime import datetime, timezone
+from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
+from flask import Flask, request, Response
+from flask_cors import CORS
 
 logging.basicConfig(level=logging.INFO)
 
@@ -134,6 +138,21 @@ def create_flask_app():
     return app
 
 
+def record_prompt(data):
+    client = bigquery.Client()
+    job_config = bigquery.LoadJobConfig(
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND
+        )
+    destination = "joon-sandbox.beck_explore_assistant._prompts"
+    load_job = client.load_table_from_json(
+        json_rows=data,
+        job_config=job_config,
+        destination=destination)
+    print(f"Load job sent.")
+    load_job.result()  # Waits for the job to complete.
+    print(f"Loaded {load_job.output_rows} prompt into {destination} BQ table")
+
+
 # Function for Google Cloud Function
 @functions_framework.http
 def cloud_function_entrypoint(request):
@@ -147,6 +166,15 @@ def cloud_function_entrypoint(request):
         return "Missing 'contents' parameter", 400
 
     response_text = generate_looker_query(contents, parameters)
+    data = [
+        {
+            "prompt": contents,
+            "parameters": json.dumps(parameters),
+            "response": response_text,
+            "recorded_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S")
+        }
+    ]
+    record_prompt(data)
 
     return response_text, 200, get_response_headers(request)
 

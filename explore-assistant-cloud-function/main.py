@@ -122,14 +122,21 @@ def create_flask_app():
         contents = incoming_request.get("contents")
         parameters = incoming_request.get("parameters")
         if contents is None:
-            return "Missing 'contents' parameter", 400
+            return "Missing 'contents' parameter", 400, get_response_headers(request)
 
         if not has_valid_signature(request):
-            return "Invalid signature", 403
+            return "Invalid signature", 403, get_response_headers(request)
 
-        response_text = generate_looker_query(contents, parameters)
+        try:
+            response_text = generate_looker_query(contents, parameters)
+            return response_text, 200, get_response_headers(request)
+        except Exception as e:
+            logging.error(f"Internal server error: {str(e)}")
+            return str(e), 500, get_response_headers(request)
 
-        return response_text, 200, get_response_headers(request)
+    @app.errorhandler(500)
+    def internal_server_error(error):
+        return "Internal server error", 500, get_response_headers(request)
 
     return app
 

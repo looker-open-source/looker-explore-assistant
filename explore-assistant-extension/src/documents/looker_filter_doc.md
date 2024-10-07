@@ -10,7 +10,7 @@ Matches in string filters depend on the case_sensitive setting in your model fil
 |-----------|-------------------------------------------------------------------------------|
 | FOO       | is equal to "FOO", exactly |
 | FOO,BAR   | is equal to either "FOO" or "BAR", exactly  |
-| %FOO%     | contains "FOO", matches "buffoon" and "fast |
+| %FOO%     | contains "FOO", matches "buffoon" and "fast food" |
 | FOO%      | starts with "FOO", matches "foolish" and "food" but not "buffoon" or "fast food"   |
 | %FOO      | ends with "FOO", matches "buffoo" and "fast foo" but not "buffoon" or "fast food"   |
 | F%OD      | starts with an "F" and ends with "OD", matches "fast food"                                                                                   |

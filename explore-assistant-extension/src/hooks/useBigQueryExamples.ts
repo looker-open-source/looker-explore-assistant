@@ -9,7 +9,9 @@ import {
   setCurrenExplore,
   RefinementExamples,
   ExploreExamples,
-  AssistantState
+  AssistantState,
+  setTrustedDashboardExamples,
+  TrustedDashboards
 } from '../slices/assistantSlice'
 
 import { ExtensionContext } from '@looker/extension-sdk-react'
@@ -123,6 +125,27 @@ export const useBigQueryExamples = () => {
     }).catch((error) => showBoundary(error))
   }
 
+  const getTrustedDashboards = async () => {
+    const sql = `
+      SELECT
+          explore_id,
+          lookml
+      FROM
+        \`${datasetName}.trusted_dashboards\`
+    `
+    return runSQLQuery(sql).then((response) => {
+      const trustedDashboards: TrustedDashboards = {}
+      if(response.length === 0 || !Array.isArray(response)) {
+        return
+      }
+      response.forEach((row: any) => {
+        trustedDashboards[row['explore_id']] = JSON.parse(row['lookml'])
+      })
+      dispatch(setTrustedDashboardExamples(trustedDashboards))
+
+    }).catch((error) => showBoundary(error))
+  }
+
   // Create a ref to track if the hook has already been called
   const hasFetched = useRef(false)
 
@@ -135,7 +158,7 @@ export const useBigQueryExamples = () => {
     if(isBigQueryMetadataLoaded) return
 
     dispatch(setisBigQueryMetadataLoaded(false))
-    Promise.all([getExamplePrompts(), getRefinementPrompts(), getSamples()])
+    Promise.all([getExamplePrompts(), getRefinementPrompts(), getSamples(), getTrustedDashboards()])
       .then(() => {
         dispatch(setisBigQueryMetadataLoaded(true))
       })

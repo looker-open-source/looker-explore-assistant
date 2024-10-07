@@ -1,1 +1,5 @@
 google-cloud-bigquery
+looker_sdk==22.6.0
+vertexai==1.67.1
+google-auth==2.14.1
+google-cloud-aiplatform==1.67.1

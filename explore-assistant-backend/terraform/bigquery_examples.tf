@@ -42,8 +42,8 @@ resource "google_bigquery_job" "create_explore_assistant_examples_table" {
   }
 }
 
-resource "google_bigquery_job" "create_explore_assistant_examples_table" {
-  job_id = "create_explore_assistant_examples_table-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+resource "google_bigquery_job" "create_explore_assistant_trusted_dashboards_table" {
+  job_id = "create_explore_assistant_trusted_dashboards_table-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   query {
     query              = <<EOF
     CREATE OR REPLACE TABLE `${google_bigquery_dataset.dataset.dataset_id}.trusted_dashboards` (

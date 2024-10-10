@@ -91,7 +91,7 @@ def fetch_query_url_metadata(sdk, explore):
                     "history.completed_time desc",
                     "query.view"
                 ],
-                limit="10",
+                limit="30",
             )
         )
         return json.loads(response)[0:10]
@@ -155,8 +155,11 @@ def filters_categorization(query,url, categorized_queries):
     string_catch_all_pattern = r"\w"
     string_multiple_pattern = r"\w,+\w"
     categorized_queries_filters = {}
-
-    parsed_filters = json.loads(query['query.filters'])
+    # import pdb; pdb.set_trace()
+    if not query.get('query.filters'):
+        parsed_filters = {}
+    else:
+        parsed_filters = json.loads(query['query.filters'])
     keys_copy = tuple(parsed_filters.keys())
     for key in keys_copy:
       if parsed_filters[key] != "":
@@ -185,6 +188,7 @@ def filters_categorization(query,url, categorized_queries):
             categorized_queries_filters['string_standard'].append(url)
             continue
 
+    categorized_queries['filters'] = categorized_queries_filters
 ### END
 
 
@@ -237,7 +241,7 @@ def generate_input(request):
     response = model.generate_content(
         contents=prompt_prefix + request,
         generation_config=GenerationConfig(
-            temperature=0.2,
+            temperature=0.3,
             top_p=0.8,
             top_k=40,
             max_output_tokens=1000,
@@ -268,18 +272,21 @@ def generate_input_examples(sdk, model, explore):
                     print("Empty response received from generate_input")
         else:
             for key2 in categorized_queries[key].keys():
-                for url in categorized_queries[key][key2][0:3]:
-                    response = generate_input(json.dumps({"input": "", "output": url}))
-                    # Remove ```json and ``` symbols
-                    cleaned_response = re.sub(r'```json\n|```', '', response).strip()
-                    if cleaned_response:
-                        try:
-                            url_prompts.append(json.loads(cleaned_response))
-                        except json.JSONDecodeError as e:
-                            print(f"Failed to decode JSON: {e}")
-                            print(f"Response: {cleaned_response}")
-                    else:
-                        print("Empty response received from generate_input")
+                urls = categorized_queries[key][key2]
+                if isinstance(urls, list):
+                    for url in urls[0:3]:
+                        response = generate_input(json.dumps({"input": "", "output": url}))
+                        # Remove ```json and ``` symbols
+                        cleaned_response = re.sub(r'```json\n|```', '', response).strip()
+                        if cleaned_response:
+                            try:
+                                url_prompts.append(json.loads(cleaned_response))
+                            except json.JSONDecodeError as e:
+                                print(f"Failed to decode JSON: {e}")
+                                print(f"Response: {cleaned_response}")
+                        else:
+                            print("Empty response received from generate_input")
+                    
 
     # Write the JSON objects to the file as a list
     with open(f"./generated_examples/{model}:{explore}.inputs.txt", "w") as f:

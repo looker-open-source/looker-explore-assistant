@@ -4,13 +4,14 @@ import json
 
 def parse_arguments():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='Load JSON data into BigQuery')
+    parser = argparse.ArgumentParser(description='Load data into BigQuery')
     parser.add_argument('--project_id', type=str, required=True, help='Google Cloud project ID')
     parser.add_argument('--dataset_id', type=str, help='BigQuery dataset ID', default='explore_assistant')
     parser.add_argument('--table_id', type=str, help='BigQuery table ID', default='explore_assistant_examples')
     parser.add_argument('--column_name', type=str, help='Column name, if different than "examples"', default='examples')
     parser.add_argument('--explore_id', type=str, required=True, help='The name of the explore in the model:explore_name format')
-    parser.add_argument('--json_file', type=str, help='Path to the JSON file containing the data', default='examples.json')
+    parser.add_argument('--json_file', '--file', type=str, help='Path to the JSON file containing the data', default='examples.json')
+    parser.add_argument('--format', type=str, choices=['json', 'text'], default='json', help='Format of the input file (json or text)')
     return parser.parse_args()
 
 def get_bigquery_client(project_id):
@@ -31,10 +32,13 @@ def delete_existing_rows(client, project_id, dataset_id, table_id, explore_id):
     else:
         print(f"Successfully deleted rows for explore_id {explore_id}")
 
-def load_data_from_file(json_file_path):
-    """Load data from a JSON file."""
-    with open(json_file_path, 'r') as file:
-        return json.load(file)
+def load_data_from_file(file_path, file_format):
+    """Load data from a file based on the specified format."""
+    with open(file_path, 'r') as file:
+        if file_format == 'json':
+            return json.load(file)
+        elif file_format == 'text':
+            return [line.strip() for line in file.readlines()]
 
 def insert_data_into_bigquery(client, dataset_id, table_id, column_name, explore_id, data):
     """Insert data into BigQuery using a SQL INSERT statement."""
@@ -73,7 +77,7 @@ def main():
     delete_existing_rows(client, args.project_id, args.dataset_id, args.table_id, args.explore_id)
 
     # load data from file and insert into BigQuery
-    data = load_data_from_file(args.json_file)
+    data = load_data_from_file(args.json_file, args.format)
     insert_data_into_bigquery(client, args.dataset_id, args.table_id, args.column_name, args.explore_id, data)
 
 if __name__ == '__main__':

@@ -8,6 +8,7 @@ terraform.tfstate*
 *.tfstate
 .venv
 node_modules
+looker.ini
 
 .vertex_cf_auth_token
 dist

@@ -86,6 +86,7 @@ const useSendVertexMessage = () => {
 
   const currentExploreKey = currentExplore.exploreKey
   const exploreRefinementExamples = examples.exploreRefinementExamples[currentExploreKey]
+  const trustedDashboards = examples.trustedDashboards[currentExploreKey]
 
   const vertextBigQuery = async (
     contents: string,
@@ -298,6 +299,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
       dimensions: any[],
       measures: any[],
       exploreGenerationExamples: any[],
+      trustedDashboards: any[],
     ) => {
       try {
         const contents = `
@@ -326,7 +328,11 @@ ${exploreRefinementExamples && exploreRefinementExamples
 
           ${measures.map(formatContent).join('\n')}
 
-            Example
+            Trusted dashboards include configuration for the most important, verified, and accurate dashboards. If a dashboard is trusted, it should be used as a reference for the user's query. 
+            Nomenclature and proper naming for metrics can be derived from these trusted dashboard. They are in Looker LookML dashboard yaml-like format. There may be 1 or more trusted dashboards.
+
+          ${trustedDashboards?.map((item) => item).join('\n')}
+
             ----------
 
           ${exploreGenerationExamples && exploreGenerationExamples

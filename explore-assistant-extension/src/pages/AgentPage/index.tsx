@@ -136,11 +136,15 @@ const AgentPage = () => {
     const exploreGenerationExamples =
       examples.exploreGenerationExamples[exploreKey]
 
+    const trustedDashboards =
+      examples.trustedDashboards[exploreKey]
+
     const newExploreUrl = await generateExploreUrl(
       promptSummary,
       dimensions,
       measures,
       exploreGenerationExamples,
+      trustedDashboards
     )
     console.log('New Explore URL: ', newExploreUrl)
     dispatch(setIsQuerying(false))

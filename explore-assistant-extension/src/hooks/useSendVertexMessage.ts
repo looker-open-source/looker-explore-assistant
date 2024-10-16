@@ -384,7 +384,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
             Relative date filters allow you to create queries with rolling date values relative to the current date. These are useful when creating queries that update each time you run the query.
 
             For all of the following examples, assume today is Friday, 2018/05/18 18:30:02. In Looker, weeks start on Monday unless you change that setting with week_start_day.
-
+            Don't actualy use the day 2018/05/18 18:30:02, use the current date and time when you are generating the Looker URL query.
 
             Seconds
             Example	= Description

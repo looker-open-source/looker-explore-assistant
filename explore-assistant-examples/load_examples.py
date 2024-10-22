@@ -69,7 +69,48 @@ def insert_data_into_bigquery(client, dataset_id, table_id, column_name, explore
     if concat:
             existing_data = read_existing_data(client, dataset_id, table_id, explore_id, column_name)
             if existing_data:
-                data_json = concatenate_json(existing_data, data_json)
+            # Check if the existing data is valid JSON
+                valid_json_query = f"""
+                    SELECT SAFE.PARSE_JSON(`{column_name}`) IS NOT NULL AS is_valid_json
+                    FROM `{dataset_id}.{table_id}`
+                    WHERE explore_id = @explore_id
+                    """
+                job_config = bigquery.QueryJobConfig(
+                    query_parameters=[bigquery.ScalarQueryParameter("explore_id", "STRING", explore_id)]
+                )
+                query_job = client.query(valid_json_query, job_config=job_config)
+                result = query_job.result()
+                is_valid_json = False
+                for row in result:
+                    is_valid_json = row['is_valid_json']
+                    break
+
+                if is_valid_json:
+                    data_json = concatenate_json(existing_data, data_json)
+                    # Use an UPDATE statement to update the existing row
+                    update_query = f"""
+                    UPDATE `{dataset_id}.{table_id}`
+                    SET `{column_name}` = @examples
+                    WHERE explore_id = @explore_id
+                    """
+                    job_config = bigquery.QueryJobConfig(
+                        query_parameters=[
+                            bigquery.ScalarQueryParameter("explore_id", "STRING", explore_id),
+                            bigquery.ScalarQueryParameter("examples", "STRING", data_json)
+                        ]
+                    )
+                    query_job = client.query(update_query, job_config=job_config)
+                    query_job.result()  # Wait for the query to complete
+
+                    # Check if the query resulted in any errors
+                    if query_job.errors is None:
+                        print("Data has been successfully updated.")
+                    else:
+                        print(f"Encountered errors while updating data: {query_job.errors}")
+                    return
+                else:
+                    print(f"Existing data in column '{column_name}' is not valid JSON. Aborting update.")
+                    return
 
     # Create a BigQuery SQL INSERT statement
     insert_query = f"""

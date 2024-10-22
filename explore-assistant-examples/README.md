@@ -87,7 +87,7 @@ chmod +x update_examples.sh
 ./update_examples.sh
 ```
 If instead you wish to append examples:
-```
+```bash
 ./append_examples.sh
 ```
 

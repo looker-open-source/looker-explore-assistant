@@ -86,7 +86,10 @@ chmod +x update_examples.sh
 ```bash
 ./update_examples.sh
 ```
-
+If instead you wish to append examples:
+```
+./append_examples.sh
+```
 
 Load the trusted dashboard lookml
 
@@ -108,7 +111,7 @@ The load_examples Python script is designed to manage data uploads from a JSON f
    - It initializes a BigQuery client using the Google Cloud project ID provided through the CLI. This client facilitates interactions with BigQuery, such as running queries and managing data.
 
 3. **Data Deletion**:
-   - Before inserting new data, the script deletes existing rows in the specified BigQuery table that match the given `explore_id`. This is crucial for use cases where the data associated with an `explore_id` needs to be refreshed or updated without duplication.
+   - Before inserting new data, the script deletes existing rows in the specified BigQuery table that match the given `explore_id`. This is crucial for use cases where the data associated with an `explore_id` needs to be refreshed or updated without duplication. OPTIONALLY, you can concatenate instead of deleting with the `--concat` argument
 
 4. **Data Loading from JSON**:
    - The script reads data from a specified JSON file. This data is expected to be in a format that BigQuery can ingest.

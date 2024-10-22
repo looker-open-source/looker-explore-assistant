@@ -12,6 +12,7 @@ def parse_arguments():
     parser.add_argument('--explore_id', type=str, required=True, help='The name of the explore in the model:explore_name format')
     parser.add_argument('--json_file', '--file', type=str, help='Path to the JSON file containing the data', default='examples.json')
     parser.add_argument('--format', type=str, choices=['json', 'text'], default='json', help='Format of the input file (json or text)')
+    parser.add_argument('--concat', action='store_true', help='Concatenate new data with existing data instead of replacing it')
     return parser.parse_args()
 
 def get_bigquery_client(project_id):
@@ -40,10 +41,35 @@ def load_data_from_file(file_path, file_format):
         elif file_format == 'text':
             return [line.strip() for line in file.readlines()]
 
-def insert_data_into_bigquery(client, dataset_id, table_id, column_name, explore_id, data):
+def read_existing_data(client, dataset_id, table_id, explore_id, column_name):
+    """Read existing data from BigQuery."""
+    query = f"SELECT `{column_name}` FROM `{dataset_id}.{table_id}` WHERE explore_id = @explore_id"
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[bigquery.ScalarQueryParameter("explore_id", "STRING", explore_id)]
+    )
+    query_job = client.query(query, job_config=job_config)
+    result = query_job.result()
+    for row in result:
+        return row[column_name]
+    return None
+
+def concatenate_json(existing_data, new_data):
+    """Concatenate two JSON arrays."""
+    if not existing_data:
+        return new_data
+    existing_data = existing_data.rstrip(']')
+    new_data = new_data.lstrip('[')
+    return existing_data + ',' + new_data 
+
+def insert_data_into_bigquery(client, dataset_id, table_id, column_name, explore_id, data, concat=False):
     """Insert data into BigQuery using a SQL INSERT statement."""
     # Convert the data to a JSON string
     data_json = json.dumps(data)
+
+    if concat:
+            existing_data = read_existing_data(client, dataset_id, table_id, explore_id, column_name)
+            if existing_data:
+                data_json = concatenate_json(existing_data, data_json)
 
     # Create a BigQuery SQL INSERT statement
     insert_query = f"""
@@ -74,11 +100,13 @@ def main():
 
     # delete existing rows
     client = get_bigquery_client(args.project_id)
-    delete_existing_rows(client, args.project_id, args.dataset_id, args.table_id, args.explore_id)
+    if not args.concat:
+        # Delete existing rows if not concatenating
+        delete_existing_rows(client, args.project_id, args.dataset_id, args.table_id, args.explore_id)
 
     # load data from file and insert into BigQuery
     data = load_data_from_file(args.json_file, args.format)
-    insert_data_into_bigquery(client, args.dataset_id, args.table_id, args.column_name, args.explore_id, data)
+    insert_data_into_bigquery(client, args.dataset_id, args.table_id, args.column_name, args.explore_id, data, args.concat)
 
 if __name__ == '__main__':
     main()

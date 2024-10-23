@@ -7,14 +7,13 @@ import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   clearHistory,
+  ExploreThread,
+  openSidePanel,
   resetChat,
+  setCurrentThread,
   setIsChatMode,
-  setQuery,
-  setExploreId,
-  setExploreName,
-  setModelName,
-  HistoryItemPayload,
-  setSidebarMessage
+  setSidePanelExploreUrl,
+  AssistantState,
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
 import SettingsModal from './Settings'
@@ -28,18 +27,9 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const dispatch = useDispatch()
   const [isExpanded, setIsExpanded] = React.useState(expanded)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
-  const { isChatMode, isQuerying, history, exploreId, bigQueryExamplesLoaded, lookerFieldsLoaded, sidebarMessage } = useSelector(
-    (state: RootState) => state.assistant,
+  const { isChatMode, isQuerying, history } = useSelector(
+    (state: RootState) => state.assistant as AssistantState,
   )
-
-  const sidebarItems = [
-    { text: 'New chat' },
-    { text: 'Ready to Assist' },
-    { text: 'Which Extensions?' },
-    { text: 'Embedding Videos' },
-    { text: 'Corrected Dagster' },
-    { text: 'Camel in the Desert' },
-  ]
 
   const handleClick = () => {
     if (expanded) {
@@ -61,31 +51,19 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
     }
   }
 
-  const handleHistoryClick = async (message: HistoryItemPayload) => {
-    // Combine related state updates
-    const [modelName, exploreName] = message.exploreId.split("/");
-    dispatch(setExploreId(message.exploreId))
-    dispatch(setExploreName(exploreName))
-    dispatch(setModelName(modelName))
-    dispatch(setSidebarMessage(message.message))
-
-    console.log("Current: ", exploreId, " Next: ", message);
-  };
-
-  React.useEffect(() => {
-    if(bigQueryExamplesLoaded && lookerFieldsLoaded && sidebarMessage !== '') {
-        dispatch(resetChat())
-        dispatch(setQuery(sidebarMessage))
-        dispatch(setIsChatMode(true))
-
-    }
-  },[dispatch, sidebarMessage, bigQueryExamplesLoaded, lookerFieldsLoaded])
+  const handleHistoryClick = (thread: ExploreThread) => {
+    dispatch(resetChat())
+    dispatch(setCurrentThread(thread))
+    dispatch(setIsChatMode(true))
+    dispatch(setSidePanelExploreUrl(thread.exploreUrl))
+    dispatch(openSidePanel())
+  }
 
   const handleClearHistory = () => {
     dispatch(clearHistory())
   }
 
-  const reverseHistory = [...history].reverse()
+  const reverseHistory = [...history].reverse() as ExploreThread[]
 
   return (
     <div
@@ -156,30 +134,31 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
               {history.length == 0 && (
                 <div className="text-gray-400">No recent chats</div>
               )}
-              {reverseHistory.map((item, index) => (
-                <Tooltip title={item.message} placement="right" arrow>
-                  <div
-                    key={index}
-                    className={`flex items-center cursor-pointer hover:underline`}
-                    onClick={() => handleHistoryClick(item)}
+              {reverseHistory.map((item) => (
+                <div key={'history-' + item.uuid}>
+                  <Tooltip
+                    title={item.summarizedPrompt}
+                    placement="right"
+                    arrow
                   >
-                    <div className="">
-                      <ChatBubbleOutline
-                        fontSize="small"
-                        className="mr-2 text-gray-600"
-                      />
+                    <div
+                      className={`flex items-center cursor-pointer hover:underline`}
+                      onClick={() => handleHistoryClick(item)}
+                    >
+                      <div className="">
+                        <ChatBubbleOutline
+                          fontSize="small"
+                          className="mr-2 text-gray-600"
+                        />
+                      </div>
+                      <div className="line-clamp-1">
+                        <span className="ml-3">{item.summarizedPrompt}</span>
+                      </div>
                     </div>
-                    <div className="line-clamp-1">
-                      <span className="ml-3">{item.message}</span>
-                    </div>
-                  </div>
-                </Tooltip>
+                  </Tooltip>
+                </div>
               ))}
             </div>
-
-            {sidebarItems.length === 0 && (
-              <div className="text-gray-400">No recent chats</div>
-            )}
           </div>
         )}
       </nav>
@@ -202,7 +181,10 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
           </div>
         </Tooltip>
       </div>
-      <SettingsModal open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal
+        open={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   )
 }

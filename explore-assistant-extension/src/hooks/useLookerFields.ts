@@ -1,40 +1,71 @@
-import { useContext, useEffect } from 'react'
+import { useContext, useEffect, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { setDimensions, setMeasures, setLookerFieldsLoaded } from '../slices/assistantSlice'
+import {
+  AssistantState,
+  SemanticModel,
+  setIsSemanticModelLoaded,
+  setSemanticModels,
+} from '../slices/assistantSlice'
 import { RootState } from '../store'
 import { ExtensionContext } from '@looker/extension-sdk-react'
-import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
 
 export const useLookerFields = () => {
-  const { exploreName, modelName } = useSelector(
-    (state: RootState) => state.assistant,
-  )
-  const lookerModel = modelName || process.env.LOOKER_MODEL || ''
-  const lookerExplore = exploreName || process.env.LOOKER_EXPLORE || ''
+  const {
+    examples: { exploreSamples },
+    isSemanticModelLoaded,
+  } = useSelector((state: RootState) => state.assistant as AssistantState)
+
+  const supportedExplores = Object.keys(exploreSamples)
+
   const dispatch = useDispatch()
-  const { showBoundary } = useErrorBoundary();
+  const { showBoundary } = useErrorBoundary()
 
   const { core40SDK } = useContext(ExtensionContext)
-  
-  // load lookml metadata and provide completion status
+
+  // Create a ref to track if the hook has already been called
+  const hasFetched = useRef(false)
+
+  // Load LookML metadata and provide completion status
   useEffect(() => {
-    if(!lookerModel || lookerModel === '' || !lookerExplore || lookerModel === '') {
-      showBoundary({message: "Default Looker Model or Explore is blank or unspecified"})
+    // if the hook has already been called, return
+    if (hasFetched.current) return
+
+    // if there are no supported explores or the semantic model is already loaded, return
+    if (supportedExplores.length === 0 || isSemanticModelLoaded) {
+      return
     }
-    dispatch(setLookerFieldsLoaded(false))
-    core40SDK
-      .ok(
-        core40SDK.lookml_model_explore({
-          lookml_model_name: lookerModel,
-          explore_name: lookerExplore,
-          fields: 'fields',
-        }),
-      )
-      .then(({ fields }) => {
+    
+    // mark
+    hasFetched.current = true
+
+    const fetchSemanticModel = async (
+      modelName: string,
+      exploreId: string,
+      exploreKey: string,
+    ): Promise<SemanticModel | undefined> => {
+      if (!modelName || !exploreId) {
+        showBoundary({
+          message: 'Default Looker Model or Explore is blank or unspecified',
+        })
+        return
+      }
+
+      try {
+        const response = await core40SDK.ok(
+          core40SDK.lookml_model_explore({
+            lookml_model_name: modelName,
+            explore_name: exploreId,
+            fields: 'fields',
+          }),
+        )
+
+        const { fields } = response
+
         if (!fields || !fields.dimensions || !fields.measures) {
-          return
+          return undefined
         }
+
         const dimensions = fields.dimensions
           .filter(({ hidden }: any) => !hidden)
           .map(({ name, type, label, description, tags }: any) => ({
@@ -55,13 +86,48 @@ export const useLookerFields = () => {
             tags,
           }))
 
-        dispatch(setDimensions(dimensions))
-        dispatch(setMeasures(measures))
-        dispatch(setLookerFieldsLoaded(true))
-      })
-      .catch((error) => {
-        showBoundary(error)
-        dispatch(setLookerFieldsLoaded(true))
-      })
-  }, [dispatch,showBoundary, modelName, exploreName]) // Dependencies array to avoid unnecessary re-executions
+        return {
+          exploreId,
+          modelName,
+          exploreKey,
+          dimensions,
+          measures,
+        }
+      } catch (error) {
+        showBoundary({
+          message: `Failed to fetch semantic model for ${modelName}::${exploreId}`,
+        })
+        return undefined
+      }
+    }
+
+    const loadSemanticModels = async () => {
+      try {
+        const fetchPromises = supportedExplores.map((exploreKey) => {
+          const [modelName, exploreId] = exploreKey.split(':')
+          return fetchSemanticModel(modelName, exploreId, exploreKey).then(
+            (model) => ({ exploreKey, model })
+          )
+        })
+
+        const results = await Promise.all(fetchPromises)
+        const semanticModels: { [explore: string]: SemanticModel } = {}
+
+        results.forEach(({ exploreKey, model }) => {
+          if (model) {
+            semanticModels[exploreKey] = model
+          }
+        })
+
+        dispatch(setSemanticModels(semanticModels))
+        dispatch(setIsSemanticModelLoaded(true))
+      } catch (error) {
+        showBoundary({
+          message: 'Failed to load semantic models',
+        })
+      }
+    }
+
+    loadSemanticModels()
+  }, [supportedExplores])
 }

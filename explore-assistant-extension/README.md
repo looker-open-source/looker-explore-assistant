@@ -7,24 +7,9 @@ This section describes how to set up the LLM Integration for the Explore Assista
 
 ### Getting Started for Development
 
-1. Clone or download a copy of this repository to your development machine.
-   If you have a git ssh_config:
-   ```bash
-   # cd ~/ Optional. your user directory is usually a good place to git clone to.
-   git clone git@github.com:looker-open-source/looker-explore-assistant.git
-   ```
+1. Install a backend using terraform by [following the instructions](../explore-assistant-backend/README.md)
 
-   If not:
-   ```bash
-   # cd ~/ Optional. your user directory is usually a good place to git clone to.
-   git clone https://github.com/looker-open-source/looker-explore-assistant.git
-   ```
-   Alternatively, open up this repository in: &nbsp;
-   [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/looker-open-source/looker-explore-assistant.git&cloudshell_workspace=explore-assistant-extension)
-
-2. Install a backend using terraform by [following the instructions](../explore-assistant-backend/README.md)
-
-3. Save the backend details for use by the extension framework:
+2. Save the backend details for use by the extension framework:
    
    * The BigQuery example dataset and table name
    * If you're using the BigQuery backend, the model id that allows communication with Gemini
@@ -58,23 +43,25 @@ jsonPayload.component="explore-assistant-metadata"
    cd explore-assistant-extension
    ```
 
-1. Install the dependencies with [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). *Please follow the hyperlinked directions for installing node and npm on your machine. Skip this step if deploying from Cloud Shell method above.* Additionally if you need to work across multiple Node versions, `nvm` can be used switch between and install different node versions.
+2. Install the dependencies with [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm). *Please follow the hyperlinked directions for installing node and npm on your machine. Skip this step if deploying from Cloud Shell method above.* Additionally if you need to work across multiple Node versions, `nvm` can be used switch between and install different node versions. When installing node, you need to install a version less than 17.
 
    ```bash
    npm install
    ```
 
-   > You may need to update your Node version or use a [Node version manager](https://github.com/nvm-sh/nvm) to change your Node version.
+   > You may need to update your Node version or use a [Node version manager](https://github.com/nvm-sh/nvm) to change your Node version. You can print your version number in terminal with the following command:
+   
+   ```bash
+   $ node -v
+   ```
 
-2. Create a new BigQuery connection in Looker that will allow us to get the examples from the database. You will use that in the VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME below.
+3. Create a new BigQuery connection in Looker that will allow us to get the examples from the database. You will use that in the VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME below.
 
-3. Ensure all the appropriate environment variables are set in the `.env` file
+4. Ensure all the appropriate environment variables are set in the `.env_example` file. Also rename the `.env_example` file to `.env`.
 
    Regardless of the backend, you're going to need:
 
    ```
-   LOOKER_MODEL=<This is your Looker model name>
-   LOOKER_EXPLORE=<This is your Looker explore name>
    VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME=<This is the connection name in Looker with the BQ project that has access to the remote connection and model>
    BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME=<The BQ connection name in Looker that has query access to example prompts. This may be the same as the Vertex Connection Name if using just one gcp project>
    BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME=<This is the dataset and project that contain the Example prompt data, assuming that differs from the Looker connection>

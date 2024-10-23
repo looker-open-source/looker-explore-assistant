@@ -6,7 +6,17 @@ import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
 import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
-import { Settings } from 'http2'
+import { AssistantState } from '../slices/assistantSlice'
+
+const unquoteResponse = (response: string | null | undefined) => {
+  if(!response) {
+    return ''
+  }
+  return response
+    .substring(response.indexOf('fields='))
+    .replace(/^`+|`+$/g, '')
+    .trim()
+}
 
 interface ModelParameters {
   max_output_tokens?: number
@@ -71,22 +81,11 @@ const useSendVertexMessage = () => {
   const VERTEX_BIGQUERY_MODEL_ID = process.env.VERTEX_BIGQUERY_MODEL_ID || ''
 
   const { core40SDK } = useContext(ExtensionContext)
-  const { dimensions, measures, messageThread, exploreName, modelName, bigQueryExamplesLoaded, lookerFieldsLoaded } =
-    useSelector((state: RootState) => state.assistant)
-  
-  const isDataLoaded = bigQueryExamplesLoaded && lookerFieldsLoaded
+  const { settings, examples, currentExplore} =
+    useSelector((state: RootState) => state.assistant as AssistantState)
 
-  const settings = useSelector<RootState, Settings>(
-    (state) => state.assistant.settings,
-  )
-
-  const settings = useSelector<RootState, Settings>(
-    (state) => state.assistant.settings,
-  )
-
-  const { exploreGenerationExamples, exploreRefinementExamples } = useSelector(
-    (state: RootState) => state.assistant.examples,
-  )
+  const currentExploreKey = currentExplore.exploreKey
+  const exploreRefinementExamples = examples.exploreRefinementExamples[currentExploreKey]
 
   const vertextBigQuery = async (
     contents: string,
@@ -149,7 +148,7 @@ const useSendVertexMessage = () => {
 
       Here are some example prompts the user has asked so far and how to summarize them:
 
-${exploreRefinementExamples
+${exploreRefinementExamples && exploreRefinementExamples
   .map((item) => {
     const inputText = '"' + item.input.join('", "') + '"'
     return `- The sequence of prompts from the user: ${inputText}. The summarized prompts: "${item.output}"`
@@ -172,39 +171,6 @@ ${exploreRefinementExamples
       return response
     },
     [exploreRefinementExamples],
-  )
-
-  const sendMessageWithThread = useCallback(
-    async (prompt: string) => {
-      const messageHistoryContents = messageThread
-        .slice(-20)
-        .map((message) => {
-          if ('exploreUrl' in message) {
-            return
-          }
-          return `${message.actor}: ${message.message}`
-        })
-        .join('\n')
-
-      const contents = `
-
-      Conversation so far
-      ----------
-
-      ${messageHistoryContents}
-
-      Question
-      ---------
-      ${prompt}
-
-      Answer
-      ----------
-    `
-
-      const response = await sendMessage(contents, {})
-      return response
-    },
-    [messageThread],
   )
 
   const isSummarizationPrompt = async (prompt: string) => {
@@ -275,8 +241,8 @@ ${exploreRefinementExamples
       // get the contents of the explore query
       const createQuery = await core40SDK.ok(
         core40SDK.create_query({
-          model: modelName,
-          view: exploreName,
+          model: currentExplore.modelName,
+          view: currentExplore.exploreId,
 
           fields: queryParams.fields || [],
           filters: queryParams.filters || {},
@@ -323,13 +289,17 @@ ${exploreRefinementExamples
       const refinedResponse = await sendMessage(refinedContents, {})
       return refinedResponse
     },
-    [exploreName, modelName],
+    [currentExplore],
   )
 
   const generateExploreUrl = useCallback(
-    async (prompt: string, dimensions: any[], measures: any[], exploreGenerationExamples: any[]) => {
+    async (
+      prompt: string,
+      dimensions: any[],
+      measures: any[],
+      exploreGenerationExamples: any[],
+    ) => {
       try {
-        console.log("From Vertex: ", exploreName, modelName, dimensions, measures, exploreGenerationExamples,isDataLoaded)
         const contents = `
             Context
             ----------
@@ -359,7 +329,7 @@ ${exploreRefinementExamples
             Example
             ----------
 
-          ${exploreGenerationExamples
+          ${exploreGenerationExamples && exploreGenerationExamples
             .map((item) => `input: "${item.input}" ; output: ${item.output}`)
             .join('\n')}
 
@@ -376,30 +346,31 @@ ${exploreRefinementExamples
         console.log(contents)
         const response = await sendMessage(contents, parameters)
 
-        const unquoteResponse = (response: string) => {
-          return response
-            .substring(response.indexOf('fields='))
-            .replace(/^`+|`+$/g, '')
-            .trim()
-        }
         const cleanResponse = unquoteResponse(response)
         console.log(cleanResponse)
 
         let toggleString = '&toggle=dat,pik,vis'
-        if(settings['show_explore_data'].value) {
+        if (settings['show_explore_data'].value) {
           toggleString = '&toggle=pik,vis'
         }
 
         const newExploreUrl = cleanResponse + toggleString
 
-
         return newExploreUrl
       } catch (error) {
-        console.error("Error waiting for data (lookml fields & training examples) to load:", error);
-        showBoundary({message: "Error waiting for data (lookml fields & training examples) to load:", error})
+        console.error(
+          'Error waiting for data (lookml fields & training examples) to load:',
+          error,
+        )
+        showBoundary({
+          message:
+            'Error waiting for data (lookml fields & training examples) to load:',
+          error,
+        })
+        return
       }
     },
-    [settings, exploreName, modelName],
+    [settings],
   )
 
   const sendMessage = async (message: string, parameters: ModelParameters) => {
@@ -416,13 +387,13 @@ ${exploreRefinementExamples
       return response
     } catch (error) {
       showBoundary(error)
+      return
     }
   }
 
   return {
     generateExploreUrl,
     sendMessage,
-    sendMessageWithThread,
     summarizePrompts,
     isSummarizationPrompt,
     summarizeExplore,

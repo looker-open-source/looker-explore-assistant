@@ -1,35 +1,33 @@
-import { useContext, useEffect } from 'react'
+import { useContext, useEffect, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { RootState } from '../store'
 import {
   setExploreGenerationExamples,
   setExploreRefinementExamples,
   setExploreSamples,
-  setExplores,
-  setBigQueryExamplesLoaded
+  ExploreSamples,
+  setisBigQueryMetadataLoaded,
+  setCurrenExplore,
+  RefinementExamples,
+  ExploreExamples,
+  AssistantState
 } from '../slices/assistantSlice'
 
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
+import { RootState } from '../store'
 
 export const useBigQueryExamples = () => {
-  const { exploreName, modelName} = useSelector(
-    (state: RootState) => state.assistant,
-  )
-  const connectionName =
-    process.env.BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME || ''
-  const LOOKER_MODEL = modelName || process.env.LOOKER_MODEL || ''
-  const LOOKER_EXPLORE = exploreName || process.env.LOOKER_EXPLORE || ''
-  const datasetName =
-    process.env.BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME || 'explore_assistant'
+  const connectionName = process.env.BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME || ''
+  const datasetName = process.env.BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME || 'explore_assistant'
 
   const dispatch = useDispatch()
-  const { showBoundary } = useErrorBoundary();
+  const { showBoundary } = useErrorBoundary()
+  const { isBigQueryMetadataLoaded } = useSelector((state: RootState) => state.assistant as AssistantState)
 
   const { core40SDK } = useContext(ExtensionContext)
 
-  const runExampleQuery = async (sql: string) => {
+  const runSQLQuery = async (sql: string) => {
     try {
       const createSqlQuery = await core40SDK.ok(
         core40SDK.create_sql_query({
@@ -52,28 +50,25 @@ export const useBigQueryExamples = () => {
     }
   }
 
-  const getExplores = async () => {
-    const sql = `
-      SELECT DISTINCT
-        explore_id
-      FROM
-        \`${datasetName}.explore_assistant_examples\`
-    `
-    return runExampleQuery(sql).then((response) => {
-      dispatch(setExplores(response))
-    }).catch((error) => showBoundary(error))
-  }
-
   const getExamplePrompts = async () => {
     const sql = `
       SELECT
+          explore_id,
           examples
       FROM
         \`${datasetName}.explore_assistant_examples\`
-        WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
     `
-    return runExampleQuery(sql).then((response) => {
-      const generationExamples = JSON.parse(response[0]['examples'])
+    return runSQLQuery(sql).then((response) => {
+      if(response.length === 0 || !Array.isArray(response)) {
+        return
+      }
+      const generationExamples: ExploreExamples = {}
+      if(response.length === 0 || !Array.isArray(response)) {
+        return
+      }
+      response.forEach((row: any) => {
+        generationExamples[row['explore_id']] = JSON.parse(row['examples'])
+      })
       dispatch(setExploreGenerationExamples(generationExamples))
     }).catch((error) => showBoundary(error))
   }
@@ -81,13 +76,22 @@ export const useBigQueryExamples = () => {
   const getRefinementPrompts = async () => {
     const sql = `
     SELECT
+        explore_id,
         examples
     FROM
       \`${datasetName}.explore_assistant_refinement_examples\`
-      WHERE explore_id = '${LOOKER_MODEL}:${LOOKER_EXPLORE}'
   `
-    return runExampleQuery(sql).then((response) => {
-      const refinementExamples = JSON.parse(response[0]['examples'])
+    return runSQLQuery(sql).then((response) => {
+      if(response.length === 0 || !Array.isArray(response)) {
+        return
+      }
+      const refinementExamples: RefinementExamples = {}
+      if(response.length === 0 || !Array.isArray(response)) {
+        return
+      }
+      response.forEach((row: any) => {
+        refinementExamples[row['explore_id']] = JSON.parse(row['examples'])
+      })
       dispatch(setExploreRefinementExamples(refinementExamples))
     }).catch((error) => showBoundary(error))
   }
@@ -100,29 +104,44 @@ export const useBigQueryExamples = () => {
       FROM
         \`${datasetName}.explore_assistant_samples\`
     `
-    return runExampleQuery(sql).then((response) => {
-      console.log(response)
-      const generationSamples = response
-      dispatch(setExploreSamples(generationSamples))
+    return runSQLQuery(sql).then((response) => {
+      const exploreSamples: ExploreSamples = {}
+      if(response.length === 0 || !Array.isArray(response)) {
+        return
+      }
+      response.forEach((row: any) => {
+        exploreSamples[row['explore_id']] = JSON.parse(row['samples'])
+      })
+      const exploreKey: string = response[0]['explore_id']
+      const [modelName, exploreId] = exploreKey.split(':')
+      dispatch(setExploreSamples(exploreSamples))
+      dispatch(setCurrenExplore({
+        exploreKey,
+        modelName,
+        exploreId
+      }))
     }).catch((error) => showBoundary(error))
   }
 
-  // only run once
-  useEffect(() => {
-    getExplores()
-    getSamples()
-  },[showBoundary])
+  // Create a ref to track if the hook has already been called
+  const hasFetched = useRef(false)
 
   // get the example prompts provide completion status
   useEffect(() => {
-    dispatch(setBigQueryExamplesLoaded(false))
-    Promise.all([getExamplePrompts(), getRefinementPrompts()])
+    if (hasFetched.current) return
+    hasFetched.current = true
+
+    // if we already fetch everything, return
+    if(isBigQueryMetadataLoaded) return
+
+    dispatch(setisBigQueryMetadataLoaded(false))
+    Promise.all([getExamplePrompts(), getRefinementPrompts(), getSamples()])
       .then(() => {
-        dispatch(setBigQueryExamplesLoaded(true))
+        dispatch(setisBigQueryMetadataLoaded(true))
       })
       .catch((error) => {
         showBoundary(error)
-        dispatch(setBigQueryExamplesLoaded(true))
+        dispatch(setisBigQueryMetadataLoaded(false))
       })
-  }, [modelName, exploreName, showBoundary])
+  }, [showBoundary])
 }

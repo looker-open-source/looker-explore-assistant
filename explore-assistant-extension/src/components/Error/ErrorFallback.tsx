@@ -20,7 +20,6 @@ export default function Fallback({ error}: {error: any}) {
       lookmlNotFoundErr: {
         diagnosis: "The error is likely related to your Look specific `.env` variables.",
         steps: [
-          "Check the `LOOKML_MODEL` & `LOOKML_EXPLORE` env variables for your extension. Are they valid (spelling) & exist in your Looker instance?",
           "Make sure your user has access to this model and explore. At the very least with [`see_lookml`](https://cloud.google.com/looker/docs/admin-panel-users-roles#permissions_list) permissions.",
           "Check the Connection environment variables. Do valid BQ connections by those names exist in your Looker instance?",
           "Make sure the Vertex AI API is enabled if you're using a cloud function backend. Try: https://console.cloud.google.com/apis/library/aiplatform.googleapis.com?project=<YOUR_PROJECT_ID>"

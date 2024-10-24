@@ -23,6 +23,7 @@ Here we list the reasons and tradeoffs of each deployment approach in an effort 
 * The endpoint needs to be public for Looker to reach it (*To Note: the repo implements a signature on the request for security. Otherwise putting the endpoint behind a Load Balancer or API Proxy is recommended. Keep in mind that Looker Extensions however, when not embedded are only accessible by authenticated Looker users.*)
 
 **For BigQuery**:
+* The BigQuery backend is a prototype backend
 * Generally speaking, this approach will be easier for users already familiar with Looker
 * Invoking the LLM with custom prompts is all done through SQL.
 * BigQuery's Service Account or User Oauth Authentication can be used
@@ -42,8 +43,8 @@ We are using terraform to setup the backend. By default, we will store the state
 To use the remote backend you can run `./init.sh remote` instead of `terraform init`. This will create the bucket in the project, and setup the terraform project to use it as a backend.
 
 ### Cloud Function Backend
-
-First create a file that will contain the LOOKER_AUTH_TOKEN and place it at the root. This will be used by the cloud function locally, as well as the extension framework app. The value of this token will uploaded to the GCP project as secret to be used by the Cloud Function.
+* The Cloud Function backend is a production backend
+* First create a file that will contain the LOOKER_AUTH_TOKEN and place it at the root. This will be used by the cloud function locally, as well as the extension framework app. The value of this token will uploaded to the GCP project as secret to be used by the Cloud Function.
 
 If in the `/explore-assistant-backend` cd back to root (ie. `cd ..`) and run the following command:
 ```bash
@@ -53,7 +54,7 @@ openssl rand -base64 32 > .vertex_cf_auth_token
 
 From the `/explore-assistant-backend` directory run the following.
 
-To deploy the Cloud Function backend:
+To deploy the Cloud Function backend (Production):
 
 ```bash
 cd terraform 
@@ -68,7 +69,7 @@ terraform apply
 
 ### BigQuery Backend
 
-To deploy the BigQuery backend:
+To deploy the BigQuery backend (Prototype):
 
 ```bash
 cd terraform 

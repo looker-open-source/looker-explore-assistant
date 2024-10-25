@@ -120,7 +120,7 @@ export interface AssistantState {
 }
 
 export const newThreadState = () => {
-  const thread: ExploreThread = {    
+  const thread: ExploreThread = {
     uuid: uuidv4(),
     exploreKey: '',
     exploreId: '',
@@ -190,6 +190,7 @@ export const assistantSlice = createSlice({
       state,
       action: PayloadAction<{ id: keyof Settings; value: boolean }>,
     ) => {
+
       const { id, value } = action.payload
       if (state.settings[id]) {
         state.settings[id].value = value
@@ -254,6 +255,7 @@ export const assistantSlice = createSlice({
     resetChat: (state) => {
       state.currentExploreThread = newThreadState()
       state.currentExploreThread.uuid = uuidv4()
+      state.currentExploreThread.exploreKey = state.currentExplore.exploreKey; // Assign the value here
       state.query = ''
       state.isChatMode = false
       state.isQuerying = false
@@ -300,7 +302,7 @@ export const assistantSlice = createSlice({
       state.examples.exploreSamples = action.payload
     },
     setisBigQueryMetadataLoaded: (
-      state, 
+      state,
       action: PayloadAction<boolean>
     ) => {
       state.isBigQueryMetadataLoaded = action.payload

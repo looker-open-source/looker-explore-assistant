@@ -108,9 +108,9 @@ const AgentPage = () => {
       )
     }
 
-    console.log('Prompt List: ', promptList)
-    console.log(currentExploreThread)
-    console.log(currentExplore)
+    // console.log('Prompt List: ', promptList)
+    // console.log(currentExploreThread)
+    // console.log(currentExplore)
 
     dispatch(
       addMessage({
@@ -121,7 +121,6 @@ const AgentPage = () => {
         type: 'text',
       }),
     )
-
     const [promptSummary, isSummary] = await Promise.all([
       summarizePrompts(promptList),
       isSummarizationPrompt(query),
@@ -131,7 +130,6 @@ const AgentPage = () => {
       dispatch(setIsQuerying(false))
       return
     }
-
     const { dimensions, measures } = semanticModels[exploreKey]
     const exploreGenerationExamples =
       examples.exploreGenerationExamples[exploreKey]
@@ -211,6 +209,8 @@ const AgentPage = () => {
   }
 
   const handleExploreChange = (event: SelectChangeEvent) => {
+    console.log('In handleExploreChange')
+    console.log(currentExploreThread)
     const exploreKey = event.target.value
     const [modelName, exploreId] = exploreKey.split(':')
     dispatch(
@@ -220,6 +220,16 @@ const AgentPage = () => {
         exploreKey,
       }),
     )
+    dispatch(
+      updateCurrentThread({
+        exploreId: modelName,
+        modelName: exploreId,
+        exploreKey: exploreKey,
+      }), () => {
+        console.log(currentExploreThread); // This will be logged after update finishes
+      }
+    )
+
   }
 
   const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded

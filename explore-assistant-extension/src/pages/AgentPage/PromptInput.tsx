@@ -6,17 +6,22 @@ import { setIsChatMode, setQuery } from '../../slices/assistantSlice'
 import clsx from 'clsx'
 
 const PromptInput = () => {
+
   const dispatch = useDispatch()
   const [inputText, setInputText] = useState('')
   const inputRef = useRef(null)
 
-  const { isQuerying } = useSelector((state: RootState) => state.assistant)
+  const { isQuerying, currentExplore, currentExploreThread } = useSelector((state: RootState) => state.assistant)
+  console.log('In PromptInput')
+  console.log(currentExplore)
+  console.log(currentExploreThread)
 
   const handleInputChange = (e: any) => {
     setInputText(e.target.value)
   }
 
   const handleSubmit = useCallback(() => {
+
     const prompt = inputText.trim()
     if (prompt && !isQuerying) {
       dispatch(setIsChatMode(true))

@@ -81,7 +81,7 @@ const useSendVertexMessage = () => {
   const VERTEX_BIGQUERY_MODEL_ID = process.env.VERTEX_BIGQUERY_MODEL_ID || ''
 
   const { core40SDK } = useContext(ExtensionContext)
-  const { settings, examples, currentExplore} =
+  const { settings, examples, currentExplore, currentExploreThread} =
     useSelector((state: RootState) => state.assistant as AssistantState)
 
   const currentExploreKey = currentExplore.exploreKey
@@ -114,12 +114,25 @@ const useSendVertexMessage = () => {
     }
   }
 
-  const vertextCloudFunction = async (
+  const vertextCloudFunction = async ( // TODO
     contents: string,
+    raw_prompt: string,
+    prompt_type: string,
     parameters: ModelParameters,
   ) => {
+    console.log('Within vertextCloudFunction:')
+    console.log(currentExploreThread)
+    const currentThreadID = currentExploreThread?.uuid
+    const currentExploreKey = currentExploreThread?.exploreKey
+    console.log(currentThreadID)
+    console.log(currentExploreKey)
+
     const me = await core40SDK.ok(core40SDK.me())
     const body = JSON.stringify({
+      current_thread_id: currentThreadID,
+      current_explore_key: currentExploreKey,
+      raw_prompt: raw_prompt,
+      prompt_type: prompt_type,
       user_id: me.id,
       contents: contents,
       parameters: parameters,
@@ -168,7 +181,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
       Only return the summary of the prompt with no extra explanatation or text
 
     `
-      const response = await sendMessage(contents, {})
+      const response = await sendMessage(contents, '', 'summarizePrompts',{})
 
       return response
     },
@@ -201,7 +214,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
       Return "data summary" if the user is asking for a data summary, and "refining question" if the user is continuing to refine their question. Only output one answer, no more. Only return one those two options. If you're not sure, return "refining question".
 
     `
-    const response = await sendMessage(contents, {})
+    const response = await sendMessage(contents, prompt, 'isSummarizationPrompt', {})
     return response === 'data summary'
   }
 
@@ -238,7 +251,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
         }
       })
 
-      console.log(params)
+      // console.log(params)
 
       // get the contents of the explore query
       const createQuery = await core40SDK.ok(
@@ -279,7 +292,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
       Summarize the data above
 
     `
-      const response = await sendMessage(contents, {})
+      const response = await sendMessage(contents, result, 'summarizeExplore', {})
 
       const refinedContents = `
       The following text represents summaries of a given dashboard's data.
@@ -288,7 +301,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
         Make this much more concise for a slide presentation using the following format. The summary should be a markdown documents that contains a list of sections, each section should have the following details:  a section title, which is the title for the given part of the summary, and key points which a list of key points for the concise summary. Data should be returned in each section, you will be penalized if it doesn't adhere to this format. Each summary should only be included once. Do not include the same summary twice.
         `
 
-      const refinedResponse = await sendMessage(refinedContents, {})
+      const refinedResponse = await sendMessage(refinedContents,response,'summarizeExplore', {})
       return refinedResponse
     },
     [currentExplore],
@@ -302,6 +315,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
       exploreGenerationExamples: any[],
     ) => {
       try {
+        console.log('Within generateExploreUrl:', currentExploreThread)
         const contents = `
             Context
             ----------
@@ -345,11 +359,11 @@ ${exploreRefinementExamples && exploreRefinementExamples
         const parameters = {
           max_output_tokens: 1000,
         }
-        console.log(contents)
-        const response = await sendMessage(contents, parameters)
+        // console.log(contents)
+        const response = await sendMessage(contents, prompt, 'generateExploreUrl',parameters)
 
         const cleanResponse = unquoteResponse(response)
-        console.log(cleanResponse)
+        // console.log(cleanResponse)
 
         let toggleString = '&toggle=dat,pik,vis'
         if (settings['show_explore_data'].value) {
@@ -372,14 +386,15 @@ ${exploreRefinementExamples && exploreRefinementExamples
         return
       }
     },
-    [settings],
+    [settings, currentExploreThread]
   )
 
-  const sendMessage = async (message: string, parameters: ModelParameters) => {
+  const sendMessage = async (message: string, raw_prompt: string = '', prompt_type: string = '', parameters: ModelParameters) => {
     try {
+
       let response = ''
       if (VERTEX_AI_ENDPOINT) {
-        response = await vertextCloudFunction(message, parameters)
+        response = await vertextCloudFunction(message, raw_prompt, prompt_type, parameters)
       }
 
       if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {

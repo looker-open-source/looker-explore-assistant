@@ -11,6 +11,7 @@ import {
   openSidePanel,
   resetChat,
   setCurrentThread,
+  updateCurrentThread,
   setIsChatMode,
   setSidePanelExploreUrl,
   AssistantState,
@@ -27,7 +28,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const dispatch = useDispatch()
   const [isExpanded, setIsExpanded] = React.useState(expanded)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
-  const { isChatMode, isQuerying, history } = useSelector(
+  const { isChatMode, isQuerying, history, currentExplore, currentExploreThread} = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
 
@@ -46,9 +47,22 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const canReset = isChatMode && !isQuerying
 
   const handleNewChat = () => {
+    console.log("In handleNewChat:")
+    console.log(currentExplore)
     if (canReset) {
       dispatch(resetChat())
+
+      dispatch(
+          updateCurrentThread({
+            exploreId: currentExplore.modelName,
+            modelName: currentExplore.exploreId,
+            exploreKey: currentExplore.exploreKey,
+          }), () => {
+            console.log(currentExploreThread); // This will be logged after update finishes
+          }
+      )
     }
+
   }
 
   const handleHistoryClick = (thread: ExploreThread) => {
@@ -93,11 +107,11 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
                   ? 'cursor-pointer bg-gray-300 text-gray-600 hover:text-gray-700'
                   : 'bg-gray-200 text-gray-400'
               }
-              
+
               rounded-full p-2
-              
+
               transition-all duration-300 ease-in-out
-            
+
             `}
             onClick={handleNewChat}
           >
@@ -105,10 +119,10 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
 
             <div
               className={`
-                  
+
                    whitespace-nowrap transition-all duration-300 ease-in-out
                   ${isExpanded ? 'mx-3 opacity-100' : 'opacity-0'}
-                  
+
                   `}
             >
               {isExpanded && 'New Chat'}
@@ -173,7 +187,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
               className={`
                    whitespace-nowrap transition-all duration-300 ease-in-out
                   ${isExpanded ? 'mx-3 opacity-100' : 'opacity-0'}
-                  
+
                   `}
             >
               {isExpanded && 'Settings'}

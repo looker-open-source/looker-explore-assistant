@@ -1,7 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 import MarkdownText from './MarkdownText'
 import clsx from 'clsx'
+import { ThumbUp, ThumbDown } from '@material-ui/icons'
+import './Message.css'
 
 export const getRelativeTimeString = (dateStr: string | Date) => {
   const date = new Date(dateStr)
@@ -72,26 +74,102 @@ interface MessageProps {
   message?: string
 }
 
-const Message = ({ message, actor, children }: MessageProps) => (
-  <div
-    className={`flex ${
-      actor === 'user' ? 'justify-end' : 'justify-start'
-    } mb-4`}
-  >
-    <div className={`max-w-[70%] ${actor === 'user' ? 'order-2' : 'order-1'}`}>
-      <div
-        className={clsx(
-          'rounded-lg p-3 max-w-xl',
-          actor === 'user'
-            ? 'bg-[rgb(237,243,253)] text-gray-800'
-            : 'bg-[rgb(242,242,242)] text-gray-800',
+const Message = ({ message, actor, children }: MessageProps) => {
+  const [isThumbUpClicked, setIsThumbUpClicked] = useState(false)
+  const [isThumbDownClicked, setIsThumbDownClicked] = useState(false)
+  const [showButtons, setShowButtons] = useState(false)
+  const [feedbackVisible, setFeedbackVisible] = useState(false)
+  const [feedbackText, setFeedbackText] = useState('')
+
+
+  const handleThumbUpClick = () => {
+
+    setIsThumbUpClicked(!isThumbUpClicked)
+    setIsThumbDownClicked(false)
+    setFeedbackVisible(!isThumbUpClicked) // Show feedback form
+    // You can also implement logic to track thumb up votes here, e.g., update state or send a feedback event
+  }
+
+  const handleThumbDownClick = () => {
+    setIsThumbDownClicked(!isThumbDownClicked)
+    setIsThumbUpClicked(false)
+    setFeedbackVisible(!isThumbDownClicked) // Show feedback form
+    // You can also implement logic to track thumb down votes here
+  }
+
+  const handleMouseEnter = () => {
+    setShowButtons(true)
+  }
+
+  const handleMouseLeave = () => {
+    setTimeout(() => {
+      setShowButtons(false)
+    }, 100) // Adjust the delay as needed
+  }
+
+  const handleSubmitFeedback = () => {
+    setFeedbackVisible(false) // Hide feedback form
+    // Optionally handle the feedback submission logic here
+  }
+
+  const handleCancelFeedback = () => {
+    setFeedbackVisible(false) // Hide feedback form
+    setFeedbackText('')
+    setIsThumbUpClicked(false)
+    setIsThumbDownClicked(false)
+  }
+
+  return (
+    <div
+      className={`flex ${
+        actor === 'user' ? 'justify-end' : 'justify-start'
+      } mb-4`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div className={`max-w-[70%] ${actor === 'user' ? 'order-2' : 'order-1'}`}>
+        <div
+          className={clsx(
+            'rounded-lg p-3 max-w-xl',
+            actor === 'user'
+              ? 'bg-[rgb(237,243,253)] text-gray-800'
+              : 'bg-[rgb(242,242,242)] text-gray-800',
+          )}
+        >
+          {message && <MarkdownText text={message} />}
+          {children && <div>{children}</div>}
+        </div>
+        {actor !== 'user' && (
+          <div className={`flex space-x-2 mt-2 ${showButtons || isThumbUpClicked || isThumbDownClicked ? 'visible' : 'hidden'}`}>
+            <button onClick={handleThumbUpClick}>
+              <ThumbUp color={isThumbUpClicked ? 'primary' : 'default'} />
+            </button>
+            <button onClick={handleThumbDownClick}>
+              <ThumbDown color={isThumbDownClicked ? 'primary' : 'default'} />
+            </button>
+          </div>
         )}
-      >
-        {message && <MarkdownText text={message} />}
-        {children && <div>{children}</div>}
+        {feedbackVisible && (
+          <div className="feedback-form">
+            <textarea
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+              placeholder="Enter your feedback"
+              className="feedback-textarea"
+            />
+            <div className="flex justify-between mt-2">
+              <button onClick={handleSubmitFeedback} className="submit-btn">
+                Submit
+              </button>
+              <button onClick={handleCancelFeedback} className="cancel-btn">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-  </div>
-)
+  )
+}
 
 export default Message

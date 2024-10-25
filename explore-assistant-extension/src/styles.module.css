@@ -23,3 +23,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 */
+
+.submit-btn, .cancel-btn {
+    outline: 1px solid #ccc; /* Change #ccc to your desired outline color */
+    outline-offset: 2px; /* Adjust outline position if needed */
+}

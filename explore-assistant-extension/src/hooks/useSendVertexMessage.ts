@@ -9,13 +9,12 @@ import { AssistantState } from '../slices/assistantSlice'
 
 import looker_filter_doc from '../documents/looker_filter_doc.md'
 import looker_visualization_doc from '../documents/looker_visualization_doc.md'
+import looker_filters_interval_tf from '../documents/looker_filters_interval_tf'
 
 import { ModelParameters } from '../utils/VertexHelper'
 import { BigQueryHelper } from '../utils/BigQueryHelper'
 import { ExploreParams } from '../slices/assistantSlice'
 import { ExploreFilterValidator, FieldType } from '../utils/ExploreFilterHelper'
-import { date_filter_logic } from './date_filter_logic'
-import { looker_filters_interval_tf } from '../documents/looker_filters_interval_tf'
 
 const parseJSONResponse = (jsonString: string | null | undefined) => {
   if(!jsonString) {

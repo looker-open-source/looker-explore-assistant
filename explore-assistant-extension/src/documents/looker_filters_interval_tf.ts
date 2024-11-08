@@ -41,8 +41,10 @@ millisecondX timeframes
 Special timeframes
 Timeframe | Description | Example Output
 |---------|-------------|-------------------------------------------------------------------|
-raw	      | The raw value from your database, without casting or time zone conversion. raw is accessible only within LookML and won't show up on the Explore page. The raw timeframe returns a timestamp, unlike most other timeframes that return a formatted string. It is primarily used for performing date operations on a field. | 2014-09-03 17:15:00 +0000
-yesno	  | A yesno dimension, returning "Yes" if the datetime has a value, otherwise "No". Unlike other timeframes, when you refer to a yesno timeframe dimension from another field, don't include the timeframe in the reference. For example, to refer to a yesno timeframe in the dimension_group: created, use the syntax ${created}, not ${created_yesno}. | Yes
+raw	      | The raw value from your database, without casting or time zone conversion. raw is accessible only within LookML and won't show up on the Explore page. The raw timeframe returns a timestamp, 
+unlike most other timeframes that return a formatted string. It is primarily used for performing date operations on a field. | 2014-09-03 17:15:00 +0000
+yesno	  | A yesno dimension, returning "Yes" if the datetime has a value, otherwise "No". Unlike other timeframes, when you refer to a yesno timeframe dimension from another field, don't include the timeframe in the reference. 
+For example, to refer to a yesno timeframe in the dimension_group: created, use the syntax $ { created }, not $ { created_yesno }. | Yes
 
 Time timeframes
 Timeframe | Description | Example Output
@@ -135,3 +137,4 @@ This will split up each second into intervals with the specified number of milli
 2014-09-01 01:00:00.750
 To give an example, a row with a time of 2014-09-01 01:00:00.333 would have a millisecond250 of 2014-09-01 01:00:00.250.
 `
+export default looker_filters_interval_tf;

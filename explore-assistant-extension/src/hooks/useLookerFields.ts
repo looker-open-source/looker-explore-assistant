@@ -35,7 +35,7 @@ export const useLookerFields = () => {
     if (supportedExplores.length === 0 || isSemanticModelLoaded) {
       return
     }
-    
+
     // mark
     hasFetched.current = true
 
@@ -50,7 +50,6 @@ export const useLookerFields = () => {
         })
         return
       }
-
       try {
         const response = await core40SDK.ok(
           core40SDK.lookml_model_explore({
@@ -95,7 +94,7 @@ export const useLookerFields = () => {
         }
       } catch (error) {
         showBoundary({
-          message: `Failed to fetch semantic model for ${modelName}::${exploreId}`,
+          message: `Failed to fetch semantic model for ${modelName}:${exploreId}`,
         })
         return undefined
       }

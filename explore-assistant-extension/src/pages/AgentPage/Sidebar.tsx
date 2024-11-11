@@ -54,8 +54,8 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
 
       dispatch(
           updateCurrentThread({
-            exploreId: currentExplore.modelName,
-            modelName: currentExplore.exploreId,
+            exploreId: currentExplore.exploreId,
+            modelName: currentExplore.modelName,
             exploreKey: currentExplore.exploreKey,
           }), () => {
             console.log(currentExploreThread); // This will be logged after update finishes

@@ -37,6 +37,8 @@ For the following examples:
 * {interval} is a time increment such as hours, days, weeks, or months. The phrasing you use determines whether the {interval} will include partial time periods or only complete time periods. For example, the expression 3 days includes the current, partial day as well as the prior two days. The expression 3 days ago for 3 days includes the previous three complete days and excludes the current, partial day. See the Relative Dates section for more information.
 * {time} can specify a time formatted as either YYYY-MM-DD HH:MM:SS or YYYY/MM/DD HH:MM:SS, or a date formatted as either YYYY-MM-DD or YYYY/MM/DD. When using the form YYYY-MM-DD, be sure to include both digits for the month and day, for example, 2016-01. Truncating a month or day to a single digit is interpreted as an offset, not a date. For example, 2016-1 is interpreted as 2016 minus one year, or 2015.
 
+* Dates should always have two digit month and day of month, so 2024-01-01 is correct while 2024-1-1 is incorrect.
+
 These are all the possible combinations of date filters:
 
 | Combination                          | Example                         | Notes                                                                                                                                                                                                                       |

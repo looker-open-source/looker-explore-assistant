@@ -23,16 +23,13 @@ export type FieldType =
   | 'location'
   | 'location_latitude'
   | 'location_longitude'
-
 export interface Field {
   name: string
   type: FieldType
 }
-
 export interface FilterExpression {
   [key: string]: string[]
 }
-
 export class ExploreFilterValidator {
   static isValidStringFilter(filter: string): boolean {
     const rules: ((f: string) => boolean)[] = [
@@ -49,10 +46,8 @@ export class ExploreFilterValidator {
       (f) => /^[^%]+%(,[^%,]+)+$/.test(f), // Starts with or exact match
       (f) => /^_[^%]+$/.test(f), // Single character wildcard
     ]
-
     return rules.some((rule) => rule(filter))
   }
-
   static isValidNumberFilter(filter: string): boolean {
     const singleRules: ((f: string) => boolean)[] = [
       (f) => /^-?\d+(\.\d+)?$/.test(f), // Exact number (including negative)
@@ -83,12 +78,10 @@ export class ExploreFilterValidator {
       (f) => /^NOT\s+(-?\d+(\.\d+)?\s+to\s+-?\d+(\.\d+)?)$/.test(f), // NOT range
       (f) => /^((-?\d+(\.\d+)?|NOT\s+-?\d+(\.\d+)?)(,\s*|$))+$/.test(f), // Combination of exact and NOT
     ]
-
     const complexRules: ((f: string) => boolean)[] = [
       (f) => /^(>=|>)-?\d+(\.\d+)?\s+AND\s+(<=|<)-?\d+(\.\d+)?$/.test(f), // AND range
       (f) => /^(<|<=)-?\d+(\.\d+)?\s+OR\s+(>|>=)-?\d+(\.\d+)?$/.test(f), // OR range
     ]
-
     const parts = filter.split(/\s+OR\s+/)
     return parts.every(
       (part) =>
@@ -96,83 +89,131 @@ export class ExploreFilterValidator {
         complexRules.some((rule) => rule(part)),
     )
   }
-
   static isValidDateFilter(filter: string): boolean {
     const rules: ((f: string) => boolean)[] = [
       // This {interval}
-      (f) => /^(this|next|last)\s+(week|month|quarter|year)$/.test(f),
-      // {n} {interval}, {n} {interval} ago, {n} {interval} ago for {n} {interval}, {n} {interval} from now, {n} {interval} from now for {n} {interval}
-      (f) =>
-        /^\d+\s+(second|minute|hour|day|week|month|year)s?(\s+(ago|from\s+now))?$/.test(
-          f,
-        ),
-      (f) =>
-        /^\d+\s+(second|minute|hour|day|week|month|year)s?\s+ago\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
-          f,
-        ),
-      (f) =>
-        /^\d+\s+(second|minute|hour|day|week|month|year)s?\s+from\s+now\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
-          f,
-        ),
-      // before {n} {interval} ago
-      (f) =>
-        /^before\s+\d+\s+(second|minute|hour|day|week|month|year)s?\s+ago$/.test(
-          f,
-        ),
-      // before {time}, after {time}
-      (f) =>
-        /^(before|after)\s+\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?$/.test(f),
-      // {time} to {time}
-      (f) =>
-        /^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?\s+to\s+\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?$/.test(
-          f,
-        ),
-      // today, yesterday, tomorrow
-      (f) => /^(today|yesterday|tomorrow)$/.test(f),
-      // {day of week}
-      (f) =>
-        /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i.test(f),
-      // next {week, month, quarter, fiscal quarter, year, fiscal year}
-      (f) =>
-        /^next\s+(week|month|quarter|fiscal\s+quarter|year|fiscal\s+year)$/.test(
-          f,
-        ),
-      // this {interval} to {interval}
-      (f) =>
-        /^this\s+(year|month|week|quarter|fiscal\s+year)\s+to\s+(second|minute|hour|day|week|month|quarter|fiscal\s+year)$/.test(
-          f,
-        ),
-      // {time} for {n} {interval}
-      (f) =>
-        /^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
-          f,
-        ),
-      // FY{year}, FY{year}-Q{quarter}
-      (f) => /^FY\d{4}$/.test(f),
-      (f) => /^FY\d{4}-Q[1-4]$/.test(f),
-      // Absolute Dates
-      (f) => /^\d{4}\/(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])$/.test(f),
-      (f) => /^\d{4}\/(0[1-9]|1[0-2])$/.test(f),
-      (f) => /^\d{4}$/.test(f),
-      // {time} for {n} {interval} (using slashes)
-      (f) =>
-        /^\d{4}\/\d{2}\/\d{2}(\s+\d{2}:\d{2}:\d{2})?\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
-          f,
-        ),
-    ]
-
-    const parts = filter.split(/\s*,\s*/)
+         // This {interval}
+    (f) => /^(this|next|last)\s+(week|month|quarter|year)$/.test(f),
+    // {n} {interval}, {n} {interval} ago, {n} {interval} ago for {n} {interval}, {n} {interval} from now, {n} {interval} from now for {n} {interval}
+    (f) =>
+      /^\d+\s+(second|minute|hour|day|week|month|year)s?(\s+(ago|from\s+now))?$/.test(
+        f,
+      ),
+    (f) =>
+      /^\d+\s+(second|minute|hour|day|week|month|year)s?\s+ago\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
+        f,
+      ),
+    (f) =>
+      /^\d+\s+(second|minute|hour|day|week|month|year)s?\s+from\s+now\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
+        f,
+      ),
+    // before {n} {interval} ago
+    (f) =>
+      /^before\s+\d+\s+(second|minute|hour|day|week|month|year)s?\s+ago$/.test(
+        f,
+      ),
+    // before {time}, after {time}
+    (f) =>
+      /^(before|after)\s+\d{4}[-\/]\d{2}[-\/]\d{2}(\s+\d{2}:\d{2}:\d{2})?$/.test(f),
+    // {time} to {time}
+    (f) =>
+      /^\d{4}[-\/]\d{2}[-\/]\d{2}(\s+\d{2}:\d{2}:\d{2})?\s+to\s+\d{4}[-\/]\d{2}[-\/]\d{2}(\s+\d{2}:\d{2}:\d{2})?$/.test(
+        f,
+      ),
+    // quarter: like 2023-Q4
+    (f) => /^\d{4}-Q[1-4]$/.test(f),
+    // today, yesterday, tomorrow
+    (f) => /^(today|yesterday|tomorrow)$/.test(f),
+    // {day of week}
+    (f) =>
+      /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i.test(f),
+    // next {week, month, quarter, fiscal quarter, year, fiscal year}
+    (f) =>
+      /^next\s+(week|month|quarter|fiscal\s+quarter|year|fiscal\s+year)$/.test(
+        f,
+      ),
+    // this {interval} to {interval}
+    (f) =>
+      /^this\s+(year|month|week|quarter|fiscal\s+year)\s+to\s+(second|minute|hour|day|week|month|quarter|fiscal\s+year)$/.test(
+        f,
+      ),
+    // {time} for {n} {interval}
+    (f) =>
+      /^\d{4}[-\/]\d{2}[-\/]\d{2}(\s+\d{2}:\d{2}:\d{2})?\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
+        f,
+      ),
+    // FY{year}, FY{year}-Q{quarter}
+    (f) => /^FY\d{4}$/.test(f),
+    (f) => /^FY\d{4}-Q[1-4]$/.test(f),
+    // Absolute Dates
+    // year/month/day or year-month-day
+    (f) => /^\d{4}[-\/](0[1-9]|1[0-2])[-\/](0[1-9]|[12][0-9]|3[01])$/.test(f),
+    // year/month or year-month
+    (f) => /^\d{4}[-\/](0[1-9]|1[0-2])$/.test(f),
+    // year
+    (f) => /^\d{4}$/.test(f),
+    // time like 2024-02-03 12:34:56
+    (f) => /^\d{4}[-\/]\d{2}[-\/]\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(f),
+    // {time} for {n} {interval} (using slashes or dashes)
+    (f) =>
+      /^\d{4}[-\/]\d{2}[-\/]\d{2}(\s+\d{2}:\d{2}:\d{2})?\s+for\s+\d+\s+(second|minute|hour|day|week|month|year)s?$/.test(
+        f,
+      ),
+    // {quarter} to {date}
+    (f) =>
+      /^\d{4}-Q[1-4]\s+to\s+\d{4}[-\/]\d{2}[-\/]\d{2}$/.test(f),
+    // {date} to {quarter}
+    (f) =>
+      /^\d{4}[-\/]\d{2}[-\/]\d{2}\s+to\s+\d{4}-Q[1-4]$/.test(f),
+    // {fiscal period} to {date}
+    (f) =>
+      /^FY\d{4}-Q[1-4]\s+to\s+\d{4}[-\/]\d{2}[-\/]\d{2}$/.test(f),
+    // {date} to {fiscal period}
+    (f) =>
+      /^\d{4}[-\/]\d{2}[-\/]\d{2}\s+to\s+FY\d{4}-Q[1-4]$/.test(f),
+    // {fiscal period} to {fiscal period}
+    (f) =>
+      /^FY\d{4}-Q[1-4]\s+to\s+FY\d{4}-Q[1-4]$/.test(f),
+    // {quarter} to {quarter}
+    (f) =>
+      /^\d{4}-Q[1-4]\s+to\s+\d{4}-Q[1-4]$/.test(f),
+    // {FY} to {FY}
+    (f) =>
+      /^FY\d{4}\s+to\s+FY\d{4}$/.test(f),
+    // {year/month/day} to {year/month/day} or {year-month-day} to {year-month-day}
+    (f) =>
+      /^\d{4}[-\/](0[1-9]|1[0-2])[-\/](0[1-9]|[12][0-9]|3[01])\s+to\s+\d{4}[-\/](0[1-9]|1[0-2])[-\/](0[1-9]|[12][0-9]|3[01])$/.test(f),
+    // {year/month} to {year/month} or {year-month} to {year-month}
+    (f) =>
+      /^\d{4}[-\/](0[1-9]|1[0-2])\s+to\s+\d{4}[-\/](0[1-9]|1[0-2])$/.test(f),
+    // {year} to {year}
+    (f) =>
+      /^\d{4}\s+to\s+\d{4}$/.test(f),
+    // {time} to {time}
+    (f) =>
+      /^\d{4}[-\/]\d{2}[-\/]\d{2}\s+\d{2}:\d{2}:\d{2}\s+to\s+\d{4}[-\/]\d{2}[-\/]\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(f),
+    // is on {date}
+    (f) => /^is\s+on\s+\d{4}[-\/]\d{2}[-\/]\d{2}$/.test(f),
+    // is on {day of week}
+    (f) => /^is\s+on\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i.test(f),
+    // is on {quarter}
+    (f) => /^is\s+on\s+\d{4}-Q[1-4]$/.test(f),
+    // is on {FY}
+    (f) => /^is\s+on\s+FY\d{4}$/.test(f),
+    // is on {fiscal period}
+    (f) => /^is\s+on\s+FY\d{4}-Q[1-4]$/.test(f),
+    // is on {month}
+    (f) => /^is\s+on\s+\d{4}[-\/](0[1-9]|1[0-2])$/.test(f),
+   ]
+   const parts = filter.split(/%2C|\s*,\s*/)
     return parts.every((part) => rules.some((rule) => rule(part)))
   }
-
   static isValidBooleanFilter(filter: string): boolean {
     return /^(yes|no|true|false)$/i.test(filter)
   }
-
   static isValidLocationFilter(filter: string): boolean {
     return /^(latitude|longitude):-?\d+(\.\d+)?$/.test(filter)
   }
-
   static isFilterValid(fieldType: FieldType, filter: string): boolean {
     switch (fieldType) {
       case 'string':
@@ -208,29 +249,24 @@ export class ExploreFilterValidator {
         return false
     }
   }
-
   static validateFilters(
     fields: Field[],
     filterExpression: FilterExpression,
   ): boolean {
     const fieldMap = new Map(fields.map((field) => [field.name, field.type]))
-
     for (const [filterField, filterValues] of Object.entries(
       filterExpression,
     )) {
       if (!fieldMap.has(filterField)) {
         return false // Field does not exist in the field list
       }
-
       const fieldType = fieldMap.get(filterField)
-
       for (const filter of filterValues) {
         if (!this.isFilterValid(fieldType!, filter)) {
           return false // Invalid filter expression
         }
       }
     }
-
     return true // All checks passed
   }
 }

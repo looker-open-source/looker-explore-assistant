@@ -20,9 +20,9 @@ export default function Fallback({ error}: {error: any}) {
       lookmlNotFoundErr: {
         diagnosis: "The error is likely related to your Look specific `.env` variables.",
         steps: [
-          "Check the `LOOKML_MODEL` & `LOOKML_EXPLORE` env variables for your extension. Are they valid (spelling) & exist in your Looker instance?",
           "Make sure your user has access to this model and explore. At the very least with [`see_lookml`](https://cloud.google.com/looker/docs/admin-panel-users-roles#permissions_list) permissions.",
-          "Check the Connection environment variables. Do valid BQ connections by those names exist in your Looker instance?"
+          "Check the Connection environment variables. Do valid BQ connections by those names exist in your Looker instance?",
+          "Make sure the Vertex AI API is enabled if you're using a cloud function backend. Try: https://console.cloud.google.com/apis/library/aiplatform.googleapis.com?project=<YOUR_PROJECT_ID>"
         ]
       },
       lookmlExamplesUndefinedErr: {
@@ -39,7 +39,8 @@ export default function Fallback({ error}: {error: any}) {
           "Please read the error message from BigQuery, the `SQLException` error will give you the reason.",
           "Ensure that the `BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME` env variable is valid and set to something that exists in Looker and that the examples can be accessed from this connection.",
           "Ensure that the `BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME` is set to the `project_id.dataset` name that contains the example tables.",
-          "Ensure that examples exist in both the [Examples and Refinement tables.](https://github.com/looker-open-source/looker-explore-assistant/tree/main/explore-assistant-examples)"
+          "Ensure that examples exist in both the [Examples and Refinement tables.](https://github.com/looker-open-source/looker-explore-assistant/tree/main/explore-assistant-examples)",
+          "If you are using the cloud backend, please remove VERTEX_BIGQUERY_MODEL_ID and VERTEX_BIGQUERY_EXPLORE_ID and try again."
         ]
       },
       bigQueryModelErr: {

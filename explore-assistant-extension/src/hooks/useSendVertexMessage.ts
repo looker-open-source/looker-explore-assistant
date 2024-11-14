@@ -9,11 +9,13 @@ import { AssistantState } from '../slices/assistantSlice'
 
 import looker_filter_doc from '../documents/looker_filter_doc.md'
 import looker_visualization_doc from '../documents/looker_visualization_doc.md'
+import looker_filters_interval_tf from '../documents/looker_filters_interval_tf'
 
 import { ModelParameters } from '../utils/VertexHelper'
 import { BigQueryHelper } from '../utils/BigQueryHelper'
 import { ExploreParams } from '../slices/assistantSlice'
 import { ExploreFilterValidator, FieldType } from '../utils/ExploreFilterHelper'
+
 
 const parseJSONResponse = (jsonString: string | null | undefined) => {
   if(!jsonString) {
@@ -290,6 +292,10 @@ ${
      |------------|------------|-------------|-------|-------------|------|
      ${dimensions.map(formatRow).join('\n')}
      ${measures.map(formatRow).join('\n')}
+
+    Here is some documentation on how intervals and timeframes are applied in Looker
+
+     ${looker_filters_interval_tf}
      
      # Instructions
      

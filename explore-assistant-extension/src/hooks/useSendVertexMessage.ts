@@ -1,12 +1,11 @@
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useCallback, useContext } from 'react'
-import { useSelector } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { UtilsHelper } from '../utils/Helper'
 import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
-import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
-import { AssistantState } from '../slices/assistantSlice'
+import { AssistantState, setHasTestedSettings } from '../slices/assistantSlice'
 
 const unquoteResponse = (response: string | null | undefined) => {
   if(!response) {
@@ -72,17 +71,18 @@ function formatContent(field: {
 const useSendVertexMessage = () => {
   const { showBoundary } = useErrorBoundary()
   // cloud function
-  const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
-  const VERTEX_CF_AUTH_TOKEN = process.env.VERTEX_CF_AUTH_TOKEN || ''
 
   // bigquery
-  const VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME =
-    process.env.VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME || ''
-  const VERTEX_BIGQUERY_MODEL_ID = process.env.VERTEX_BIGQUERY_MODEL_ID || ''
 
   const { core40SDK } = useContext(ExtensionContext)
   const { settings, examples, currentExplore} =
     useSelector((state: RootState) => state.assistant as AssistantState)
+
+  const VERTEX_AI_ENDPOINT = settings['vertex_ai_endpoint'].value || ''
+  const VERTEX_CF_AUTH_TOKEN = settings['vertex_cf_auth_token'].value || ''
+  const VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME =
+    settings['vertex_bigquery_looker_connection_name'].value || ''
+  const VERTEX_BIGQUERY_MODEL_ID = settings['vertex_bigquery_model_id'].value || ''
 
   const currentExploreKey = currentExplore.exploreKey
   const exploreRefinementExamples = examples.exploreRefinementExamples[currentExploreKey]
@@ -385,7 +385,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
             2018/05/10 for 5 months	= from 2018/05/10 00:00:00 through 2018/10/09 23:59:59
             2018 = entire year of 2018 (2018/01/01 00:00:00 through 2018/12/31 23:59:59)
             FY2018 =	entire fiscal year starting in 2018 (if your Looker developers have specified that your fiscal year starts in April then this is 2018/04/01 00:00 through 2019/03/31 23:59)
-            FY2018-Q1	= first quarter of the fiscal year starting in 2018 (if your Looker developers have specified that your fiscal year starts in April then this is 2018/04/01 00:00:00 through 2018/06/30 23:59:59)
+            FY2018-Q1	= first quarter of the fiscal year starting in 2018 (if your Looker developers have specified that your fiscal year starts in April then this is 2018/04/01 00:00:00 through 2018/06/30 23:59)
 
             Relative dates
             Relative date filters allow you to create queries with rolling date values relative to the current date. These are useful when creating queries that update each time you run the query.
@@ -534,12 +534,30 @@ ${exploreRefinementExamples && exploreRefinementExamples
     }
   }
 
+  
+  const dispatch = useDispatch()
+  
+  const testVertexSettings = async () => {
+    if (!VERTEX_AI_ENDPOINT || !VERTEX_CF_AUTH_TOKEN) {
+      return false
+    }
+    try {
+      const response = await vertextCloudFunction('test', {})
+      dispatch(setHasTestedSettings(true))
+      return response !== ''
+    } catch (error) {
+      console.error('Error testing Vertex settings:', error)
+      return false
+    }
+  }
+
   return {
     generateExploreUrl,
     sendMessage,
     summarizePrompts,
     isSummarizationPrompt,
     summarizeExplore,
+    testVertexSettings,
   }
 }
 

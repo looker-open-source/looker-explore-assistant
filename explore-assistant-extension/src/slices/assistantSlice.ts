@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 export interface Setting {
   name: string
   description: string
-  value: boolean
+  value: string | boolean // Update to allow string values
 }
 
 export interface Settings {
@@ -121,7 +121,8 @@ export interface AssistantState {
   },
   settings: Settings,
   isBigQueryMetadataLoaded: boolean,
-  isSemanticModelLoaded: boolean
+  isSemanticModelLoaded: boolean,
+  hasTestedSettings: boolean
 }
 
 export const newThreadState = () => {
@@ -167,9 +168,40 @@ export const initialState: AssistantState = {
       description: 'By default, expand the data panel in the Explore',
       value: false,
     },
+    vertex_ai_endpoint: {
+      name: 'Vertex AI Endpoint',
+      description: 'Endpoint for Vertex AI',
+      value: '',
+    },
+    vertex_cf_auth_token: {
+      name: 'Vertex CF Auth Token',
+      description: 'Auth token for Vertex CF',
+      value: '',
+    },
+    vertex_bigquery_looker_connection_name: {
+      name: 'Vertex BigQuery Looker Connection Name',
+      description: 'BigQuery Looker Connection Name',
+      value: '',
+    },
+    bigquery_example_prompts_connection_name: {
+      name: 'BigQuery Example Prompts Connection Name',
+      description: 'BigQuery Example Prompts Connection Name',
+      value: '',
+    },
+    bigquery_example_prompts_dataset_name: {
+      name: 'BigQuery Example Prompts Dataset Name',
+      description: 'BigQuery Example Prompts Dataset Name',
+      value: ''
+    },
+    vertex_bigquery_model_id: {
+      name: 'Vertex BigQuery Model ID',
+      description: 'BigQuery Model ID',
+      value: '',
+    }
   },
   isBigQueryMetadataLoaded: false,
-  isSemanticModelLoaded: false
+  isSemanticModelLoaded: false,
+  hasTestedSettings: false,
 }
 
 export const assistantSlice = createSlice({
@@ -194,7 +226,7 @@ export const assistantSlice = createSlice({
     },
     setSetting: (
       state,
-      action: PayloadAction<{ id: keyof Settings; value: boolean }>,
+      action: PayloadAction<{ id: keyof Settings; value: string | boolean }>,
     ) => {
       const { id, value } = action.payload
       if (state.settings[id]) {
@@ -323,6 +355,9 @@ export const assistantSlice = createSlice({
     ) {
       state.examples.trustedDashboards = action.payload
     },
+    setHasTestedSettings: (state, action: PayloadAction<boolean>) => {
+      state.hasTestedSettings = action.payload
+    },
   },
 })
 
@@ -362,6 +397,7 @@ export const {
   setCurrenExplore,
 
   resetExploreAssistant,
+  setHasTestedSettings,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

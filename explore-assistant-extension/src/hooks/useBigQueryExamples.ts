@@ -3,31 +3,32 @@ import { useDispatch, useSelector } from 'react-redux'
 import {
   setExploreGenerationExamples,
   setExploreRefinementExamples,
+  setisBigQueryMetadataLoaded, 
   setExploreSamples,
   ExploreSamples,
-  setisBigQueryMetadataLoaded,
   setCurrenExplore,
   RefinementExamples,
   ExploreExamples,
   AssistantState,
   setTrustedDashboardExamples,
-  TrustedDashboards
+  TrustedDashboards,
+  setHasTestedSettings
 } from '../slices/assistantSlice'
 
 import { ExtensionContext } from '@looker/extension-sdk-react'
-import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
 import { RootState } from '../store'
 
 export const useBigQueryExamples = () => {
-  const connectionName = process.env.BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME || ''
-  const datasetName = process.env.BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME || 'explore_assistant'
-
+  console.log('useBigQueryExamples')
   const dispatch = useDispatch()
   const { showBoundary } = useErrorBoundary()
-  const { isBigQueryMetadataLoaded } = useSelector((state: RootState) => state.assistant as AssistantState)
+  const { isBigQueryMetadataLoaded, settings } = useSelector((state: RootState) => state.assistant as AssistantState)
 
   const { core40SDK } = useContext(ExtensionContext)
+
+  const connectionName: string = settings['bigquery_example_prompts_connection_name']?.value as string|| ''
+  const datasetName: string = settings['bigquery_example_prompts_dataset_name']?.value as string || 'explore_assistant'
 
   const runSQLQuery = async (sql: string) => {
     try {
@@ -146,25 +147,55 @@ export const useBigQueryExamples = () => {
     }).catch((error) => showBoundary(error))
   }
 
+  const hasTestedSettings = useRef(false)
+
+  const testBigQuerySettings = async () => {
+    if (!connectionName || !datasetName) {
+      return false
+    }
+    console.log('testBigQuerySettings', connectionName, datasetName)
+    try {
+      const sql = `SELECT * FROM \`${datasetName}.explore_assistant_examples\` LIMIT 1`
+      const response = await runSQLQuery(sql)
+      dispatch(setHasTestedSettings(true))
+      if (!hasTestedSettings.current) {
+        hasTestedSettings.current = true
+      }
+      return response.length > 0
+    } catch (error) {
+      console.error('Error testing BigQuery settings:', error)
+      return false
+    }
+  }
+
   // Create a ref to track if the hook has already been called
   const hasFetched = useRef(false)
 
   // get the example prompts provide completion status
   useEffect(() => {
     if (hasFetched.current) return
-    hasFetched.current = true
+    if (!hasTestedSettings.current) {
+      testBigQuerySettings().then((result) => {
+        hasFetched.current = true
 
-    // if we already fetch everything, return
-    if(isBigQueryMetadataLoaded) return
-
-    dispatch(setisBigQueryMetadataLoaded(false))
-    Promise.all([getExamplePrompts(), getRefinementPrompts(), getSamples(), getTrustedDashboards()])
-      .then(() => {
-        dispatch(setisBigQueryMetadataLoaded(true))
-      })
-      .catch((error) => {
-        showBoundary(error)
+        // if we already fetch everything, return
+        if(isBigQueryMetadataLoaded) return
+    
         dispatch(setisBigQueryMetadataLoaded(false))
-      })
-  }, [showBoundary])
+        Promise.all([getExamplePrompts(), getRefinementPrompts(), getSamples(), getTrustedDashboards()])
+          .then(() => {
+            dispatch(setisBigQueryMetadataLoaded(true))
+          })
+          .catch((error) => {
+            showBoundary(error)
+            dispatch(setisBigQueryMetadataLoaded(false))
+          })
+        })
+    }
+   
+  }, [showBoundary, connectionName, datasetName])
+
+  return {
+    testBigQuerySettings,
+  }
 }

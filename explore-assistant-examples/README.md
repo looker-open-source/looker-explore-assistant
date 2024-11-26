@@ -30,7 +30,7 @@ The script accepts several command line arguments to specify the details require
 - `--project_id`: **Required.** The Google Cloud project ID where your BigQuery dataset resides.
 - `--dataset_id`: The ID of the BigQuery dataset. Defaults to `explore_assistant`.
 - `--table_id`: The ID of the BigQuery table where the data will be inserted. Defaults to `explore_assistant_examples`.
-- `--explore_id`: **Required.** A unique identifier for the dataset rows related to a specific use case or query (used in deletion and insertion).
+- `--explore_id`: **Required.** A unique identifier formatted as `{lookml_model_name}:{explore_name}` for the dataset rows related to a specific use case or query (used in deletion and insertion).
 - `--json_file`: The path to the JSON file containing the data to be loaded. Defaults to `examples.json`.
 
 ### Running the Script

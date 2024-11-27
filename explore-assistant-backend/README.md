@@ -2,7 +2,7 @@
 
 ## Overview
 
-This Terraform configuration establishes a backend for the Looker Explore Assistant on Google Cloud Platform (GCP), facilitating interaction with the Gemini Pro model of Vertex AI. The setup supports two options: a Cloud Function backend and a BigQuery backend, each acting as a proxy/relay for running content through the model.
+This Terraform configuration establishes a backend for the Looker Explore Assistant on Google Cloud Platform (GCP), facilitating interaction with the Gemini Flash model of Vertex AI. The setup supports two options: a Cloud Function backend and a BigQuery backend, each acting as a proxy/relay for running content through the model.
 
 The Explore Assistant also uses a set of examples to improve the quality of its answers. We store those examples in BigQuery. Please see the comparisons below when deciding which deployment approach to use.
 
@@ -111,7 +111,7 @@ Also, as part of the BigQuery backend setup, we create the Service Account that 
 
 - Google Cloud Functions or Cloud Run services, based on the selected backend.
 - Google BigQuery dataset and table to store the examples
-- Google BigQuery connection and gemini pro model, if using the BigQuery backend.
+- Google BigQuery connection and gemini flash model, if using the BigQuery backend.
 - Necessary IAM roles and permissions for the Looker Explore Assistant to operate.
 - Storage buckets for deploying cloud functions or storing data.
 - Artifact Registry for storing Docker images, if required.

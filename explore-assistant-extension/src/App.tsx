@@ -17,7 +17,7 @@ const ExploreApp = () => {
   const [isFetching, setIsFetching] = useState(false)
 
   useLookerFields()
-  const { testBigQuerySettings, fetchBigQueryExamples } = useBigQueryExamples()
+  const { testBigQuerySettings, getExamplesAndSamples } = useBigQueryExamples()
   const { testVertexSettings } = useSendVertexMessage()
 
   useEffect(() => {
@@ -41,13 +41,13 @@ const ExploreApp = () => {
     if (bigQueryTestSuccessful && vertexTestSuccessful && !isFetching) {
       setIsFetching(true)
       // Fetch BigQuery examples only if settings are tested and valid
-      fetchBigQueryExamples().then(()=>setIsFetching(false)).catch((error) => {
+      getExamplesAndSamples().then(()=>setIsFetching(false)).catch((error) => {
         console.error('Error fetching BigQuery examples:', error)
         setIsSettingsOpen(true)
        
       })
     }
-  }, [bigQueryTestSuccessful, vertexTestSuccessful, fetchBigQueryExamples, dispatch])
+  }, [bigQueryTestSuccessful, vertexTestSuccessful, getExamplesAndSamples, dispatch])
 
   return (
     <>

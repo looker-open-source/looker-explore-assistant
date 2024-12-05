@@ -207,6 +207,11 @@ export const initialState: AssistantState = {
       description: 'By default, expand the data panel in the Explore',
       value: false,
     },
+    bigquery_example_looker_model_name: {
+      name: 'BigQuery Example Looker Model Name',
+      description: 'the model name for the lookml model that has access to the training data explore',
+      value: 'explore_assistant',
+    }
   },
   isBigQueryMetadataLoaded: false,
   isSemanticModelLoaded: false,

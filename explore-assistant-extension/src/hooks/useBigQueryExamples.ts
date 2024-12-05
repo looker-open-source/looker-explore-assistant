@@ -3,165 +3,105 @@ import { useDispatch, useSelector } from 'react-redux'
 import {
   setExploreGenerationExamples,
   setExploreRefinementExamples,
-  setisBigQueryMetadataLoaded, 
   setExploreSamples,
   ExploreSamples,
+  setisBigQueryMetadataLoaded,
   setCurrenExplore,
   RefinementExamples,
   ExploreExamples,
   AssistantState,
-  setTrustedDashboardExamples,
-  TrustedDashboards,
+  Examples,
   setBigQueryTestSuccessful
 } from '../slices/assistantSlice'
 
 import { ExtensionContext } from '@looker/extension-sdk-react'
+import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
 import { RootState } from '../store'
 
 export const useBigQueryExamples = () => {
+
   const dispatch = useDispatch()
   const { showBoundary } = useErrorBoundary()
   const { isBigQueryMetadataLoaded, settings } = useSelector((state: RootState) => state.assistant as AssistantState)
-
-  const { core40SDK } = useContext(ExtensionContext)
-
   const connectionName: string = settings['bigquery_example_prompts_connection_name']?.value as string|| ''
   const datasetName: string = settings['bigquery_example_prompts_dataset_name']?.value as string || 'explore_assistant'
 
-  const runSQLQuery = async (sql: string) => {
-    if (!connectionName) {
-      console.warn('Connection name is not set')
-      return []
-    }
+  const examplesModelName: string = settings['bigquery_example_prompts_dataset_name']?.value as string || 'explore_assistant'
+ 
+  const { core40SDK } = useContext(ExtensionContext)
+
+  const runExampleQuery = async () => {
     try {
-      const createSqlQuery = await core40SDK.ok(
-        core40SDK.create_sql_query({
-          connection_name: connectionName,
-          sql: sql,
-        }),
+      const query = await core40SDK.ok(
+        core40SDK.run_inline_query({
+          result_format: 'json',
+          body: {
+            model: examplesModelName,
+            view: "explore_assistant_examples",
+            fields: [`explore_assistant_examples.explore_id`, `explore_assistant_examples.examples`, `explore_assistant_refinement_examples.examples`, `explore_assistant_samples.samples`],
+          }
+        })
       )
-      const { slug } = await createSqlQuery
-      if (slug) {
-        const runSQLQuery = await core40SDK.ok(
-          core40SDK.run_sql_query(slug, 'json'),
-        )
-        const examples = await runSQLQuery
-        return examples
+
+      if (query === undefined) {
+        return []
       }
-      return []
+      return query
     } catch (error) {
-      if (error?.name === 'LookerSDKError') {
-        console.error('LookerSDKError:', error?.message)
+      if (error.name === 'LookerSDKError' || error.message === 'Model Not Found') {
+        console.error('Error running query:', error.message)
         return []
       }
       showBoundary(error)
-      return []
+      throw new Error('error')
     }
   }
 
-  const getExamplePrompts = async () => {
-    const sql = `
-      SELECT
-          explore_id,
-          examples
-      FROM
-        \`${datasetName}.explore_assistant_examples\`
-    `
-    return runSQLQuery(sql).then((response) => {
+  const getExamplesAndSamples = async () => {
+    return runExampleQuery().then((response) => {
       if(response.length === 0 || !Array.isArray(response)) {
         return
       }
-      const generationExamples: ExploreExamples = {}
-      if(response.length === 0 || !Array.isArray(response)) {
-        return
-      }
-      response.forEach((row: any) => {
-        generationExamples[row['explore_id']] = JSON.parse(row['examples'])
-      })
-      dispatch(setExploreGenerationExamples(generationExamples))
-    }).catch((error) => showBoundary(error))
-  }
-
-  const getRefinementPrompts = async () => {
-    const sql = `
-    SELECT
-        explore_id,
-        examples
-    FROM
-      \`${datasetName}.explore_assistant_refinement_examples\`
-  `
-    return runSQLQuery(sql).then((response) => {
-      if(response.length === 0 || !Array.isArray(response)) {
-        return
-      }
-      const refinementExamples: RefinementExamples = {}
+      const generationExamples: Examples = {
+        examples: {},
+        refinement_examples: {},
+        samples: {}
+      };
+      
       if(response.length === 0 || !Array.isArray(response)) {
         return
       }
       response.forEach((row: any) => {
-        refinementExamples[row['explore_id']] = JSON.parse(row['examples'])
+        generationExamples['examples'][row['explore_assistant_examples.explore_id']] = JSON.parse(row['explore_assistant_examples.examples'])
+        generationExamples['refinement_examples'][row['explore_assistant_examples.explore_id']] = JSON.parse(row['explore_assistant_refinement_examples.examples'] ?? '[]')
+        generationExamples['samples'][row['explore_assistant_examples.explore_id']] = JSON.parse(row['explore_assistant_samples.samples'])
       })
-      dispatch(setExploreRefinementExamples(refinementExamples))
-    }).catch((error) => showBoundary(error))
-  }
-
-  const getSamples = async () => {
-    const sql = `
-      SELECT
-          explore_id,
-          samples
-      FROM
-        \`${datasetName}.explore_assistant_samples\`
-    `
-    return runSQLQuery(sql).then((response) => {
-      const exploreSamples: ExploreSamples = {}
-      if(response.length === 0 || !Array.isArray(response)) {
-        return
-      }
-      response.forEach((row: any) => {
-        exploreSamples[row['explore_id']] = JSON.parse(row['samples'])
-      })
-      const exploreKey: string = response[0]['explore_id']
+      
+      dispatch(setExploreGenerationExamples(generationExamples['examples']))
+      dispatch(setExploreRefinementExamples(generationExamples['refinement_examples']))
+      const exploreKey: string = response[0]['explore_assistant_examples.explore_id']
+      
       const [modelName, exploreId] = exploreKey.split(':')
-      dispatch(setExploreSamples(exploreSamples))
+     
+      dispatch(setExploreSamples(generationExamples['samples']))
       dispatch(setCurrenExplore({
-        exploreKey,
-        modelName,
-        exploreId
+        exploreKey: exploreKey,
+        modelName: modelName,
+        exploreId: exploreId
       }))
     }).catch((error) => showBoundary(error))
   }
 
-  const getTrustedDashboards = async () => {
-    const sql = `
-      SELECT
-          explore_id,
-          lookml
-      FROM
-        \`${datasetName}.trusted_dashboards\`
-    `
-    return runSQLQuery(sql).then((response) => {
-      const trustedDashboards: TrustedDashboards = {}
-      if(response.length === 0 || !Array.isArray(response)) {
-        return
-      }
-      response.forEach((row: any) => {
-        trustedDashboards[row['explore_id']] = JSON.parse(row['lookml'])
-      })
-      dispatch(setTrustedDashboardExamples(trustedDashboards))
-
-    }).catch((error) => showBoundary(error))
-  }
-
+  
   const testBigQuerySettings = async () => {
     if (!connectionName || !datasetName) {
       return false
     }
     console.log('testBigQuerySettings', connectionName, datasetName)
     try {
-      const sql = `SELECT * FROM \`${datasetName}.explore_assistant_examples\` LIMIT 1`
-      const response = await runSQLQuery(sql)
+      // const sql = `SELECT * FROM \`${datasetName}.explore_assistant_examples\` LIMIT 1`
+      const response = await runExampleQuery()
       if (response.length > 0) {
         dispatch(setBigQueryTestSuccessful(true))
       } else {
@@ -175,21 +115,30 @@ export const useBigQueryExamples = () => {
     }
   }
 
-  const fetchBigQueryExamples = async () => {
-    if (!isBigQueryMetadataLoaded) {
-      dispatch(setisBigQueryMetadataLoaded(false))
-      try {
-        await Promise.all([getExamplePrompts(), getRefinementPrompts(), getSamples(), getTrustedDashboards()])
+  // Create a ref to track if the hook has already been called
+  const hasFetched = useRef(false)
+
+  // get the example prompts provide completion status
+  useEffect(() => {
+    if (hasFetched.current) return
+    hasFetched.current = true
+
+    // if we already fetch everything, return
+    if(isBigQueryMetadataLoaded) return
+
+    dispatch(setisBigQueryMetadataLoaded(false))
+    Promise.all([getExamplesAndSamples()])
+      .then(() => {
         dispatch(setisBigQueryMetadataLoaded(true))
-      } catch (error) {
+      })
+      .catch((error) => {
         showBoundary(error)
         dispatch(setisBigQueryMetadataLoaded(false))
-      }
-    }
-  }
+      })
+  }, [showBoundary])
 
   return {
     testBigQuerySettings,
-    fetchBigQueryExamples,
+    getExamplesAndSamples,
   }
 }

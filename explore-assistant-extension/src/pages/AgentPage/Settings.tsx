@@ -31,7 +31,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const [expandedSetting, setExpandedSetting] = useState<string | null>(null)
 
   const VERTEX_CF_AUTH_TOKEN = 'vertex_cf_auth_token'
-  
+
   const [bigQueryTestResult, setBigQueryTestResult] = useState<boolean | null>(null)
   const [vertexTestResult, setVertexTestResult] = useState<boolean | null>(null)
   const [hasAutoClosedOnce, setHasAutoClosedOnce] = useState(false)
@@ -114,12 +114,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   }
 
   const handleTestAndSave = async () => {
-    const bigQueryResult = await testBigQuerySettings()
-    const vertexResult = await testVertexSettings() 
-    setBigQueryTestResult(bigQueryResult)
-    setVertexTestResult(vertexResult)
-    dispatch(setBigQueryTestSuccessful(!!bigQueryResult))
-    dispatch(setVertexTestSuccessful(!!vertexResult))
+    testBigQuerySettings()
+    testVertexSettings()
   }
 
   const handleReset = () => {
@@ -163,20 +159,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     >
       <Box className={styles.modalBox}>
         <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-              Settings
-            </span>
+          Settings
+        </span>
         <ul className={styles.modalContent}>
           {filteredSettings.map(([id, setting]) => (
             <li key={id} className={styles.settingItem}>
               <div>
-                
+
                 <IconButton
                   onClick={() => handleExpandClick(id)}
                   aria-expanded={expandedSetting === id}
                   aria-label="show more"
                 >
-                  {setting.name == 'Use Cloud Function' ? 'Backend': setting.name} <div className='infoIcon'><InfoIcon /></div>
-                </IconButton> 
+                  {setting.name == 'Use Cloud Function' ? 'Backend' : setting.name} <div className='infoIcon'><InfoIcon /></div>
+                </IconButton>
                 {id === 'useCloudFunction' ? (
                   <Select
                     value={setting.value ? 'Cloud Function' : 'Bigquery'}

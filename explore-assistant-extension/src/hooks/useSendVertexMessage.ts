@@ -88,30 +88,38 @@ const useSendVertexMessage = () => {
   const exploreRefinementExamples = examples.exploreRefinementExamples[currentExploreKey]
   const trustedDashboards = examples.trustedDashboards[currentExploreKey]
 
+  const examplesModelName = settings['bigquery_example_prompts_dataset_name']?.value as string || 'explore_assistant'
+ 
   const vertextBigQuery = async (
     contents: string,
     parameters: ModelParameters,
   ) => {
-    const createSQLQuery = await core40SDK.ok(
-      core40SDK.create_sql_query({
-        connection_name: VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME,
-        sql: generateSQL(VERTEX_BIGQUERY_MODEL_ID, contents, parameters),
-      }),
-    )
-
-    if (createSQLQuery.slug) {
-      const runSQLQuery = await core40SDK.ok(
-        core40SDK.run_sql_query(createSQLQuery.slug, 'json'),
+    try {
+      const query = await core40SDK.ok(
+        core40SDK.run_inline_query({
+          result_format: 'json',
+          body: {
+            model: examplesModelName,
+            view: "explore_assistant",
+            filters: {
+              'prompt': contents,
+            },
+            fields: [`generated_content`],
+          }
+        })
       )
-      const exploreData = await runSQLQuery[0]['generated_content']
 
-      // clean up the data by removing backticks
-      const cleanExploreData = exploreData
-        .replace(/```json/g, '')
-        .replace(/```/g, '')
-        .trim()
-
-      return cleanExploreData
+      if (query === undefined) {
+        return []
+      }
+      return query
+    } catch (error) {
+      if (error.name === 'LookerSDKError' || error.message === 'Model Not Found') {
+        console.error('Error running query:', error.message)
+        return []
+      }
+      showBoundary(error)
+      throw new Error('error')
     }
   }
 

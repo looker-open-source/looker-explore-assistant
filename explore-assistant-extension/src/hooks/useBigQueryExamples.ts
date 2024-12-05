@@ -4,18 +4,13 @@ import {
   setExploreGenerationExamples,
   setExploreRefinementExamples,
   setExploreSamples,
-  ExploreSamples,
   setisBigQueryMetadataLoaded,
   setCurrenExplore,
-  RefinementExamples,
-  ExploreExamples,
   AssistantState,
-  Examples,
   setBigQueryTestSuccessful
 } from '../slices/assistantSlice'
 
 import { ExtensionContext } from '@looker/extension-sdk-react'
-import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
 import { RootState } from '../store'
 
@@ -69,22 +64,22 @@ export const useBigQueryExamples = () => {
         samples: {}
       };
       
-      if(response.length === 0 || !Array.isArray(response)) {
-        return
-      }
       response.forEach((row: any) => {
         generationExamples['examples'][row['explore_assistant_examples.explore_id']] = JSON.parse(row['explore_assistant_examples.examples'])
         generationExamples['refinement_examples'][row['explore_assistant_examples.explore_id']] = JSON.parse(row['explore_assistant_refinement_examples.examples'] ?? '[]')
         generationExamples['samples'][row['explore_assistant_examples.explore_id']] = JSON.parse(row['explore_assistant_samples.samples'])
       })
+      console.log('row', response[0])
+      console.log('generationExamples', generationExamples)
       
+      dispatch(setisBigQueryMetadataLoaded(true))
       dispatch(setExploreGenerationExamples(generationExamples['examples']))
       dispatch(setExploreRefinementExamples(generationExamples['refinement_examples']))
-      const exploreKey: string = response[0]['explore_assistant_examples.explore_id']
-      
-      const [modelName, exploreId] = exploreKey.split(':')
-     
       dispatch(setExploreSamples(generationExamples['samples']))
+      
+      const exploreKey: string = response[0]['explore_assistant_examples.explore_id']
+      const [modelName, exploreId] = exploreKey.split(':')
+      
       dispatch(setCurrenExplore({
         exploreKey: exploreKey,
         modelName: modelName,
@@ -135,7 +130,7 @@ export const useBigQueryExamples = () => {
         showBoundary(error)
         dispatch(setisBigQueryMetadataLoaded(false))
       })
-  }, [showBoundary])
+  }, [])
 
   return {
     testBigQuerySettings,

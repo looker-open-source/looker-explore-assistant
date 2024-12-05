@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react'
-import { Modal, Box, Typography, Switch } from '@mui/material'
+import { Modal, Box, Typography, Switch, IconButton, Select, MenuItem } from '@mui/material'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store'
 import {
@@ -11,6 +11,7 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useBigQueryExamples } from '../../hooks/useBigQueryExamples'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
 import styles from '../../styles.module.css'
+import InfoIcon from '@mui/icons-material/Info'
 
 interface SettingsModalProps {
   open: boolean
@@ -20,18 +21,20 @@ interface SettingsModalProps {
 const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const { core40SDK, extensionSDK } = useContext(ExtensionContext)
   const dispatch = useDispatch()
-  const { settings } = useSelector(
+  const { settings, hasTestedSettings } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
   const extensionId = extensionSDK?.lookerHostData?.extensionId
   const model_application = extensionId?.replace(/::/g, '_').replace(/-/g, '_')
 
   const [userAttributes, setUserAttributes] = useState<{ id: string | undefined, name: string }[]>([])
+  const [expandedSetting, setExpandedSetting] = useState<string | null>(null)
 
   const VERTEX_CF_AUTH_TOKEN = 'vertex_cf_auth_token'
   
   const [bigQueryTestResult, setBigQueryTestResult] = useState<boolean | null>(null)
   const [vertexTestResult, setVertexTestResult] = useState<boolean | null>(null)
+  const [hasAutoClosedOnce, setHasAutoClosedOnce] = useState(false)
   const { testBigQuerySettings } = useBigQueryExamples()
   const { testVertexSettings } = useSendVertexMessage()
 
@@ -57,6 +60,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     }
     runTests()
   }, [settings])
+
+  useEffect(() => {
+    if (hasTestedSettings && bigQueryTestResult && vertexTestResult && !hasAutoClosedOnce) {
+      onClose()
+      setHasAutoClosedOnce(true)
+    }
+  }, [hasTestedSettings, bigQueryTestResult, vertexTestResult, onClose])
 
   const handleToggle = (id: string) => {
     dispatch(
@@ -103,6 +113,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     }
   }
 
+  const handleTestAndSave = async () => {
+    const bigQueryResult = await testBigQuerySettings()
+    const vertexResult = await testVertexSettings() 
+    setBigQueryTestResult(bigQueryResult)
+    setVertexTestResult(vertexResult)
+    dispatch(setBigQueryTestSuccessful(!!bigQueryResult))
+    dispatch(setVertexTestSuccessful(!!vertexResult))
+  }
+
   const handleReset = () => {
     dispatch(resetExploreAssistant())
     setInterval(() => {
@@ -110,7 +129,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     }, 100)
   }
 
+  const handleExpandClick = (id: string) => {
+    setExpandedSetting(expandedSetting === id ? null : id)
+  }
+
+  const handleDropdownChange = (id: string, value: string) => {
+    dispatch(
+      setSetting({
+        id,
+        value: value === 'Cloud Function',
+      }),
+    )
+  }
+
   if (!settings) return null
+
+  const filteredSettings = Object.entries(settings).filter(([id]) => {
+    if (id === 'useCloudFunction' || id === 'show_explore_data') return true
+    if (id === 'bigquery_example_prompts_connection_name' || id === 'bigquery_example_prompts_dataset_name') return true
+    if (settings.useCloudFunction.value) {
+      return id === 'vertex_ai_endpoint' || id === 'vertex_cf_auth_token'
+    } else {
+      return id === 'vertex_bigquery_looker_connection_name' || id === 'vertex_bigquery_model_id'
+    }
+  })
 
   return (
     <Modal
@@ -120,20 +162,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       className={styles.modalContainer}
     >
       <Box className={styles.modalBox}>
-        <Typography
-          id="settings-modal-title"
-          variant="h6"
-          component="h2"
-          className={styles.modalTitle}
-        >
-          Settings
-        </Typography>
+        <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
+              Settings
+            </span>
         <ul className={styles.modalContent}>
-          {Object.entries(settings).map(([id, setting]) => (
+          {filteredSettings.map(([id, setting]) => (
             <li key={id} className={styles.settingItem}>
               <div>
-                {setting.name}: 
-                {typeof setting.value === 'boolean' ? (
+                
+                <IconButton
+                  onClick={() => handleExpandClick(id)}
+                  aria-expanded={expandedSetting === id}
+                  aria-label="show more"
+                >
+                  {setting.name == 'Use Cloud Function' ? 'Backend': setting.name} <div className='infoIcon'><InfoIcon /></div>
+                </IconButton> 
+                {id === 'useCloudFunction' ? (
+                  <Select
+                    value={setting.value ? 'Cloud Function' : 'Bigquery'}
+                    onChange={(e) => handleDropdownChange(id, e.target.value)}
+                    className={styles.inputField}
+                  >
+                    <MenuItem value="Cloud Function">Cloud Function</MenuItem>
+                    <MenuItem value="Bigquery">Bigquery</MenuItem>
+                  </Select>
+                ) : typeof setting.value === 'boolean' ? (
                   <Switch
                     edge="end"
                     onChange={() => handleToggle(id)}
@@ -145,9 +198,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
                     type={id === VERTEX_CF_AUTH_TOKEN ? 'password' : 'text'}
                     value={String(setting.value)}
                     onChange={(e) => handleSaveSetting(id, e.target.value)}
-                    className="outline-2 outline-black p-1 rounded-md"
+                    className={styles.inputField}
                   />
                 )}
+              </div>
+              <div className={`${styles.collapsibleContent} ${expandedSetting === id ? styles.show : ''}`}>
+                <Typography variant="body2">
+                  {setting.description}
+                </Typography>
               </div>
             </li>
           ))}
@@ -160,6 +218,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
             Vertex Settings Test: {vertexTestResult === null ? 'Testing...' : vertexTestResult ? <span className={styles.passed}>Passed</span> : <span className={styles.failed}>Failed</span>}
           </Typography>
         </div>
+        <button onClick={handleTestAndSave} className={styles.button}>Test and Save</button>
         <div
           onClick={handleReset}
           className="flex justify-start text-xs text-blue-500 hover:text-blue-600 cursor-pointer hover:underline mt-4"

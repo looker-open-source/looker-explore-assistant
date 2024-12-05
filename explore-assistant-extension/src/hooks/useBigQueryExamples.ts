@@ -12,7 +12,7 @@ import {
   AssistantState,
   setTrustedDashboardExamples,
   TrustedDashboards,
-  setHasTestedSettings
+  setBigQueryTestSuccessful
 } from '../slices/assistantSlice'
 
 import { ExtensionContext } from '@looker/extension-sdk-react'
@@ -20,7 +20,6 @@ import { useErrorBoundary } from 'react-error-boundary'
 import { RootState } from '../store'
 
 export const useBigQueryExamples = () => {
-  console.log('useBigQueryExamples')
   const dispatch = useDispatch()
   const { showBoundary } = useErrorBoundary()
   const { isBigQueryMetadataLoaded, settings } = useSelector((state: RootState) => state.assistant as AssistantState)
@@ -31,25 +30,33 @@ export const useBigQueryExamples = () => {
   const datasetName: string = settings['bigquery_example_prompts_dataset_name']?.value as string || 'explore_assistant'
 
   const runSQLQuery = async (sql: string) => {
+    if (!connectionName) {
+      console.warn('Connection name is not set')
+      return []
+    }
     try {
       const createSqlQuery = await core40SDK.ok(
         core40SDK.create_sql_query({
           connection_name: connectionName,
           sql: sql,
         }),
+      )
+      const { slug } = await createSqlQuery
+      if (slug) {
+        const runSQLQuery = await core40SDK.ok(
+          core40SDK.run_sql_query(slug, 'json'),
         )
-        const { slug } = await createSqlQuery
-        if (slug) {
-          const runSQLQuery = await core40SDK.ok(
-            core40SDK.run_sql_query(slug, 'json'),
-            )
-            const examples = await runSQLQuery
-            return examples
-          }
-          return []
-    } catch(error) {
+        const examples = await runSQLQuery
+        return examples
+      }
+      return []
+    } catch (error) {
+      if (error?.name === 'LookerSDKError') {
+        console.error('LookerSDKError:', error?.message)
+        return []
+      }
       showBoundary(error)
-      throw new Error('error')
+      return []
     }
   }
 
@@ -147,8 +154,6 @@ export const useBigQueryExamples = () => {
     }).catch((error) => showBoundary(error))
   }
 
-  const hasTestedSettings = useRef(false)
-
   const testBigQuerySettings = async () => {
     if (!connectionName || !datasetName) {
       return false
@@ -157,45 +162,34 @@ export const useBigQueryExamples = () => {
     try {
       const sql = `SELECT * FROM \`${datasetName}.explore_assistant_examples\` LIMIT 1`
       const response = await runSQLQuery(sql)
-      dispatch(setHasTestedSettings(true))
-      if (!hasTestedSettings.current) {
-        hasTestedSettings.current = true
+      if (response.length > 0) {
+        dispatch(setBigQueryTestSuccessful(true))
+      } else {
+        dispatch(setBigQueryTestSuccessful(false))
       }
       return response.length > 0
     } catch (error) {
+      dispatch(setBigQueryTestSuccessful(false))
       console.error('Error testing BigQuery settings:', error)
       return false
     }
   }
 
-  // Create a ref to track if the hook has already been called
-  const hasFetched = useRef(false)
-
-  // get the example prompts provide completion status
-  useEffect(() => {
-    if (hasFetched.current) return
-    if (!hasTestedSettings.current) {
-      testBigQuerySettings().then((result) => {
-        hasFetched.current = true
-
-        // if we already fetch everything, return
-        if(isBigQueryMetadataLoaded) return
-    
+  const fetchBigQueryExamples = async () => {
+    if (!isBigQueryMetadataLoaded) {
+      dispatch(setisBigQueryMetadataLoaded(false))
+      try {
+        await Promise.all([getExamplePrompts(), getRefinementPrompts(), getSamples(), getTrustedDashboards()])
+        dispatch(setisBigQueryMetadataLoaded(true))
+      } catch (error) {
+        showBoundary(error)
         dispatch(setisBigQueryMetadataLoaded(false))
-        Promise.all([getExamplePrompts(), getRefinementPrompts(), getSamples(), getTrustedDashboards()])
-          .then(() => {
-            dispatch(setisBigQueryMetadataLoaded(true))
-          })
-          .catch((error) => {
-            showBoundary(error)
-            dispatch(setisBigQueryMetadataLoaded(false))
-          })
-        })
+      }
     }
-   
-  }, [showBoundary, connectionName, datasetName])
+  }
 
   return {
     testBigQuerySettings,
+    fetchBigQueryExamples,
   }
 }

@@ -8,15 +8,16 @@ import { useBigQueryExamples } from './hooks/useBigQueryExamples'
 import useSendVertexMessage from './hooks/useSendVertexMessage'
 import AgentPage from './pages/AgentPage'
 import SettingsModal from './pages/AgentPage/Settings'
-import { setHasTestedSettings } from './slices/assistantSlice'
+import { setBigQueryTestSuccessful, setVertexTestSuccessful } from './slices/assistantSlice'
 
 const ExploreApp = () => {
   const dispatch = useDispatch()
-  const { settings, hasTestedSettings } = useSelector((state: RootState) => state.assistant)
+  const { settings, bigQueryTestSuccessful, vertexTestSuccessful } = useSelector((state: RootState) => state.assistant)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isFetching, setIsFetching] = useState(false)
 
   useLookerFields()
-  const { testBigQuerySettings } = useBigQueryExamples()
+  const { testBigQuerySettings, fetchBigQueryExamples } = useBigQueryExamples()
   const { testVertexSettings } = useSendVertexMessage()
 
   useEffect(() => {
@@ -28,17 +29,25 @@ const ExploreApp = () => {
 
   useEffect(() => {
     const runTests = async () => {
-      const bigQueryResult = await testBigQuerySettings()
-      const vertexResult = await testVertexSettings()
-      if (!bigQueryResult || !vertexResult) {
-        setIsSettingsOpen(true)
-      }
-      dispatch(setHasTestedSettings(true))
+      testBigQuerySettings()
+      testVertexSettings()
     }
-    if (!hasTestedSettings) {
+    if (!bigQueryTestSuccessful || !vertexTestSuccessful) {
       runTests()
     }
-  }, [testBigQuerySettings, testVertexSettings, hasTestedSettings, dispatch])
+  }, [testBigQuerySettings, testVertexSettings, bigQueryTestSuccessful, vertexTestSuccessful, dispatch, settings.useCloudFunction.value, settings])
+
+  useEffect(() => {
+    if (bigQueryTestSuccessful && vertexTestSuccessful && !isFetching) {
+      setIsFetching(true)
+      // Fetch BigQuery examples only if settings are tested and valid
+      fetchBigQueryExamples().then(()=>setIsFetching(false)).catch((error) => {
+        console.error('Error fetching BigQuery examples:', error)
+        setIsSettingsOpen(true)
+       
+      })
+    }
+  }, [bigQueryTestSuccessful, vertexTestSuccessful, fetchBigQueryExamples, dispatch])
 
   return (
     <>
@@ -46,7 +55,7 @@ const ExploreApp = () => {
         open={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />
-      {!isSettingsOpen && (
+      {!isSettingsOpen && bigQueryTestSuccessful && vertexTestSuccessful && (
         <Switch>
           <Route path="/index" exact>
             <AgentPage />

@@ -5,7 +5,7 @@ import { UtilsHelper } from '../utils/Helper'
 import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
 import { useErrorBoundary } from 'react-error-boundary'
-import { AssistantState, setHasTestedSettings } from '../slices/assistantSlice'
+import { AssistantState, setVertexTestSuccessful } from '../slices/assistantSlice'
 
 const unquoteResponse = (response: string | null | undefined) => {
   if(!response) {
@@ -328,10 +328,9 @@ ${exploreRefinementExamples && exploreRefinementExamples
 
           ${measures.map(formatContent).join('\n')}
 
-            Trusted dashboards include configuration for the most important, verified, and accurate dashboards. If a dashboard is trusted, it should be used as a reference for the user's query. 
-            Nomenclature and proper naming for metrics can be derived from these trusted dashboard. They are in Looker LookML dashboard yaml-like format. There may be 1 or more trusted dashboards.
-
-          ${trustedDashboards.map((item) => item).join('\n')}
+           ${trustedDashboards &&  `Trusted dashboards include configuration for the most important, verified, and accurate dashboards. If a dashboard is trusted, it should be used as a reference for the user's query. 
+            Nomenclature and proper naming for metrics can be derived from these trusted dashboard. They are in Looker LookML dashboard yaml-like format. There may be 1 or more trusted dashboards.`}
+          ${trustedDashboards && trustedDashboards.map((item) => item).join('\n')}
 
             Looker date filtering allows for English phrases to be used instead of SQL date functions.
             Basic structure of date and time filters
@@ -369,7 +368,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
             Date filters can also be combined together:
 
             To get OR logic: Type multiple conditions into the same filter, separated by commas. For example, today, 7 days ago means "today or 7 days ago".
-            To get AND logic: Type your conditions, one by one, into multiple date or time filters. For example, you could put after 2014-01-01 into a Created Date filter, then put before 2 days ago into a Created Time filter. This would mean "January 1st, 2014 and after, and before 2 days ago".
+            To get AND logic: Type your conditions, one by one, into multiple date or time filters. For example, you could put after 2014-01-01 into a Created Date filter, then put before 2 days ago into a Created Time filter. This would mean "January 1st, 2014 and after, and before 2 days ago."
 
             Absolute dates
             Absolute date filters use the specific date values to generate query results. These are useful when creating queries for specific date ranges.
@@ -519,14 +518,11 @@ ${exploreRefinementExamples && exploreRefinementExamples
   const sendMessage = async (message: string, parameters: ModelParameters) => {
     try {
       let response = ''
-      if (VERTEX_AI_ENDPOINT) {
+      if (settings.useCloudFunction.value) {
         response = await vertextCloudFunction(message, parameters)
-      }
-
-      if (VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME && VERTEX_BIGQUERY_MODEL_ID) {
+      } else {
         response = await vertextBigQuery(message, parameters)
       }
-
       return response
     } catch (error) {
       showBoundary(error)
@@ -538,15 +534,24 @@ ${exploreRefinementExamples && exploreRefinementExamples
   const dispatch = useDispatch()
   
   const testVertexSettings = async () => {
-    if (!VERTEX_AI_ENDPOINT || !VERTEX_CF_AUTH_TOKEN) {
+    if (settings.useCloudFunction.value && (!VERTEX_AI_ENDPOINT || !VERTEX_CF_AUTH_TOKEN)) {
+      return false
+    }
+    if (!settings.useCloudFunction.value && (!VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME || !VERTEX_BIGQUERY_MODEL_ID)) {
       return false
     }
     try {
-      const response = await vertextCloudFunction('test', {})
-      dispatch(setHasTestedSettings(true))
+      const response = settings.useCloudFunction.value ? await vertextCloudFunction('test', {}) : await vertextBigQuery('test', {})
+      
+      if (response !== '') {
+        dispatch(setVertexTestSuccessful(true))
+      } else {
+        dispatch(setVertexTestSuccessful(false))
+      }
       return response !== ''
     } catch (error) {
       console.error('Error testing Vertex settings:', error)
+      dispatch(setVertexTestSuccessful(false))
       return false
     }
   }

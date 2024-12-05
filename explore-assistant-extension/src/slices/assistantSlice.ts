@@ -122,7 +122,9 @@ export interface AssistantState {
   settings: Settings,
   isBigQueryMetadataLoaded: boolean,
   isSemanticModelLoaded: boolean,
-  hasTestedSettings: boolean
+  testsSuccessful: boolean
+  bigQueryTestSuccessful: boolean
+  vertexTestSuccessful: boolean
 }
 
 export const newThreadState = () => {
@@ -163,45 +165,54 @@ export const initialState: AssistantState = {
     trustedDashboards: {},
   },
   settings: {
+    
+    useCloudFunction: {
+      name: 'Backend',
+      description: 'Toggle between Cloud Function and BigQuery',
+      value: true,
+    },
+    vertex_ai_endpoint: {
+      name: 'Vertex AI Endpoint',
+      description: 'This is your deployed cloud function endpoint with access to Vertex AI',
+      value: '',
+    },
+    vertex_cf_auth_token: {
+      name: 'Vertex CF Auth Token',
+      description: 'This is the token used to communicate with the cloud function',
+      value: '',
+    },
+    vertex_bigquery_looker_connection_name: {
+      name: 'Vertex BigQuery Looker Connection Name',
+      description: 'This is the connection name in Looker with the BQ project that has access to the remote connection and model',
+      value: '',
+    },
+    
+    vertex_bigquery_model_id: {
+      name: 'Vertex BigQuery Model ID',
+      description: 'This is the model id that you want to use for prediction',
+      value: '',
+    },
+    bigquery_example_prompts_connection_name: {
+      name: 'BigQuery Example Prompts Connection Name',
+      description: 'The BQ connection name in Looker that has query access to example prompts. This may be the same as the Vertex Connection Name if using just one gcp project',
+      value: '',
+    },
+    bigquery_example_prompts_dataset_name: {
+      name: 'BigQuery Example Prompts Dataset Name',
+      description: 'This is the dataset and project that contain the Example prompt data, assuming that differs from the Looker connection',
+      value: ''
+    },
     show_explore_data: {
       name: 'Show Explore Data',
       description: 'By default, expand the data panel in the Explore',
       value: false,
     },
-    vertex_ai_endpoint: {
-      name: 'Vertex AI Endpoint',
-      description: 'Endpoint for Vertex AI',
-      value: '',
-    },
-    vertex_cf_auth_token: {
-      name: 'Vertex CF Auth Token',
-      description: 'Auth token for Vertex CF',
-      value: '',
-    },
-    vertex_bigquery_looker_connection_name: {
-      name: 'Vertex BigQuery Looker Connection Name',
-      description: 'BigQuery Looker Connection Name',
-      value: '',
-    },
-    bigquery_example_prompts_connection_name: {
-      name: 'BigQuery Example Prompts Connection Name',
-      description: 'BigQuery Example Prompts Connection Name',
-      value: '',
-    },
-    bigquery_example_prompts_dataset_name: {
-      name: 'BigQuery Example Prompts Dataset Name',
-      description: 'BigQuery Example Prompts Dataset Name',
-      value: ''
-    },
-    vertex_bigquery_model_id: {
-      name: 'Vertex BigQuery Model ID',
-      description: 'BigQuery Model ID',
-      value: '',
-    }
   },
   isBigQueryMetadataLoaded: false,
   isSemanticModelLoaded: false,
-  hasTestedSettings: false,
+  testsSuccessful: false,
+  bigQueryTestSuccessful: false,
+  vertexTestSuccessful: false,
 }
 
 export const assistantSlice = createSlice({
@@ -355,8 +366,12 @@ export const assistantSlice = createSlice({
     ) {
       state.examples.trustedDashboards = action.payload
     },
-    setHasTestedSettings: (state, action: PayloadAction<boolean>) => {
-      state.hasTestedSettings = action.payload
+    setBigQueryTestSuccessful: (state, action: PayloadAction<boolean>) => {
+      state.bigQueryTestSuccessful = action.payload
+    },
+    setVertexTestSuccessful: (state, action: PayloadAction<boolean>) => {
+      state.vertexTestSuccessful = action.payload
+      state.testsSuccessful = state.bigQueryTestSuccessful && state.vertexTestSuccessful
     },
   },
 })
@@ -397,7 +412,8 @@ export const {
   setCurrenExplore,
 
   resetExploreAssistant,
-  setHasTestedSettings,
+  setBigQueryTestSuccessful,
+  setVertexTestSuccessful,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

@@ -24,6 +24,11 @@ resource "google_project_iam_member" "bigquery_connection_remote_model" {
   member     = format("serviceAccount:%s", google_bigquery_connection.connection.cloud_resource[0].service_account_id)
 }
 
+resource "time_sleep" "wait_after_iam_assignment" {
+  depends_on      = [ google_project_iam_member.bigquery_connection_remote_model ]
+  create_duration = "120s"
+}
+
 resource "google_bigquery_job" "create_bq_model_llm" {
   job_id = "create_looker_llm_model-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   query {
@@ -42,7 +47,7 @@ EOF
   }
 
   location = var.deployment_region
-
+  depends_on = [ google_project_iam_member.bigquery_connection_remote_model, time_sleep.wait_after_iam_assignment ]
   lifecycle {
     ignore_changes  = [query, job_id]
   }

@@ -80,7 +80,14 @@ export const ExploreEmbed = ({ modelName, exploreId, exploreUrl }: ExploreEmbedP
           // console.log('rest', rest)
           paramsObj[key] = rest.join('=')
         } else {
-          paramsObj[key] = param.split('=')[1]
+          // console.log("------")
+          // console.log(param)
+          // console.log(param.split('=')[1])
+          // console.log(param.indexOf('='))
+          // console.log(param.substring(param.indexOf('=')+1))
+          // console.log("------")
+          // paramsObj[key] = param.split('=')[1]   //possible bug when there are params with a "=" inside the value
+          paramsObj[key] = param.substring(param.indexOf('=')+1)
         }
       })
       el.innerHTML = ''

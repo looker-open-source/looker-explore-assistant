@@ -122,6 +122,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
             value_is_hidden: id === VERTEX_CF_AUTH_TOKEN,
             user_can_view: false,
             user_can_edit: false,
+            // May be unnecessary since we're using an extension framework, the domain is the server itself.
+            hidden_value_domain_whitelist: "https://explore-assistant-api-730192175971.us-central1.run.app"
           })
         )
         setUserAttributes([...userAttributes, { id: newUserAttribute.id, name: prefixedId }])
@@ -233,12 +235,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
           </Typography>
         </div>
         <button onClick={handleTestAndSave} className={styles.button}>Test and Save</button>
-        <div
-          onClick={handleReset}
-          className="flex justify-start text-xs text-blue-500 hover:text-blue-600 cursor-pointer hover:underline mt-4"
-        >
-          reset explore assistant
-        </div>
+        
       </Box>
     </Modal>
   )

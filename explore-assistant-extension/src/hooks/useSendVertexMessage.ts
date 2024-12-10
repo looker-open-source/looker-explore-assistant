@@ -1,4 +1,4 @@
-import { ExtensionContext } from '@looker/extension-sdk-react'
+import { ExtensionContext, ExtensionSDK } from '@looker/extension-sdk-react'
 import { useCallback, useContext } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { UtilsHelper } from '../utils/Helper'
@@ -74,12 +74,12 @@ const useSendVertexMessage = () => {
 
   // bigquery
 
-  const { core40SDK } = useContext(ExtensionContext)
+  const { core40SDK, extensionSDK } = useContext(ExtensionContext)
+
   const { settings, examples, currentExplore} =
     useSelector((state: RootState) => state.assistant as AssistantState)
 
   const VERTEX_AI_ENDPOINT = settings['vertex_ai_endpoint'].value || ''
-  const VERTEX_CF_AUTH_TOKEN = settings['vertex_cf_auth_token'].value || ''
   const VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME =
     settings['vertex_bigquery_looker_connection_name'].value || ''
   const VERTEX_BIGQUERY_MODEL_ID = settings['vertex_bigquery_model_id'].value || ''
@@ -130,21 +130,32 @@ const useSendVertexMessage = () => {
     const body = JSON.stringify({
       contents: contents,
       parameters: parameters,
+      client_secret: extensionSDK.createSecretKeyTag("vertex_cf_auth_token")
     })
 
-    const signature = CryptoJS.HmacSHA256(body, VERTEX_CF_AUTH_TOKEN).toString()
+    try {
+      console.log('Sending request to Vertex Cloud Function with body:', body)
+      const response = await extensionSDK.fetchProxy(VERTEX_AI_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      })
+      console.log('Response from serverProxy:', response)
 
-    const responseData = await fetch(VERTEX_AI_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Signature': signature,
-      },
-
-      body: body,
-    })
-    const response = await responseData.text()
-    return response.trim()
+      if (response.ok) {
+        const responseData = await response.body
+        console.log('Response data:', responseData)
+        return responseData.trim()
+      } else {
+        console.error('Error response from serverProxy:', response.statusText)
+        return `Error: ${response.statusText}`
+      }
+    } catch (error) {
+      console.error('Error sending request to Vertex Cloud Function:', error)
+      throw error
+    }
   }
 
   const summarizePrompts = useCallback(
@@ -542,7 +553,7 @@ ${exploreRefinementExamples && exploreRefinementExamples
   const dispatch = useDispatch()
   
   const testVertexSettings = async () => {
-    if (settings.useCloudFunction.value && (!VERTEX_AI_ENDPOINT || !VERTEX_CF_AUTH_TOKEN)) {
+    if (settings.useCloudFunction.value && (!VERTEX_AI_ENDPOINT)) {
       return false
     }
     if (!settings.useCloudFunction.value && (!VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME || !VERTEX_BIGQUERY_MODEL_ID)) {

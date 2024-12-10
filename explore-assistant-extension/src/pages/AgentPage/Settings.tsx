@@ -38,6 +38,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const { testBigQuerySettings } = useBigQueryExamples()
   const { testVertexSettings } = useSendVertexMessage()
 
+  const [isAdmin, setIsAdmin] = useState(false)
+
   useEffect(() => {
     const fetchUserAttributes = async () => {
       try {
@@ -67,6 +69,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       setHasAutoClosedOnce(true)
     }
   }, [hasTestedSettings, bigQueryTestResult, vertexTestResult, onClose])
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const response = await core40SDK.ok(core40SDK.me('group_ids'))
+        if (response.group_ids.includes('1')) {
+          setIsAdmin(true)
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error)
+      }
+    }
+    checkAdminStatus()
+  }, [core40SDK])
+
+  if (!isAdmin) return null
 
   const handleToggle = (id: string) => {
     dispatch(

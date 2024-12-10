@@ -11,16 +11,15 @@ import SettingsModal from './pages/AgentPage/Settings'
 
 const ExploreApp = () => {
   const dispatch = useDispatch()
-  const { settings, bigQueryTestSuccessful, vertexTestSuccessful } = useSelector((state: RootState) => state.assistant)
+  const { settings, bigQueryTestSuccessful, vertexTestSuccessful } = useSelector((state: RootState) => state.assistant) as any
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [isFetching, setIsFetching] = useState(false)
 
   useLookerFields()
   const { testBigQuerySettings } = useBigQueryExamples()
   const { testVertexSettings } = useSendVertexMessage()
 
   useEffect(() => {
-    const missingSettings = Object.values(settings).some(setting => !setting.value)
+    const missingSettings = Object.values(settings).some(setting => !setting?.value)
     if (missingSettings) {
       setIsSettingsOpen(true)
     } 
@@ -35,18 +34,6 @@ const ExploreApp = () => {
       runTests()
     }
   }, [testBigQuerySettings, testVertexSettings, bigQueryTestSuccessful, vertexTestSuccessful, dispatch, settings.useCloudFunction.value, settings])
-
-  // useEffect(() => {
-  //   if (bigQueryTestSuccessful && vertexTestSuccessful && !isFetching) {
-  //     setIsFetching(true)
-  //     // Fetch BigQuery examples only if settings are tested and valid
-  //     getExamplesAndSamples().then(()=>setIsFetching(false)).catch((error) => {
-  //       console.error('Error fetching BigQuery examples:', error)
-  //       setIsSettingsOpen(true)
-       
-  //     })
-  //   }
-  // }, [bigQueryTestSuccessful, vertexTestSuccessful, dispatch])
 
   return (
     <>

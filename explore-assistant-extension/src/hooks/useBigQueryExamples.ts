@@ -28,21 +28,25 @@ export const useBigQueryExamples = () => {
   const { core40SDK } = useContext(ExtensionContext)
 
   const runSQLQuery = async (sql: string) => {
+    console.log('DEBUG: sql to run: ', sql);
     try {
       const createSqlQuery = await core40SDK.ok(
         core40SDK.create_sql_query({
           connection_name: connectionName,
           sql: sql,
         }),
+      )
+      console.log('DEBUG: BQ job created: ', createSqlQuery);
+      
+      const { slug } = await createSqlQuery
+      if (slug) {
+        const runSQLQuery = await core40SDK.ok(
+          core40SDK.run_sql_query(slug, 'json'),
         )
-        const { slug } = await createSqlQuery
-        if (slug) {
-          const runSQLQuery = await core40SDK.ok(
-            core40SDK.run_sql_query(slug, 'json'),
-            )
-            const examples = await runSQLQuery
-            return examples
-          }
+        const examples = await runSQLQuery
+        console.log('DEBUG: slug created: ', slug);
+        return examples
+      }
           return []
     } catch(error) {
       showBoundary(error)

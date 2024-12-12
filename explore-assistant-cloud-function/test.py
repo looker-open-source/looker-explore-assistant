@@ -2,6 +2,10 @@ import hmac
 import hashlib
 import requests
 import json
+import os
+
+secret_key = os.environ.get("VERTEX_CF_AUTH_TOKEN")
+
 
 def generate_hmac_signature(secret_key, data):
     """
@@ -28,12 +32,11 @@ def main():
     # Request payload
     data = {"contents":"how are you doing?", "parameters":{"max_output_tokens": 1000}}
 
-    # Read the secret key from a file
-    with open('../.vertex_cf_auth_token', 'r') as file:
-        secret_key = file.read().strip()  # Remove any potential newline characters
-
+    if not secret_key:
+        raise ValueError("no VERTEX_CF_AUTH_TOKEN found")
+    else:
     # Generate HMAC signature
-    signature = generate_hmac_signature(secret_key, data)
+        signature = generate_hmac_signature(secret_key, data)
 
     # Send the request
     response = send_request(url, data, signature)

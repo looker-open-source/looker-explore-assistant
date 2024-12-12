@@ -60,7 +60,10 @@ def has_valid_signature(request):
         return False
 
     # Validate the signature
-    secret = vertex_cf_auth_token.encode("utf-8")
+    if not vertex_cf_auth_token:
+        raise ValueError("no VERTEX_CF_AUTH_TOKEN found")
+    else:
+        secret = vertex_cf_auth_token.encode("utf-8")
     request_data = request.get_data()
     hmac_obj = hmac.new(secret, request_data, "sha256")
     expected_signature = hmac_obj.hexdigest()

@@ -1,0 +1,3 @@
+# Exclude Dockerfile and docker-compose.yml
+Dockerfile
+docker-compose.yml

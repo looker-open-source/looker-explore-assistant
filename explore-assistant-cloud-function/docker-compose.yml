@@ -1,0 +1,17 @@
+version: '3'
+# docker compose is for local development; checkout deploy_cloud_run.sh for cloud run deployment
+services:
+  webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "test.py"]  # This runs the test.py file inside the container
+      interval: 30s  # Time between checks
+      retries: 3  # Number of retries before marking as unhealthy
+      start_period: 5s  # Initial wait time before starting health checks
+      timeout: 10s  # Timeout for each health check
+    env_file:
+      - "./.env"

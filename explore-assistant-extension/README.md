@@ -13,7 +13,7 @@ This documentation outlines the steps required to deploy the Explore Assistant E
    * If you're using the BigQuery backend, the model id that allows communication with Gemini
    * If you're using the Cloud Function backend, the url of the endpoint
 
-4. Create a new BigQuery connection in Looker that will allow us to get the examples from the database. You will use that in the VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME during configuration.
+4. Create a new BigQuery connection in Looker that will allow us to get the examples from the database. 
 
 5. Now log in to Looker and create a new project or use an existing project.
 

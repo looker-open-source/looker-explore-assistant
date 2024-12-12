@@ -18,21 +18,18 @@ export const useBigQueryExamples = () => {
 
   const dispatch = useDispatch()
   const { showBoundary } = useErrorBoundary()
-  const { isBigQueryMetadataLoaded, settings } = useSelector((state: RootState) => state.assistant as AssistantState)
-  const connectionName: string = settings['bigquery_example_prompts_connection_name']?.value as string|| ''
-  const datasetName: string = settings['bigquery_example_prompts_dataset_name']?.value as string || 'explore_assistant'
-
-  const examplesModelName: string = settings['bigquery_example_prompts_dataset_name']?.value as string || 'explore_assistant'
- 
-  const { core40SDK } = useContext(ExtensionContext)
-
+  const { isBigQueryMetadataLoaded } = useSelector((state: RootState) => state.assistant as AssistantState)
+  
+  const { core40SDK, lookerHostData } = useContext(ExtensionContext)
+  const modelName = lookerHostData?.extensionId.split('::')[0]
+  
   const runExampleQuery = async () => {
     try {
       const query = await core40SDK.ok(
         core40SDK.run_inline_query({
           result_format: 'json',
           body: {
-            model: examplesModelName,
+            model: modelName || "explore_assistant",
             view: "explore_assistant_examples",
             fields: [`explore_assistant_examples.explore_id`, `explore_assistant_examples.examples`, `explore_assistant_refinement_examples.examples`, `explore_assistant_samples.samples`],
           }
@@ -79,7 +76,7 @@ export const useBigQueryExamples = () => {
       
       const exploreKey: string = response[0]['explore_assistant_examples.explore_id']
       const [modelName, exploreId] = exploreKey.split(':')
-      
+     
       dispatch(setCurrenExplore({
         exploreKey: exploreKey,
         modelName: modelName,
@@ -90,12 +87,9 @@ export const useBigQueryExamples = () => {
 
   
   const testBigQuerySettings = async () => {
-    if (!connectionName || !datasetName) {
-      return false
-    }
-    console.log('testBigQuerySettings', connectionName, datasetName)
+
+    console.log('testBigQuerySettings')
     try {
-      // const sql = `SELECT * FROM \`${datasetName}.explore_assistant_examples\` LIMIT 1`
       const response = await runExampleQuery()
       if (response.length > 0) {
         dispatch(setBigQueryTestSuccessful(true))

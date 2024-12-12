@@ -74,49 +74,53 @@ const useSendVertexMessage = () => {
 
   // bigquery
 
-  const { core40SDK, extensionSDK } = useContext(ExtensionContext)
+  const { core40SDK, extensionSDK, lookerHostData } = useContext(ExtensionContext)
 
   const { settings, examples, currentExplore} =
     useSelector((state: RootState) => state.assistant as AssistantState)
 
   const VERTEX_AI_ENDPOINT = settings['vertex_ai_endpoint'].value || ''
-  const VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME =
-    settings['vertex_bigquery_looker_connection_name'].value || ''
-  const VERTEX_BIGQUERY_MODEL_ID = settings['vertex_bigquery_model_id'].value || ''
 
   const currentExploreKey = currentExplore.exploreKey
   const exploreRefinementExamples = examples.exploreRefinementExamples[currentExploreKey]
   const trustedDashboards = examples.trustedDashboards[currentExploreKey]
 
-  const examplesModelName = settings['bigquery_example_prompts_dataset_name']?.value as string || 'explore_assistant'
- 
+  const modelName = lookerHostData?.extensionId.split('::')[0]
+
   const vertextBigQuery = async (
     contents: string,
     parameters: ModelParameters,
   ) => {
-    try {
+    try {     // Escape special characters
+      const sanitizedContents = `"${contents
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, ' ') 
+        .replace(/\r/g, ' ') 
+        .replace(/\t/g, ' ') 
+        .replace(/,/g, ' ')  }"`
       const query = await core40SDK.ok(
         core40SDK.run_inline_query({
           result_format: 'json',
           body: {
-            model: examplesModelName,
+            model: modelName || "explore_assistant",
             view: "explore_assistant",
             filters: {
-              'prompt': contents,
+              'explore_assistant.prompt': sanitizedContents,
             },
-            fields: [`generated_content`],
+            fields: [`explore_assistant.generated_content`],
           }
         })
       )
 
       if (query === undefined) {
-        return []
+        return ''
       }
-      return query
+      return JSON.stringify(query)
     } catch (error) {
       if (error.name === 'LookerSDKError' || error.message === 'Model Not Found') {
         console.error('Error running query:', error.message)
-        return []
+        return ''
       }
       showBoundary(error)
       throw new Error('error')
@@ -540,12 +544,13 @@ ${exploreRefinementExamples && exploreRefinementExamples
       if (settings.useCloudFunction.value) {
         response = await vertextCloudFunction(message, parameters)
       } else {
-        response = await vertextBigQuery(message, parameters)
+        const rawResponse = await vertextBigQuery(message, parameters)
+        response = unquoteResponse(rawResponse)
       }
       return response
     } catch (error) {
       showBoundary(error)
-      return
+      return ''
     }
   }
 
@@ -554,9 +559,6 @@ ${exploreRefinementExamples && exploreRefinementExamples
   
   const testVertexSettings = async () => {
     if (settings.useCloudFunction.value && (!VERTEX_AI_ENDPOINT)) {
-      return false
-    }
-    if (!settings.useCloudFunction.value && (!VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME || !VERTEX_BIGQUERY_MODEL_ID)) {
       return false
     }
     try {

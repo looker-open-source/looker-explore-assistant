@@ -162,11 +162,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
   const filteredSettings = Object.entries(settings).filter(([id]) => {
     if (id === 'useCloudFunction' || id === 'show_explore_data') return true
-    if (id === 'bigquery_example_prompts_connection_name' || id === 'bigquery_example_prompts_dataset_name') return true
     if (settings.useCloudFunction.value) {
       return id === 'vertex_ai_endpoint' || id === 'vertex_cf_auth_token'
     } else {
-      return id === 'vertex_bigquery_looker_connection_name' || id === 'vertex_bigquery_model_id'
+      return false
     }
   })
 

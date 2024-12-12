@@ -19,6 +19,8 @@ const SummaryMessage = ({ message, onSummaryComplete }: SummaryMessageProps) => 
   const { summarizeExplore } = useSendVertexMessage()
 
   useEffect(() => {
+    let isMounted = true
+
     if (message.summary) {
       setSummary(message.summary)
       setLoading(false)
@@ -44,10 +46,16 @@ const SummaryMessage = ({ message, onSummaryComplete }: SummaryMessageProps) => 
       // call the parent component to scroll to the bottom
       onSummaryComplete()
 
-      setLoading(false)
+      if (isMounted) {
+        setLoading(false)
+      }
     }
 
     fetchSummary()
+
+    return () => {
+      isMounted = false
+    }
   }, [message])
 
   return (

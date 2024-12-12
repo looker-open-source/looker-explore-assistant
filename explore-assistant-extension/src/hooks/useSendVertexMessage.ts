@@ -520,11 +520,6 @@ ${
         return lookerEncoding;
       };
 
-
-
-
-
-
 let exampleText = ''
 if(exploreGenerationExamples && exploreGenerationExamples.length > 0) {
     exampleText = exploreGenerationExamples.map((item) => `input: "${item.input}" ; output: ${JSON.stringify(parseLookerURL(item.output))}`).join('\n')
@@ -555,7 +550,15 @@ if(exploreGenerationExamples && exploreGenerationExamples.length > 0) {
       | vis_config         | object | Visualization configuration properties. These properties are typically opaque and differ based on the type of visualization used. There is no specified set of allowed keys. The values can be any type supported by JSON. A "type" key with a string value is often present, and is used by Looker to determine which visualization to present. Visualizations ignore unknown vis_config properties. |
       | filter_config      | object | The filter_config represents the state of the filter UI on the explore page for a given query. When running a query via the Looker UI, this parameter takes precedence over "filters". When creating a query or modifying an existing query, "filter_config" should be set to null. Setting it to any other value could cause unexpected filtering behavior. The format should be considered opaque. |
       
-          
+      # Documentation
+       Here is general documentation about filters:
+        ${looker_filter_doc}
+      Here is general documentation on how intervals and timeframes are applied in Looker
+       ${looker_filters_interval_tf}   
+       Here is general documentation on visualizations:
+       ${looker_visualization_doc}
+      # End Documentation
+      
       # LookML Metadata
       
       Model: ${currentExplore.modelName}
@@ -632,20 +635,18 @@ if(exploreGenerationExamples && exploreGenerationExamples.length > 0) {
         return
       }
 
-      const [filterResponseJSON, responseJSON] = await Promise.all([
-        generateFilterParams(prompt, dimensions, measures),
-        generateBaseExploreParams(prompt, dimensions, measures, exploreGenerationExamples),
-      ])
+      // const filterResponseJSON = await generateFilterParams(prompt, dimensions, measures)
+      const responseJSON = await generateBaseExploreParams(prompt, dimensions, measures, exploreGenerationExamples)
 
-      responseJSON['filters'] = filterResponseJSON
+      // responseJSON['filters'] = filterResponseJSON
       console.log(responseJSON)
 
       // get the visualizations
-      const visualizationResponseJSON = await generateVisualizationParams(
-        responseJSON,
-        prompt,
-      )
-      console.log(visualizationResponseJSON)
+      // const visualizationResponseJSON = await generateVisualizationParams(
+      //   responseJSON,
+      //   prompt,
+      // )
+      // console.log(visualizationResponseJSON)
 
       //responseJSON['vis_config'] = visualizationResponseJSON
 
@@ -688,8 +689,6 @@ if(exploreGenerationExamples && exploreGenerationExamples.length > 0) {
       showBoundary(error)
       return
     }
-
-    return ''
   }
 
   return {

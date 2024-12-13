@@ -230,7 +230,7 @@ export const assistantSlice = createSlice({
         if (currentUuid !== lastHistoryUuid) {
           state.history.push({ ...state.currentExploreThread })
         } else {
-          state.history[state.history.length - 1] = state.currentExploreThread
+          state.history[state.history.length - 1] = { ...state.currentExploreThread }
         }
       }
     },
@@ -301,7 +301,9 @@ export const assistantSlice = createSlice({
       const message = state.currentExploreThread.messages.find(
         (message) => message.uuid === uuid,
       ) as SummarizeMesage
-      message.summary = summary
+      if (message) {
+        message.summary = summary
+      }
     },
     setExploreSamples(
       state,

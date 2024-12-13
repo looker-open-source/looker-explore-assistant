@@ -23,6 +23,8 @@ export type FieldType =
   | 'location'
   | 'location_latitude'
   | 'location_longitude'
+  | 'sum'
+  | 'count'
 export interface Field {
   name: string
   type: FieldType
@@ -82,7 +84,7 @@ export class ExploreFilterValidator {
       (f) => /^(>=|>)-?\d+(\.\d+)?\s+AND\s+(<=|<)-?\d+(\.\d+)?$/.test(f), // AND range
       (f) => /^(<|<=)-?\d+(\.\d+)?\s+OR\s+(>|>=)-?\d+(\.\d+)?$/.test(f), // OR range
     ]
-    const parts = filter.split(/\s+OR\s+/)
+    const parts = filter.trim().split(/\s+OR\s+/)
     return parts.every(
       (part) =>
         singleRules.some((rule) => rule(part)) ||
@@ -218,7 +220,11 @@ export class ExploreFilterValidator {
     switch (fieldType) {
       case 'string':
         return this.isValidStringFilter(filter)
+      case 'sum':
+        return this.isValidNumberFilter(filter)
       case 'number':
+        return this.isValidNumberFilter(filter)
+      case 'count':
         return this.isValidNumberFilter(filter)
       case 'date':
       case 'date_date':

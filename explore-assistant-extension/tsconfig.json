@@ -54,5 +54,6 @@ SOFTWARE.
   "exclude": [
     "explore-assistant-extension/node_modules",
     "explore-assistant-extension/dist",
-  ]
+  ],
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
 }

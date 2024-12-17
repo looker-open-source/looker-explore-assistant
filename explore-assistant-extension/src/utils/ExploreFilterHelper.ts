@@ -84,7 +84,7 @@ export class ExploreFilterValidator {
       (f) => /^(>=|>)-?\d+(\.\d+)?\s+AND\s+(<=|<)-?\d+(\.\d+)?$/.test(f), // AND range
       (f) => /^(<|<=)-?\d+(\.\d+)?\s+OR\s+(>|>=)-?\d+(\.\d+)?$/.test(f), // OR range
     ]
-    const parts = filter.trim().split(/\s+OR\s+/)
+    const parts = filter?.trim()?.split(/\s+OR\s+/) || []
     return parts.every(
       (part) =>
         singleRules.some((rule) => rule(part)) ||
@@ -207,7 +207,7 @@ export class ExploreFilterValidator {
     // is on {month}
     (f) => /^is\s+on\s+\d{4}[-\/](0[1-9]|1[0-2])$/.test(f),
    ]
-   const parts = filter.split(/%2C|\s*,\s*/)
+   const parts = filter?.split(/%2C|\s*,\s*/) || []
     return parts.every((part) => rules.some((rule) => rule(part)))
   }
   static isValidBooleanFilter(filter: string): boolean {

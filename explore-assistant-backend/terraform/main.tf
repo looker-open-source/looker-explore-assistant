@@ -82,6 +82,18 @@ resource "google_bigquery_dataset" "dataset" {
 }
 
 module "cloud_run_backend" {
+  count                  = var.use_cloud_run_backend ? 1 : 0
+  source                 = "./cloud_run"
+  project_id             = var.project_id
+  deployment_region      = var.deployment_region
+  image_name             = var.image_name
+  image_tag              = var.image_tag
+  cloud_run_service_name = var.cloud_run_service_name
+
+  depends_on = [time_sleep.wait_after_apis_activate]
+}
+
+module "cloud_function_backend" {
   count                  = var.use_cloud_function_backend ? 1 : 0
   source                 = "./cloud_function"
   project_id             = var.project_id

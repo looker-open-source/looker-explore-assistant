@@ -1,17 +1,36 @@
 variable "cloud_run_service_name" {
-  type = string
+  type        = string
+  description = "the name of cloud run service upon deployment"
+  default     = "explore-assistant-api"
 }
 
 variable "deployment_region" {
-  type = string
+  type        = string
+  description = "Region to deploy the Cloud Run service. Example: us-central1"
+  default     = "us-southeast1"
 }
 
 variable "project_id" {
   type = string
 }
 
+variable "image_name" {
+  description = "The name of the Docker image for Cloud Run"
+  type        = string
+}
+
+variable "image_tag" {
+  description = "image tag to deploy; defaults to latest."
+  type        = string
+  default     = "latest"
+}
+
+
+
 resource "google_service_account" "explore_assistant_sa" {
-  account_id   = "explore-assistant-cr-sa"
+  # account_id   = "explore-assistant-cf-sa-kendev"  # TO REVERT THIS. ONLY FOR LOCAL DEV
+  account_id   = "explore-assistant-cf-sa"
+
   display_name = "Looker Explore Assistant Cloud Run SA"
 }
 
@@ -21,9 +40,10 @@ resource "google_project_iam_member" "iam_permission_looker_aiplatform" {
   member  = format("serviceAccount:%s", google_service_account.explore_assistant_sa.email)
 }
 
-resource "google_secret_manager_secret" "vertex_cr_auth_token" {
+resource "google_secret_manager_secret" "vertex_cf_auth_token" {
   project   = var.project_id
-  secret_id = "VERTEX_CR_AUTH_TOKEN"
+  # secret_id = "VERTEX_CF_AUTH_TOKEN-kendev" # TODO : ken remove this from localdev
+  secret_id = "VERTEX_CF_AUTH_TOKEN" 
   replication {
     user_managed {
       replicas {
@@ -34,53 +54,25 @@ resource "google_secret_manager_secret" "vertex_cr_auth_token" {
 }
 
 locals {
-  auth_token_file_path    = "${path.module}/../../../.vertex_cr_auth_token"
+  auth_token_file_path    = "${path.module}/../../../.vertex_cf_auth_token"
   auth_token_file_exists  = fileexists(local.auth_token_file_path)
   auth_token_file_content = local.auth_token_file_exists ? file(local.auth_token_file_path) : ""
 }
 
-resource "google_secret_manager_secret_version" "vertex_cr_auth_token_version" {
+resource "google_secret_manager_secret_version" "vertex_cf_auth_token_version" {
   count       = local.auth_token_file_exists ? 1 : 0
-  secret      = google_secret_manager_secret.vertex_cr_auth_token.name
+  secret      = google_secret_manager_secret.vertex_cf_auth_token.name
   secret_data = local.auth_token_file_content
 }
 
-resource "google_secret_manager_secret_iam_binding" "vertex_cr_auth_token_accessor" {
-  secret_id = google_secret_manager_secret.vertex_cr_auth_token.secret_id
+resource "google_secret_manager_secret_iam_binding" "vertex_cf_auth_token_accessor" {
+  secret_id = google_secret_manager_secret.vertex_cf_auth_token.secret_id
   role      = "roles/secretmanager.secretAccessor"
-  members   = [
+  members = [
     "serviceAccount:${google_service_account.explore_assistant_sa.email}",
   ]
 }
 
-resource "google_artifact_registry_repository" "default" {
-  repository_id = "explore-assistant-repo"
-  location      = var.deployment_region
-  project       = var.project_id
-  format        = "DOCKER"
-}
-
-resource "random_id" "default" {
-  byte_length = 8
-}
-
-data "archive_file" "default" {
-  type        = "zip"
-  output_path = "/tmp/service-source.zip"
-  source_dir  = "../../explore-assistant-cloud-run/" # Path to the Cloud Run service source code
-}
-
-resource "google_storage_bucket" "default" {
-  name                        = "${random_id.default.hex}-${var.project_id}-cr-source"
-  location                    = "US"
-  uniform_bucket_level_access = true
-}
-
-resource "google_storage_bucket_object" "object" {
-  name   = "service-source.zip"
-  bucket = google_storage_bucket.default.name
-  source = data.archive_file.default.output_path
-}
 
 resource "google_cloud_run_service" "default" {
   name     = var.cloud_run_service_name
@@ -90,7 +82,7 @@ resource "google_cloud_run_service" "default" {
   template {
     spec {
       containers {
-        image = "gcr.io/${var.project_id}/explore-assistant:latest" # Replace with your image tag
+        image = "gcr.io/${var.project_id}/${var.image_name}:${var.image_tag}"
         resources {
           limits = {
             memory = "4Gi"
@@ -98,18 +90,12 @@ resource "google_cloud_run_service" "default" {
           }
         }
         env {
-          name  = "REGION"
-          value = var.deployment_region
-        }
-        env {
-          name  = "PROJECT"
-          value = var.project_id
-        }
-        secret_env {
-          name = "VERTEX_CR_AUTH_TOKEN"
-          secret_key_ref {
-            name = google_secret_manager_secret.vertex_cr_auth_token.secret_id
-            key  = "latest"
+          name = "VERTEX_CF_AUTH_TOKEN" # The name of the environment variable in the container
+          value_from {
+            secret_key_ref {
+              name = google_secret_manager_secret.vertex_cf_auth_token.secret_id
+              key  = "latest" # Fetches the latest version of the secret
+            }
           }
         }
       }
@@ -117,18 +103,20 @@ resource "google_cloud_run_service" "default" {
 
     metadata {
       annotations = {
-        "autoscaling.knative.dev/minScale" = "1"
+        "autoscaling.knative.dev/minScale" = "0"
         "autoscaling.knative.dev/maxScale" = "10"
       }
     }
   }
+
 
   traffic {
     percent         = 100
     latest_revision = true
   }
 
-  depends_on = [google_artifact_registry_repository.default]
+  depends_on = [google_secret_manager_secret.vertex_cf_auth_token]
+
 }
 
 ### IAM permissions for Cloud Run (public access)

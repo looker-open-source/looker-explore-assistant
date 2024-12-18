@@ -15,3 +15,6 @@ services:
       timeout: 10s  # Timeout for each health check
     env_file:
       - "./.env"
+    volumes:
+      # mount your local creds here
+      - "/home/ken/dev/joons-docker/EVERYTHING/joons/genai/looker-explore-assistant/explore-assistant-cloud-function/service_account.json:/app/service_account.json"

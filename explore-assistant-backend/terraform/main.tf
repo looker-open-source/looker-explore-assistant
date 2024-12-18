@@ -83,7 +83,7 @@ resource "google_bigquery_dataset" "dataset" {
 
 module "cloud_run_backend" {
   count                  = var.use_cloud_run_backend ? 1 : 0
-  source                 = "./cloud_run"
+  source                 = "./cloudrun"
   project_id             = var.project_id
   deployment_region      = var.deployment_region
   image_name             = var.image_name

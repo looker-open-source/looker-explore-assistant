@@ -1,9 +1,6 @@
 # Use the official Python image as a base image
 FROM python:3.11.11-slim
 
-# for local dev 
-ENV GOOGLE_APPLICATION_CREDENTIALS="/app/service_account.json"
-
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev && \

@@ -28,7 +28,7 @@ variable "image_tag" {
 
 
 resource "google_service_account" "explore_assistant_sa" {
-  # account_id   = "explore-assistant-cf-sa-kendev"  # TO REVERT THIS. ONLY FOR LOCAL DEV
+  # account_id   = "explore-assistant-cf-sa-kendev"  # FOR LOCAL DEV
   account_id   = "explore-assistant-cf-sa"
 
   display_name = "Looker Explore Assistant Cloud Run SA"
@@ -40,9 +40,16 @@ resource "google_project_iam_member" "iam_permission_looker_aiplatform" {
   member  = format("serviceAccount:%s", google_service_account.explore_assistant_sa.email)
 }
 
+# resource "google_project_iam_member" "cloud_run_sa_act_as" {
+#   project = var.project_id
+#   role    = "roles/iam.serviceAccountUser"
+#   member  = format("serviceAccount:%s", google_service_account.explore_assistant_sa.email)
+# }
+
+
 resource "google_secret_manager_secret" "vertex_cf_auth_token" {
   project   = var.project_id
-  # secret_id = "VERTEX_CF_AUTH_TOKEN-kendev" # TODO : ken remove this from localdev
+  # secret_id = "VERTEX_CF_AUTH_TOKEN-kendev" # # FOR LOCAL DEV
   secret_id = "VERTEX_CF_AUTH_TOKEN" 
   replication {
     user_managed {
@@ -108,6 +115,7 @@ resource "google_cloud_run_service" "default" {
       }
     }
   }
+
 
 
   traffic {

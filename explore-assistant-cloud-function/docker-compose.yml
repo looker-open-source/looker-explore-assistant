@@ -16,5 +16,7 @@ services:
     env_file:
       - "./.env"
     volumes:
+      # to mount local creds here
+      - service_account.json:/root/.config/gcloud/application_default_credentials.json
       # mount your local creds here
       - "/home/ken/dev/joons-docker/EVERYTHING/joons/genai/looker-explore-assistant/explore-assistant-cloud-function/service_account.json:/app/service_account.json"

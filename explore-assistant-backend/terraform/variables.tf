@@ -43,16 +43,12 @@ variable "cloud_run_service_name" {
     default = "explore-assistant-api"
 }
 
-variable "image_name" {
-  description = "The name of the Docker image for Cloud Run. defaults to same name of service."
+variable "image" {
+  description = "The full path to image on your Google artifacts repo"
   type        = string
 }
 
-variable "image_tag" {
-  description = "image tag to deploy; defaults to latest."
-  type        = string
-  default     = "latest"
-}
+
 
 #
 # BIGQUERY VARIABLES

@@ -65,7 +65,7 @@ module "cf-backend-project-services" {
 
 
 resource "time_sleep" "wait_after_apis_activate" {
-  depends_on      = [
+  depends_on = [
     time_sleep.wait_after_basic_apis_activate,
     module.cf-backend-project-services,
     module.bg-backend-project-services
@@ -86,8 +86,7 @@ module "cloud_run_backend" {
   source                 = "./cloudrun"
   project_id             = var.project_id
   deployment_region      = var.deployment_region
-  image_name             = var.image_name
-  image_tag              = var.image_tag
+  image                  = var.image
   cloud_run_service_name = var.cloud_run_service_name
 
   depends_on = [time_sleep.wait_after_apis_activate]
@@ -112,4 +111,9 @@ module "bigquery_backend" {
   connection_id     = var.connection_id
 
   depends_on = [time_sleep.wait_after_apis_activate, google_bigquery_dataset.dataset]
+}
+
+output "cloud_run_uri" {
+  description = "Cloud Run URI"
+  value       = var.use_cloud_run_backend ? module.cloud_run_backend[0].cloud_run_uri : null
 }

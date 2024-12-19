@@ -39,3 +39,15 @@ gcloud artifacts repositories create $REPO_NAME --repository-format=docker \
     --project=$PROJECT_ID
 
 docker push $IMAGE
+
+cat <<EOF
+=================================================
+Image pushed to Artifact Registry.
+
+To deploy the image with terraform, please copy the following variables to variables.tfvars file:
+=================================================
+image="$IMAGE"
+use_cloud_run_backend=true
+
+
+EOF

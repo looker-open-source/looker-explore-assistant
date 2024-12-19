@@ -14,15 +14,9 @@ variable "project_id" {
   type = string
 }
 
-variable "image_name" {
-  description = "The name of the Docker image for Cloud Run"
+variable "image" {
+  description = "The full path to image on your Google artifacts repo"
   type        = string
-}
-
-variable "image_tag" {
-  description = "image tag to deploy; defaults to latest."
-  type        = string
-  default     = "latest"
 }
 
 
@@ -39,12 +33,6 @@ resource "google_project_iam_member" "iam_permission_looker_aiplatform" {
   role    = "roles/aiplatform.user"
   member  = format("serviceAccount:%s", google_service_account.explore_assistant_sa.email)
 }
-
-# resource "google_project_iam_member" "cloud_run_sa_act_as" {
-#   project = var.project_id
-#   role    = "roles/iam.serviceAccountUser"
-#   member  = format("serviceAccount:%s", google_service_account.explore_assistant_sa.email)
-# }
 
 
 resource "google_secret_manager_secret" "vertex_cf_auth_token" {
@@ -89,7 +77,7 @@ resource "google_cloud_run_service" "default" {
   template {
     spec {
       containers {
-        image = "gcr.io/${var.project_id}/${var.image_name}:${var.image_tag}"
+        image = "${var.image}"
         resources {
           limits = {
             memory = "4Gi"

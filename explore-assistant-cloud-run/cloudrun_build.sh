@@ -13,18 +13,29 @@ else
 fi
 
 # Configuration
+
+## env_var. Refer to ./.env
+REGION_NAME="$REGION_NAME"
 PROJECT_ID="$PROJECT_NAME"
 IMAGE_NAME="$IMAGE_NAME"
-IMAGE="gcr.io/$PROJECT_ID/$IMAGE_NAME"
-TAG=$(git rev-parse --short HEAD)
 
+## hard coded
+REPO_NAME="looker-explore-assistant"
+REPOSITORY_REGION="$REGION_NAME-docker.pkg.dev"
+TAG="latest"
+IMAGE="$REPOSITORY_REGION/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:$TAG"
 
 echo "Building Docker image..."
-docker build -t $IMAGE:$TAG .
+docker build -t $IMAGE .
 
 # echo "Testing Docker image locally..."
 # docker run -p 8080:8080 gcr.io/$PROJECT_ID/$IMAGE_NAME:$TAG
 
 echo "Pushing Docker image to GCR..."
-gcloud auth configure-docker
-docker push gcr.io/$PROJECT_ID/$IMAGE_NAME:$TAG
+gcloud auth configure-docker $REPOSITORY_REGION
+
+gcloud artifacts repositories create $REPO_NAME --repository-format=docker \
+    --location=$REGION_NAME --description="Looker explore assistant repository" \
+    --project=$PROJECT_ID
+
+docker push $IMAGE

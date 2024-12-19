@@ -18,8 +18,8 @@ import { ExploreFilterValidator, FieldType } from '../utils/ExploreFilterHelper'
 
 
 const parseJSONResponse = (jsonString: string | null | undefined) => {
-  if (!jsonString) {
-    return ''
+  if (typeof jsonString !== 'string') {
+    return {}
   }
 
   if (jsonString.startsWith('```json') && jsonString.endsWith('```')) {
@@ -27,9 +27,10 @@ const parseJSONResponse = (jsonString: string | null | undefined) => {
   }
 
   try {
-    return JSON.parse(jsonString)
+    const parsed = JSON.parse(jsonString)
+    return typeof parsed === 'object' ? parsed : {}
   } catch (error) {
-    return jsonString
+    return {}
   }
 }
 
@@ -445,11 +446,14 @@ ${exploreRefinementExamples &&
       const filterResponseCheck = await sendMessage(filterContentsCheck, {})
       const filterResponseCheckJSON = parseJSONResponse(filterResponseCheck)
 
+      // Ensure filterResponseCheckJSON is an array
+      const filterResponseArray = Array.isArray(filterResponseCheckJSON) ? filterResponseCheckJSON : []
+
       // Iterate through each filter
       const filterResponseJSON: any = {}
 
       // Validate each filter
-      filterResponseCheckJSON.forEach(function (filter: {
+      filterResponseArray.forEach(function (filter: {
         field_id: string
         filter_expression: string
       }) {
@@ -646,14 +650,10 @@ ${exploreRefinementExamples &&
         throw new Error('No Vertex AI or BigQuery connection found')
       }
 
-      if (response.startsWith('```json') && response.endsWith('```')) {
-        response = response.slice(7, -3).trim()
-      }
-
-      return response
+      return typeof response === 'string' ? response : JSON.stringify(response)
     } catch (error) {
       showBoundary(error)
-      return
+      return ''
     }
   }
 

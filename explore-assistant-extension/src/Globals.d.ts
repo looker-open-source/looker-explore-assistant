@@ -47,3 +47,8 @@ declare module '*.scss' {
   const scss: Record<string, string>
   export default scss
 }
+
+declare module '*.md' {
+  const content: string;
+  export default content;
+}

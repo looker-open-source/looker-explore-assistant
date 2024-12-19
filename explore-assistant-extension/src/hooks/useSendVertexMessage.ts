@@ -18,17 +18,19 @@ import { ExploreFilterValidator, FieldType } from '../utils/ExploreFilterHelper'
 
 
 const parseJSONResponse = (jsonString: string | null | undefined) => {
-  if (!jsonString || typeof jsonString !== 'string') {
-    return ''
+  if (typeof jsonString !== 'string') {
+    return {}
   }
+
   if (jsonString.startsWith('```json') && jsonString.endsWith('```')) {
     jsonString = jsonString.slice(7, -3).trim()
   }
 
   try {
-    return JSON.parse(jsonString)
+    const parsed = JSON.parse(jsonString)
+    return typeof parsed === 'object' ? parsed : {}
   } catch (error) {
-    return jsonString
+    return {}
   }
 }
 
@@ -168,91 +170,10 @@ ${exploreRefinementExamples &&
     const currentDate = new Date().toLocaleString()
     return `The current date is ${currentDate}
     
-
+    
     ${prompt}
     `
   }
-
-  const parseLookerURL = (url: string): { [key: string]: any } => {
-    // Split URL and extract model & explore
-    const urlSplit = url.split("?");
-    let model = ""
-    let explore = ""
-    let queryString = ""
-    if (urlSplit.length == 2) {
-      const rootURL = urlSplit[0]
-      queryString = urlSplit[1]
-      const rootURLElements = rootURL.split("/");
-      model = rootURLElements[rootURLElements.length - 2];
-      explore = rootURLElements[rootURLElements.length - 1];
-    }
-    else if (urlSplit.length == 1) {
-      model = "tbd"
-      explore = "tbd"
-      queryString = urlSplit[0]
-    }
-    // Initialize lookerEncoding object
-    const lookerEncoding: { [key: string]: any } = {};
-    lookerEncoding['model'] = ""
-    lookerEncoding['explore'] = ""
-    lookerEncoding['fields'] = []
-    lookerEncoding['pivots'] = []
-    lookerEncoding['fill_fields'] = []
-    lookerEncoding['filters'] = {}
-    lookerEncoding['filter_expression'] = null
-    lookerEncoding['sorts'] = []
-    lookerEncoding['limit'] = 500
-    lookerEncoding['column_limit'] = 50
-    lookerEncoding['total'] = null
-    lookerEncoding['row_total'] = null
-    lookerEncoding['subtotals'] = null
-    lookerEncoding['vis'] = []
-    // Split query string and iterate key-value pairs
-    const keyValuePairs = queryString.split("&");
-    for (const qq of keyValuePairs) {
-      const [key, value] = qq.split('=');
-      lookerEncoding['model'] = model
-      lookerEncoding['explore'] = explore
-      switch (key) {
-        case "fields":
-        case "pivots":
-        case "fill_fields":
-        case "sorts":
-          lookerEncoding[key] = value.split(",");
-          break;
-        case "filter_expression":
-        case "total":
-        case "row_total":
-        case "subtotals":
-          lookerEncoding[key] = value;
-          break;
-        case "limit":
-        case "column_limit":
-          lookerEncoding[key] = parseInt(value);
-          break;
-        case "vis":
-          lookerEncoding[key] = JSON.parse(decodeURIComponent(value));
-          break;
-        default:
-          if (key.startsWith("f[")) {
-            const filterKey = key.slice(2, -1);
-            lookerEncoding.filters[filterKey] = value;
-          } else if (key.includes(".")) {
-            const path = key.split(".");
-            let currentObject = lookerEncoding;
-            for (let i = 0; i < path.length - 1; i++) {
-              const segment = path[i];
-              if (!currentObject[segment]) {
-                currentObject[segment] = {};
-              }
-              currentObject = currentObject[segment];
-            }
-            currentObject[path[path.length - 1]] = value;
-          }
-      }
-    }
-    return lookerEncoding;
-  };
 
   const generateSharedContext = (dimensions: any[], measures: any[], exploreGenerationExamples: any[]) => {
     if (!dimensions.length || !measures.length) {
@@ -265,32 +186,12 @@ ${exploreRefinementExamples &&
     }
     return `
       # Documentation
-      ## General documentation about filters:
+      Here is general documentation about filters:
         ${looker_filter_doc}
-      ## General documentation on how intervals and timeframes are applied in Looker
+      Here is general documentation on how intervals and timeframes are applied in Looker
        ${looker_filters_interval_tf}   
-      ## General documentation on visualizations:
+      Here is general documentation on visualizations:
        ${looker_visualization_doc}
-      ## Format of query object:
-      
-      | Field              | Type   | Description                                                                                                                                                                                                                                                                          |
-      |--------------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-      | model              | string | Model                                                                                                                                                                                                                                                                                |
-      | view               | string | Explore Name                                                                                                                                                                                                                                                                         |
-      | fields             | string[] | Fields                                                                                                                                                                                                                                                                                |
-      | pivots             | string[] | Pivots                                                                                                                                                                                                                                                                                |
-      | fill_fields        | string[] | Fill Fields                                                                                                                                                                                                                                                                           |
-      | filters            | object | Filters                                                                                                                                                                                                                                                                               |
-      | filter_expression  | string | Filter Expression                                                                                                                                                                                                                                                                     |
-      | sorts              | string[] | Sorts                                                                                                                                                                                                                                                                                 |
-      | limit              | string | Limit                                                                                                                                                                                                                                                                                 |
-      | column_limit       | string | Column Limit                                                                                                                                                                                                                                                                          |
-      | total              | boolean | Total                                                                                                                                                                                                                                                                                 |
-      | row_total          | string | Raw Total                                                                                                                                                                                                                                                                             |
-      | subtotals          | string[] | Subtotals                                                                                                                                                                                                                                                                             |
-      | vis_config         | object | Visualization configuration properties. These properties are typically opaque and differ based on the type of visualization used. There is no specified set of allowed keys. The values can be any type supported by JSON. A "type" key with a string value is often present, and is used by Looker to determine which visualization to present. Visualizations ignore unknown vis_config properties. |
-      | filter_config      | object | The filter_config represents the state of the filter UI on the explore page for a given query. When running a query via the Looker UI, this parameter takes precedence over "filters". When creating a query or modifying an existing query, "filter_config" should be set to null. Setting it to any other value could cause unexpected filtering behavior. The format should be considered opaque. |
-      
       # End Documentation
       
            
@@ -423,40 +324,136 @@ ${exploreRefinementExamples &&
     },
     [currentExplore],
   )
-
-  interface FilterObject {
-    field_id: string;
-    filter_expression: string;
-}
-
-function reformatFilters(baseExploreParams: BaseExploreParams): FilterObject[] {
-    const filters = baseExploreParams.filters;
-    const reformattedFilters: FilterObject[] = [];
-
-    for (const [key, value] of Object.entries(filters)) {
-        reformattedFilters.push({
-            field_id: key,
-            filter_expression: value
-        });
+  
+  const parseLookerURL = (url: string): { [key: string]: any } => {
+    // Split URL and extract model & explore
+    const urlSplit = url.split("?");
+    let model = ""
+    let explore = ""
+    let queryString = ""
+    if (urlSplit.length == 2) {
+      const rootURL = urlSplit[0]
+      queryString = urlSplit[1]
+      const rootURLElements = rootURL.split("/");
+      model = rootURLElements[rootURLElements.length - 2];
+      explore = rootURLElements[rootURLElements.length - 1];
     }
-
-    return reformattedFilters;
-}
-
+    else if (urlSplit.length == 1) {
+      model = "tbd"
+      explore = "tbd"
+      queryString = urlSplit[0]
+    }
+    // Initialize lookerEncoding object
+    const lookerEncoding: { [key: string]: any } = {};
+    lookerEncoding['model'] = ""
+    lookerEncoding['explore'] = ""
+    lookerEncoding['fields'] = []
+    lookerEncoding['pivots'] = []
+    lookerEncoding['fill_fields'] = []
+    lookerEncoding['filters'] = {}
+    lookerEncoding['filter_expression'] = null
+    lookerEncoding['sorts'] = []
+    lookerEncoding['limit'] = 500
+    lookerEncoding['column_limit'] = 50
+    lookerEncoding['total'] = null
+    lookerEncoding['row_total'] = null
+    lookerEncoding['subtotals'] = null
+    lookerEncoding['vis'] = []
+    // Split query string and iterate key-value pairs
+    const keyValuePairs = queryString.split("&");
+    for (const qq of keyValuePairs) {
+      const [key, value] = qq.split('=');
+      console.log(qq)
+      lookerEncoding['model'] = model
+      lookerEncoding['explore'] = explore
+      switch (key) {
+        case "fields":
+        case "pivots":
+        case "fill_fields":
+        case "sorts":
+          lookerEncoding[key] = value.split(",");
+          break;
+        case "filter_expression":
+        case "total":
+        case "row_total":
+        case "subtotals":
+          lookerEncoding[key] = value;
+          break;
+        case "limit":
+        case "column_limit":
+          lookerEncoding[key] = parseInt(value);
+          break;
+        case "vis":
+          lookerEncoding[key] = JSON.parse(decodeURIComponent(value));
+          break;
+        default:
+          if (key.startsWith("f[")) {
+            const filterKey = key.slice(2, -1);
+            lookerEncoding.filters[filterKey] = value;
+          } else if (key.includes(".")) {
+            const path = key.split(".");
+            let currentObject = lookerEncoding;
+            for (let i = 0; i < path.length - 1; i++) {
+              const segment = path[i];
+              if (!currentObject[segment]) {
+                currentObject[segment] = {};
+              }
+              currentObject = currentObject[segment];
+            }
+            currentObject[path[path.length - 1]] = value;
+          }
+      }
+    }
+    return lookerEncoding;
+  };
   const generateFilterParams = useCallback(
-    async ( dimensions: any[], measures: any[], baseExploreParams) => {
-    
-    
-      // Start with the base Explore filters
-      const filterResponseInitial = reformatFilters(baseExploreParams)
+    async (prompt: string, sharedContext: string, dimensions: any[], measures: any[]) => {
+      // get the filters
+      const filterContents = `
+      ${sharedContext}
+      
+     # Instructions
+     
+     The user asked the following question:
+     
+     \`\`\`
+     ${prompt}
+     \`\`\`
+     
+     Your job is to follow the steps below and generate a JSON object.
+     
+     * Step 1: Your task is the look at the following data question that the user is asking and determine the filter expression for it. You should return a JSON list of filters to apply. Each element in the list will be a pair of the field id and the filter expression. Your output will look like \`[ { "field_id": "example_view.created_date", "filter_expression": "this year" } ]\`
+     * Step 2: verify that you're only using valid expressions for the filter values. If you do not know what the valid expressions are, refer to the table above. If you are still unsure, don't use the filter.
+     * Step 3: verify that the field ids are indeed Field Ids from the table. If they are not, you should return an empty dictionary. There should be a period in the field id.
+     `
 
-      const filterResponseCheckJSON = filterResponseInitial
+      const filterResponseInitial = await sendMessage(filterContents, {})
+
+      // check the response
+      const filterContentsCheck =
+        filterContents +
+        `
+  
+           # Output
+     
+           ${filterResponseInitial}
+     
+           # Instructions
+     
+           Verify the output, make changes and return the JSON
+     
+           `
+      const filterResponseCheck = await sendMessage(filterContentsCheck, {})
+      const filterResponseCheckJSON = parseJSONResponse(filterResponseCheck)
+
+      // Ensure filterResponseCheckJSON is an array
+      const filterResponseArray = Array.isArray(filterResponseCheckJSON) ? filterResponseCheckJSON : []
 
       // Iterate through each filter
       const filterResponseJSON: any = {}
 
       // Validate each filter
-      filterResponseCheckJSON.forEach(function (filter: {
+      filterResponseArray.forEach(function (filter: {
         field_id: string
         filter_expression: string
       }) {
@@ -468,6 +465,8 @@ function reformatFilters(baseExploreParams: BaseExploreParams): FilterObject[] {
           console.log(`Invalid field: ${filter.field_id}`)
           return
         }
+
+        console.log(field)
 
         const isValid = ExploreFilterValidator.isFilterValid(
           field.type as FieldType,
@@ -490,9 +489,9 @@ function reformatFilters(baseExploreParams: BaseExploreParams): FilterObject[] {
         filterResponseJSON[filter.field_id].push(filter.filter_expression)
       })
 
-      // console.log('filterResponseInitial', filterResponseInitial)
-      // console.log('filterResponseCheckJSON', filterResponseCheckJSON)
-      // console.log('filterResponseJSON', filterResponseJSON)
+      console.log('filterResponseInitial', filterResponseInitial)
+      console.log('filterResponseCheckJSON', filterResponseCheckJSON)
+      console.log('filterResponseJSON', filterResponseJSON)
 
       return filterResponseJSON
     },
@@ -546,16 +545,12 @@ function reformatFilters(baseExploreParams: BaseExploreParams): FilterObject[] {
   const generateBaseExploreParams = useCallback(
     async (
       prompt: string,
-      sharedContext: string,
+      sharedContext,
     ) => {
       const currentDateTime = new Date().toISOString()
 
       const contents = `
-      Your job is to convert a user question in plain language to the JSON payload that we will use to generate a Looker API call to the run_inline_query function.
-      
-
       ${sharedContext}
-      
       
       Output
       ----------
@@ -572,7 +567,7 @@ function reformatFilters(baseExploreParams: BaseExploreParams): FilterObject[] {
       }
       
       Instructions:
-      - choose only the fields in the metadata
+      - choose only the fields in the below lookml metadata
       - prioritize the field description, label, tags, and name for what field(s) to use for a given description
       - generate only one answer, no more.
       - use the Examples for guidance on how to structure the body
@@ -582,11 +577,14 @@ function reformatFilters(baseExploreParams: BaseExploreParams): FilterObject[] {
         
       User Request
       ----------
-      ${prompt}`
+      ${prompt}
+      
+      `
 
       const parameters = {
         max_output_tokens: 1000,
       }
+      console.log(contents)
       const response = await sendMessage(contents, parameters)
       const responseJSON = parseJSONResponse(response)
 
@@ -607,9 +605,9 @@ function reformatFilters(baseExploreParams: BaseExploreParams): FilterObject[] {
         return
       }
       const sharedContext = generateSharedContext(dimensions, measures, exploreGenerationExamples) || ''
+      const filterResponseJSON = await generateFilterParams(prompt, sharedContext, dimensions, measures)
       const responseJSON = await generateBaseExploreParams(prompt, sharedContext)
-      const filterResponseJSON = await generateFilterParams(dimensions, measures, responseJSON)
-     
+
       responseJSON['filters'] = filterResponseJSON
 
       // get the visualizations
@@ -652,14 +650,10 @@ function reformatFilters(baseExploreParams: BaseExploreParams): FilterObject[] {
         throw new Error('No Vertex AI or BigQuery connection found')
       }
 
-      if (response.startsWith('```json') && response.endsWith('```')) {
-        response = response.slice(7, -3).trim()
-      }
-
-      return response
+      return typeof response === 'string' ? response : JSON.stringify(response)
     } catch (error) {
       showBoundary(error)
-      return
+      return ''
     }
   }
 

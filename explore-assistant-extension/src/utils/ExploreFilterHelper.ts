@@ -34,6 +34,12 @@ export interface FilterExpression {
 }
 export class ExploreFilterValidator {
   static isValidStringFilter(filter: string): boolean {
+    const invalidFilters = ["NOT NULL", "NOT EMPTY", "NOT BLANK"];
+    // Regex to match "TOP N" where N is a number
+    const topNRegex = /^TOP \d+$/i;
+    if (invalidFilters.includes(filter) || topNRegex.test(filter)) {
+        return false;
+    }
     const rules: ((f: string) => boolean)[] = [
       (f) => /^[^%,]+$/.test(f), // Exact match
       (f) => /^[^%,]+(,[^%,]+)+$/.test(f), // Multiple exact matches

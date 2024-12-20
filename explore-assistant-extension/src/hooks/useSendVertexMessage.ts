@@ -1,8 +1,6 @@
-import { ExtensionContext, ExtensionSDK } from '@looker/extension-sdk-react'
+import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useCallback, useContext } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { UtilsHelper } from '../utils/Helper'
-import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
 import { useErrorBoundary } from 'react-error-boundary'
 import { AssistantState, setVertexTestSuccessful } from '../slices/assistantSlice'
@@ -12,7 +10,6 @@ import looker_visualization_doc from '../documents/looker_visualization_doc.md'
 import looker_filters_interval_tf from '../documents/looker_filters_interval_tf'
 
 import { ModelParameters } from '../utils/VertexHelper'
-import { BigQueryHelper } from '../utils/BigQueryHelper'
 import { ExploreParams } from '../slices/assistantSlice'
 import { ExploreFilterValidator, FieldType } from '../utils/ExploreFilterHelper'
 
@@ -54,6 +51,7 @@ function formatRow(field: {
 
 const useSendVertexMessage = () => {
   const { showBoundary } = useErrorBoundary()
+  const dispatch = useDispatch()
 
   // cloud function
 
@@ -61,12 +59,13 @@ const useSendVertexMessage = () => {
 
   const { core40SDK, extensionSDK, lookerHostData } = useContext(ExtensionContext)
 
-  const { core40SDK } = useContext(ExtensionContext)
   const { settings, examples, currentExplore } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
-
-  const VERTEX_AI_ENDPOINT = settings['vertex_ai_endpoint'].value || ''
+  const VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME =
+    settings['vertex_bigquery_looker_connection_name']?.value || ''
+  const VERTEX_BIGQUERY_MODEL_ID = settings['vertex_bigquery_model_id']?.value || ''
+  const VERTEX_AI_ENDPOINT = settings['vertex_ai_endpoint']?.value as string || '' as string
 
   const currentExploreKey = currentExplore.exploreKey
   const exploreRefinementExamples =
@@ -105,7 +104,7 @@ const useSendVertexMessage = () => {
         return ''
       }
       return JSON.stringify(query)
-    } catch (error) {
+    } catch (error: any) {
       if (error.name === 'LookerSDKError' || error.message === 'Model Not Found') {
         console.error('Error running query:', error.message)
         return ''
@@ -676,6 +675,29 @@ ${exploreRefinementExamples &&
     } catch (error) {
       showBoundary(error)
       return ''
+    }
+  }
+
+  const testVertexSettings = async () => {
+    if (settings.useCloudFunction.value && (!VERTEX_AI_ENDPOINT)) {
+      return false
+    }
+    if (!settings.useCloudFunction.value && (!VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME || !VERTEX_BIGQUERY_MODEL_ID)) {
+      return false
+    }
+    try {
+      const response = settings.useCloudFunction.value ? await vertexCloudFunction('test', {}) : await vertexBigQuery('test', {})
+      
+      if (response !== '') {
+        dispatch(setVertexTestSuccessful(true))
+      } else {
+        dispatch(setVertexTestSuccessful(false))
+      }
+      return response !== ''
+    } catch (error) {
+      console.error('Error testing Vertex settings:', error)
+      dispatch(setVertexTestSuccessful(false))
+      return false
     }
   }
 

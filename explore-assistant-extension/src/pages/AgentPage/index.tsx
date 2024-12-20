@@ -149,20 +149,20 @@ const AgentPage = () => {
     const trustedDashboards =
       examples.trustedDashboards[exploreKey]
 
-    const newExploreUrl = await generateExploreUrl(
+    const newExploreUrl = await generateExploreParams(
       promptSummary,
       dimensions,
       measures,
-      exploreGenerationExamples,
-      trustedDashboards
+      exploreGenerationExamples
+      
     )
-    console.log('New Explore URL: ', newExploreParams)
+    console.log('New Explore URL: ', newExploreUrl)
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
 
     dispatch(
       updateCurrentThread({
-        exploreParams: newExploreParams,
+        exploreParams: newExploreUrl,
         summarizedPrompt: promptSummary,
       }),
     )
@@ -170,7 +170,7 @@ const AgentPage = () => {
     if (isSummary) {
       dispatch(
         addMessage({
-          exploreParams: newExploreParams,
+          exploreParams: newExploreUrl,
           uuid: uuidv4(),
           actor: 'system',
           createdAt: Date.now(),
@@ -179,12 +179,12 @@ const AgentPage = () => {
         }),
       )
     } else {
-      dispatch(setSidePanelExploreParams(newExploreParams))
+      dispatch(setSidePanelExploreParams(newExploreUrl))
       dispatch(openSidePanel())
 
       dispatch(
         addMessage({
-          exploreParams: newExploreParams,
+          exploreParams: newExploreUrl,
           uuid: uuidv4(),
           summarizedPrompt: promptSummary,
           actor: 'system',

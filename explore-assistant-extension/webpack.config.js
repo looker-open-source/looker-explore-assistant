@@ -70,6 +70,10 @@ module.exports = {
         use: ["style-loader", "css-loader", 'postcss-loader', "sass-loader"],
       },
       {
+        test: /\.md$/,
+        use: 'raw-loader',
+      },
+      {
         test: /\.(png|jpe?g|gif)$/i,
         use: [
           {

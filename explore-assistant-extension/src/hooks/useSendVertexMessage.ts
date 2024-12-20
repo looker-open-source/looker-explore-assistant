@@ -7,87 +7,75 @@ import { RootState } from '../store'
 import { useErrorBoundary } from 'react-error-boundary'
 import { AssistantState, setVertexTestSuccessful } from '../slices/assistantSlice'
 
-const unquoteResponse = (response: string | null | undefined) => {
-  if(!response) {
-    return ''
+import looker_filter_doc from '../documents/looker_filter_doc.md'
+import looker_visualization_doc from '../documents/looker_visualization_doc.md'
+import looker_filters_interval_tf from '../documents/looker_filters_interval_tf'
+
+import { ModelParameters } from '../utils/VertexHelper'
+import { BigQueryHelper } from '../utils/BigQueryHelper'
+import { ExploreParams } from '../slices/assistantSlice'
+import { ExploreFilterValidator, FieldType } from '../utils/ExploreFilterHelper'
+
+
+const parseJSONResponse = (jsonString: string | null | undefined) => {
+  if (typeof jsonString !== 'string') {
+    return {}
   }
-  return response
-    .substring(response.indexOf('fields='))
-    .replace(/^`+|`+$/g, '')
-    .trim()
+
+  if (jsonString.startsWith('```json') && jsonString.endsWith('```')) {
+    jsonString = jsonString.slice(7, -3).trim()
+  }
+
+  try {
+    const parsed = JSON.parse(jsonString)
+    return typeof parsed === 'object' ? parsed : {}
+  } catch (error) {
+    return {}
+  }
 }
 
-interface ModelParameters {
-  max_output_tokens?: number
-}
-
-const generateSQL = (
-  model_id: string,
-  prompt: string,
-  parameters: ModelParameters,
-) => {
-  const escapedPrompt = UtilsHelper.escapeQueryAll(prompt)
-  const subselect = `SELECT '` + escapedPrompt + `' AS prompt`
-
-  return `
-  
-    SELECT ml_generate_text_llm_result AS generated_content
-    FROM
-    ML.GENERATE_TEXT(
-        MODEL \`${model_id}\`,
-        (
-          ${subselect}
-        ),
-        STRUCT(
-        0.05 AS temperature,
-        1024 AS max_output_tokens,
-        0.98 AS top_p,
-        TRUE AS flatten_json_output,
-        1 AS top_k)
-      )
-  
-      `
-}
-
-function formatContent(field: {
+function formatRow(field: {
   name?: string
   type?: string
   label?: string
   description?: string
   tags?: string[]
 }) {
-  let result = ''
-  if (field.name) result += 'name: ' + field.name
-  if (field.type) result += (result ? ', ' : '') + 'type: ' + field.type
-  if (field.label) result += (result ? ', ' : '') + 'label: ' + field.label
-  if (field.description)
-    result += (result ? ', ' : '') + 'description: ' + field.description
-  if (field.tags && field.tags.length)
-    result += (result ? ', ' : '') + 'tags: ' + field.tags.join(', ')
+  // Initialize properties with default values if not provided
+  const name = field.name || ''
+  const type = field.type || ''
+  const label = field.label || ''
+  const description = field.description || ''
+  const tags = field.tags ? field.tags.join(', ') : ''
 
-  return result
+  // Return a markdown row
+  return `| ${name} | ${type} | ${label} | ${description} | ${tags} |`
 }
 
 const useSendVertexMessage = () => {
   const { showBoundary } = useErrorBoundary()
+
   // cloud function
 
   // bigquery
 
   const { core40SDK, extensionSDK, lookerHostData } = useContext(ExtensionContext)
 
-  const { settings, examples, currentExplore} =
-    useSelector((state: RootState) => state.assistant as AssistantState)
+  const { core40SDK } = useContext(ExtensionContext)
+  const { settings, examples, currentExplore } = useSelector(
+    (state: RootState) => state.assistant as AssistantState,
+  )
 
   const VERTEX_AI_ENDPOINT = settings['vertex_ai_endpoint'].value || ''
 
   const currentExploreKey = currentExplore.exploreKey
-  const exploreRefinementExamples = examples.exploreRefinementExamples[currentExploreKey]
+  const exploreRefinementExamples =
+    examples.exploreRefinementExamples[currentExploreKey]
   const trustedDashboards = examples.trustedDashboards[currentExploreKey]
 
   const modelName = lookerHostData?.extensionId.split('::')[0]
 
-  const vertextBigQuery = async (
+  const vertexBigQuery = async (
     contents: string,
     parameters: ModelParameters,
   ) => {
@@ -127,7 +115,7 @@ const useSendVertexMessage = () => {
     }
   }
 
-  const vertextCloudFunction = async (
+  const vertexCloudFunction = async (
     contents: string,
     parameters: ModelParameters,
   ) => {
@@ -172,12 +160,14 @@ const useSendVertexMessage = () => {
 
       Here are some example prompts the user has asked so far and how to summarize them:
 
-${exploreRefinementExamples && exploreRefinementExamples
-  .map((item) => {
-    const inputText = '"' + item.input.join('", "') + '"'
-    return `- The sequence of prompts from the user: ${inputText}. The summarized prompts: "${item.output}"`
-  })
-  .join('\n')}
+${exploreRefinementExamples &&
+        exploreRefinementExamples
+          .map((item) => {
+            const inputText = '"' + item.input.join('", "') + '"'
+            return `- The sequence of prompts from the user: ${inputText}. The summarized prompts: "${item.output}"`
+          })
+          .join('\n')
+        }
 
       Conversation so far
       ----------
@@ -196,6 +186,63 @@ ${exploreRefinementExamples && exploreRefinementExamples
     },
     [exploreRefinementExamples],
   )
+
+  const promptWrapper = (prompt: string) => {
+    // wrap the prompt with the current date
+    const currentDate = new Date().toLocaleString()
+    return `The current date is ${currentDate}
+    
+    
+    ${prompt}
+    `
+  }
+
+  const generateSharedContext = (dimensions: any[], measures: any[], exploreGenerationExamples: any[]) => {
+    if (!dimensions.length || !measures.length) {
+      showBoundary(new Error('Dimensions or measures are not defined'))
+      return
+    }
+    let exampleText = ''
+    if (exploreGenerationExamples && exploreGenerationExamples.length > 0) {
+      exampleText = exploreGenerationExamples.map((item) => `input: "${item.input}" ; output: ${JSON.stringify(parseLookerURL(item.output))}`).join('\n')
+    }
+    return `
+      # Documentation
+      Here is general documentation about filters:
+        ${looker_filter_doc}
+      Here is general documentation on how intervals and timeframes are applied in Looker
+       ${looker_filters_interval_tf}   
+      Here is general documentation on visualizations:
+       ${looker_visualization_doc}
+      # End Documentation
+      
+           
+      # Metadata
+      This information is particular to the current Looker instance and data model. The fields below can be used in the response.
+      Model: ${currentExplore.modelName}
+      Explore: ${currentExplore.exploreId}
+      
+      Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
+      
+      | Field Id | Field Type | LookML Type | Label | Description | Tags |
+      |------------|------------|-------------|-------|-------------|------|
+      ${dimensions.map(formatRow).join('\n')}
+                
+      Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):
+      
+      | Field Id | Field Type | LookML Type | Label | Description | Tags |
+      |------------|------------|-------------|-------|-------------|------|
+      ${measures.map(formatRow).join('\n')}
+      # End LookML Metadata
+    
+      # Example 
+        Examples Below include the fields, filters and sometimes visualization configs. 
+        They were taken at a different date. ALL DATE RANGES ARE WRONG COMPARING TO CURRENT DATE.
+        (BE CAREFUL WITH DATES, DO NOT OUTPUT THE Examples 1:1,  as changes could happen with timeframes and date ranges)
+        ${exampleText}
+      # End Examples
+      
+  `}
 
   const isSummarizationPrompt = async (prompt: string) => {
     const contents = `
@@ -228,39 +275,23 @@ ${exploreRefinementExamples && exploreRefinementExamples
   }
 
   const summarizeExplore = useCallback(
-    async (exploreQueryArgs: string) => {
-      const params = new URLSearchParams(exploreQueryArgs)
-
-      // Initialize an object to construct the query
-      const queryParams: {
-        fields: string[]
-        filters: Record<string, string>
-        sorts: string[]
-        limit: string
-      } = {
-        fields: [],
-        filters: {},
-        sorts: [],
-        limit: '',
-      }
-
-      // Iterate over the parameters to fill the query object
-      params.forEach((value, key) => {
-        if (key === 'fields') {
-          queryParams.fields = value.split(',')
-        } else if (key.startsWith('f[')) {
-          const filterKey = key.match(/\[(.*?)\]/)?.[1]
-          if (filterKey) {
-            queryParams.filters[filterKey] = value
+    async (exploreParams: ExploreParams) => {
+      const filters: Record<string, string> = {}
+      if (exploreParams.filters !== undefined) {
+        const exploreFiltters = exploreParams.filters
+        Object.keys(exploreFiltters).forEach((key: string) => {
+          if (!exploreFiltters[key]) {
+            return
           }
-        } else if (key === 'sorts') {
-          queryParams.sorts = value.split(',')
-        } else if (key === 'limit') {
-          queryParams.limit = value
-        }
-      })
-
-      console.log(params)
+          const filter: string[] | string = exploreFiltters[key]
+          if (typeof filter === 'string') {
+            filters[key] = filter
+          }
+          if (Array.isArray(filter)) {
+            filters[key] = filter.join(', ')
+          }
+        })
+      }
 
       // get the contents of the explore query
       const createQuery = await core40SDK.ok(
@@ -268,10 +299,10 @@ ${exploreRefinementExamples && exploreRefinementExamples
           model: currentExplore.modelName,
           view: currentExplore.exploreId,
 
-          fields: queryParams.fields || [],
-          filters: queryParams.filters || {},
-          sorts: queryParams.sorts || [],
-          limit: queryParams.limit || '1000',
+          fields: exploreParams.fields || [],
+          filters: filters,
+          sorts: exploreParams.sorts || [],
+          limit: exploreParams.limit || '1000',
         }),
       )
 
@@ -315,270 +346,344 @@ ${exploreRefinementExamples && exploreRefinementExamples
     },
     [currentExplore],
   )
+  
+  const parseLookerURL = (url: string): { [key: string]: any } => {
+    // Split URL and extract model & explore
+    const urlSplit = url.split("?");
+    let model = ""
+    let explore = ""
+    let queryString = ""
+    if (urlSplit.length == 2) {
+      const rootURL = urlSplit[0]
+      queryString = urlSplit[1]
+      const rootURLElements = rootURL.split("/");
+      model = rootURLElements[rootURLElements.length - 2];
+      explore = rootURLElements[rootURLElements.length - 1];
+    }
+    else if (urlSplit.length == 1) {
+      model = "tbd"
+      explore = "tbd"
+      queryString = urlSplit[0]
+    }
+    // Initialize lookerEncoding object
+    const lookerEncoding: { [key: string]: any } = {};
+    lookerEncoding['model'] = ""
+    lookerEncoding['explore'] = ""
+    lookerEncoding['fields'] = []
+    lookerEncoding['pivots'] = []
+    lookerEncoding['fill_fields'] = []
+    lookerEncoding['filters'] = {}
+    lookerEncoding['filter_expression'] = null
+    lookerEncoding['sorts'] = []
+    lookerEncoding['limit'] = 500
+    lookerEncoding['column_limit'] = 50
+    lookerEncoding['total'] = null
+    lookerEncoding['row_total'] = null
+    lookerEncoding['subtotals'] = null
+    lookerEncoding['vis'] = []
+    // Split query string and iterate key-value pairs
+    const keyValuePairs = queryString.split("&");
+    for (const qq of keyValuePairs) {
+      const [key, value] = qq.split('=');
+      console.log(qq)
+      lookerEncoding['model'] = model
+      lookerEncoding['explore'] = explore
+      switch (key) {
+        case "fields":
+        case "pivots":
+        case "fill_fields":
+        case "sorts":
+          lookerEncoding[key] = value.split(",");
+          break;
+        case "filter_expression":
+        case "total":
+        case "row_total":
+        case "subtotals":
+          lookerEncoding[key] = value;
+          break;
+        case "limit":
+        case "column_limit":
+          lookerEncoding[key] = parseInt(value);
+          break;
+        case "vis":
+          lookerEncoding[key] = JSON.parse(decodeURIComponent(value));
+          break;
+        default:
+          if (key.startsWith("f[")) {
+            const filterKey = key.slice(2, -1);
+            lookerEncoding.filters[filterKey] = value;
+          } else if (key.includes(".")) {
+            const path = key.split(".");
+            let currentObject = lookerEncoding;
+            for (let i = 0; i < path.length - 1; i++) {
+              const segment = path[i];
+              if (!currentObject[segment]) {
+                currentObject[segment] = {};
+              }
+              currentObject = currentObject[segment];
+            }
+            currentObject[path[path.length - 1]] = value;
+          }
+      }
+    }
+    return lookerEncoding;
+  };
+  const generateFilterParams = useCallback(
+    async (prompt: string, sharedContext: string, dimensions: any[], measures: any[]) => {
+      // get the filters
+      const filterContents = `
+      ${sharedContext}
+      
+     # Instructions
+     
+     The user asked the following question:
+     
+     \`\`\`
+     ${prompt}
+     \`\`\`
+     
+     Your job is to follow the steps below and generate a JSON object.
+     
+     * Step 1: Your task is the look at the following data question that the user is asking and determine the filter expression for it. You should return a JSON list of filters to apply. Each element in the list will be a pair of the field id and the filter expression. Your output will look like \`[ { "field_id": "example_view.created_date", "filter_expression": "this year" } ]\`
+     * Step 2: verify that you're only using valid expressions for the filter values. If you do not know what the valid expressions are, refer to the table above. If you are still unsure, don't use the filter.
+     * Step 3: verify that the field ids are indeed Field Ids from the table. If they are not, you should return an empty dictionary. There should be a period in the field id.
+     `
 
-  const generateExploreUrl = useCallback(
+      const filterResponseInitial = await sendMessage(filterContents, {})
+
+      // check the response
+      const filterContentsCheck =
+        filterContents +
+        `
+  
+           # Output
+     
+           ${filterResponseInitial}
+     
+           # Instructions
+     
+           Verify the output, make changes and return the JSON
+     
+           `
+      const filterResponseCheck = await sendMessage(filterContentsCheck, {})
+      const filterResponseCheckJSON = parseJSONResponse(filterResponseCheck)
+
+      // Ensure filterResponseCheckJSON is an array
+      const filterResponseArray = Array.isArray(filterResponseCheckJSON) ? filterResponseCheckJSON : []
+
+      // Iterate through each filter
+      const filterResponseJSON: any = {}
+
+      // Validate each filter
+      filterResponseArray.forEach(function (filter: {
+        field_id: string
+        filter_expression: string
+      }) {
+        const field =
+          dimensions.find((d) => d.name === filter.field_id) ||
+          measures.find((m) => m.name === filter.field_id)
+
+        if (!field) {
+          console.log(`Invalid field: ${filter.field_id}`)
+          return
+        }
+
+        console.log(field)
+
+        const isValid = ExploreFilterValidator.isFilterValid(
+          field.type as FieldType,
+          filter.filter_expression,
+        )
+
+        if (!isValid) {
+          console.log(
+            `Invalid filter expression for field ${filter.field_id}: ${filter.filter_expression}`,
+          )
+          return
+        }
+
+        // Check if the field_id already exists in the hash
+        if (!filterResponseJSON[filter.field_id]) {
+          // If not, create an empty array for this field_id
+          filterResponseJSON[filter.field_id] = []
+        }
+        // Push the filter_expression into the array
+        filterResponseJSON[filter.field_id].push(filter.filter_expression)
+      })
+
+      console.log('filterResponseInitial', filterResponseInitial)
+      console.log('filterResponseCheckJSON', filterResponseCheckJSON)
+      console.log('filterResponseJSON', filterResponseJSON)
+
+      return filterResponseJSON
+    },
+    [],
+  )
+
+  const generateVisualizationParams = async (
+    exploreParams: ExploreParams,
+    prompt: string,
+  ) => {
+    const contents = `
+
+    ${looker_visualization_doc}
+
+      # User Request
+
+      ## Prompt
+
+      The user asked the following question:
+
+      \`\`\`
+      ${prompt}
+      \`\`\`
+
+      ## Explore Definition
+
+      The user is asking for the following explore definition:
+
+      \`\`\`
+      ${JSON.stringify(exploreParams)}
+      \`\`\`
+
+      ## Determine Visualization JSON
+
+      Based on the question, and on the original question, determine what the visualization config should be. The visualization config should be a JSON object that is compatible with the Looker API run_inline_query function. Only contain values that are different than the defaults. Here is an example:
+
+      \`\`\`
+      {
+        "type": "looker_column",
+      }
+      \`\`\`
+
+    `
+    const parameters = {
+      max_output_tokens: 1000,
+    }
+    const response = await sendMessage(contents, parameters)
+    return parseJSONResponse(response)
+  }
+
+  const generateBaseExploreParams = useCallback(
+    async (
+      prompt: string,
+      sharedContext,
+    ) => {
+      const currentDateTime = new Date().toISOString()
+
+      const contents = `
+      ${sharedContext}
+      
+      Output
+      ----------
+      
+      Return a JSON that is compatible with the Looker API run_inline_query function as per the spec. Here is an example:
+      
+      {
+        "model":"${currentExplore.modelName}",
+        "view":"${currentExplore.exploreId}",
+        "fields":["category.name","inventory_items.days_in_inventory_tier","products.count"],
+        "filters":{"category.name":"socks"},
+        "sorts":["products.count desc 0"],
+        "limit":"500",
+      }
+      
+      Instructions:
+      - choose only the fields in the below lookml metadata
+      - prioritize the field description, label, tags, and name for what field(s) to use for a given description
+      - generate only one answer, no more.
+      - use the Examples for guidance on how to structure the body
+      - try to avoid adding dynamic_fields, provide them when very similar example is found in the bottom
+      - Always use the provided current date (${currentDateTime}) when generating Looker URL queries that involve TIMEFRAMES.
+      - only respond with a JSON object
+        
+      User Request
+      ----------
+      ${prompt}
+      
+      `
+
+      const parameters = {
+        max_output_tokens: 1000,
+      }
+      console.log(contents)
+      const response = await sendMessage(contents, parameters)
+      const responseJSON = parseJSONResponse(response)
+
+      return responseJSON
+    },
+    [currentExplore],
+  )
+
+  const generateExploreParams = useCallback(
     async (
       prompt: string,
       dimensions: any[],
       measures: any[],
       exploreGenerationExamples: any[],
-      trustedDashboards: any[],
     ) => {
-      try {
-        const contents = `
-            Context
-            ----------
-
-            You are a developer who would transalate questions to a structured Looker URL query based on the following instructions.
-
-            Instructions:
-              - choose only the fields in the below lookml metadata
-              - prioritize the field description, label, tags, and name for what field(s) to use for a given description
-              - generate only one answer, no more.
-              - use the Examples (at the bottom) for guidance on how to structure the Looker url query
-              - try to avoid adding dynamic_fields, provide them when very similar example is found in the bottom
-              - never respond with sql, always return an looker explore url as a single string
-              - response should start with fields= , as in the Examples section at the bottom  
-
-            LookML Metadata
-            ----------
-
-            Dimensions Used to group by information (follow the instructions in tags when using a specific field; if map used include a location or lat long dimension;):
-
-          ${dimensions.map(formatContent).join('\n')}
-
-            Measures are used to perform calculations (if top, bottom, total, sum, etc. are used include a measure):
-
-          ${measures.map(formatContent).join('\n')}
-
-           ${trustedDashboards &&  `Trusted dashboards include configuration for the most important, verified, and accurate dashboards. If a dashboard is trusted, it should be used as a reference for the user's query. 
-            Nomenclature and proper naming for metrics can be derived from these trusted dashboard. They are in Looker LookML dashboard yaml-like format. There may be 1 or more trusted dashboards.`}
-          ${trustedDashboards && trustedDashboards.map((item) => item).join('\n')}
-
-            Looker date filtering allows for English phrases to be used instead of SQL date functions.
-            Basic structure of date and time filters
-            For the following examples:
-
-            {n} is an integer.
-            {interval} is a time increment such as hours, days, weeks, or months.
-
-            The phrasing you use determines whether the {interval} will include partial time periods or only complete time periods. For example, the expression 3 days includes the current, partial day as well as the prior two days. The expression 3 days ago for 3 days includes the previous three complete days and excludes the current, partial day. See the Relative Dates section for more information.
-
-            {time} can specify a time formatted as either YYYY-MM-DD HH:MM:SS or YYYY/MM/DD HH:MM:SS, or a date formatted as either YYYY-MM-DD or YYYY/MM/DD. When using the form YYYY-MM-DD, be sure to include both digits for the month and day, for example, 2016-01. Truncating a month or day to a single digit is interpreted as an offset, not a date. For example, 2016-1 is interpreted as 2016 minus one year, or 2015.
-
-            These are all the possible combinations of date filters:
-
-            Combination	Example	Notes
-            this {interval}	this month	You can use this week, this month, this quarter, or this year. Note that this day isn't supported. If you want to get data from the current day, you can use 'today'.
-            {n} {interval} = 3 days	
-            {n} {interval} ago = 3 days ago	
-            {n} {interval} ago for {n} {interval} = 3 months ago for 2 days	
-            before {n} {interval} ago = 	before 3 days ago	
-            before {time}	= before 2018-01-01 12:00:00	before is not inclusive of the time you specify. The expression before 2018-01-01 will return data from all dates before 2018-01-01, but it won't return data from 2018-01-01.
-            after {time} =	after 2018-10-05	after is inclusive of the time you specify. So, the expression after 2018-10-05 will return data from 2018-10-05 and all dates later than 2018-10-05.
-            {time} to {time} = 2018-05-18 12:00:00 to 2018-05-18 14:00:00	The initial time value is inclusive but the latter time value is not. So the expression 2018-05-18 12:00:00 to 2018-05-18 14:00:00 will return data with the time "2018-05-18 12:00:00" through "2018-05-18 13:59:59".
-            this {interval} to {interval}	= this year to second	The beginning of each interval is used. For example, the expression this year to second returns data from the beginning of the year the query is run through to the beginning of the second the query is run. this week to day returns data from the beginning of the week the query is run through to the beginning of the day the query is run.
-            {time} for {n} {interval}	= 2018-01-01 12:00:00 for 3 days	
-            today	= today	
-            yesterday	= yesterday	
-            tomorrow = tomorrow	
-            {day of week} =	Monday	Specifying a day of week with a Dimension Group Date field returns the most recent date that matches the specified day of week. For example, the expression Dimension Group Date matches (advanced) Monday returns the most recent Monday.
-            You can also use {day of week} with the before and after keywords in this context. For example, the expression Dimension Group Date matches (advanced) after Monday returns the most recent Monday and everything after the most recent Monday. The expression Dimension Group Date matches (advanced) before Monday returns every day before the most recent Monday, but it doesn't return the most recent Monday.
-            Specifying a day of the week with a Dimension Group Day of Week field returns every day that matches the specified day of week. So the expression Dimension Group Day of Week matches (advanced) Monday returns every Monday.
-            next {week, month, quarter, fiscal quarter, year, fiscal year}	next week	The next keyword is unique in that it requires one of the intervals listed previously and won't work with other intervals.
-            {n} {interval} from now =	3 days from now	
-            {n} {interval} from now for {n} {interval} = 3 days from now for 2 weeks	
-            Date filters can also be combined together:
-
-            To get OR logic: Type multiple conditions into the same filter, separated by commas. For example, today, 7 days ago means "today or 7 days ago".
-            To get AND logic: Type your conditions, one by one, into multiple date or time filters. For example, you could put after 2014-01-01 into a Created Date filter, then put before 2 days ago into a Created Time filter. This would mean "January 1st, 2014 and after, and before 2 days ago."
-
-            Absolute dates
-            Absolute date filters use the specific date values to generate query results. These are useful when creating queries for specific date ranges.
-
-            Example	Description
-            2018/05/29	= sometime on 2018/05/29
-            2018/05/10 for 3 days =	from 2018/05/10 00:00:00 through 2018/05/12 23:59:59
-            after 2018/05/10	= 2018/05/10 00:00:00 and after
-            before 2018/05/10	= before 2018/05/10 00:00:00
-            2018/05	= within the entire month of 2018/05
-            2018/05 for 2 months	= within the entire months of 2018/05 and 2018/06
-            2018/05/10 05:00 for 5 hours = from 2018/05/10 05:00:00 through 2018/05/10 09:59:59
-            2018/05/10 for 5 months	= from 2018/05/10 00:00:00 through 2018/10/09 23:59:59
-            2018 = entire year of 2018 (2018/01/01 00:00:00 through 2018/12/31 23:59:59)
-            FY2018 =	entire fiscal year starting in 2018 (if your Looker developers have specified that your fiscal year starts in April then this is 2018/04/01 00:00 through 2019/03/31 23:59)
-            FY2018-Q1	= first quarter of the fiscal year starting in 2018 (if your Looker developers have specified that your fiscal year starts in April then this is 2018/04/01 00:00:00 through 2018/06/30 23:59)
-
-            Relative dates
-            Relative date filters allow you to create queries with rolling date values relative to the current date. These are useful when creating queries that update each time you run the query.
-
-            For all of the following examples, assume today is Friday, 2018/05/18 18:30:02. In Looker, weeks start on Monday unless you change that setting with week_start_day.
-
-
-            Seconds
-            Example	= Description
-            1 second = the current second (2018/05/18 18:30:02)
-            60 seconds = 60 seconds ago for 60 seconds (2018/05/18 18:29:02 through 2018/05/18 18:30:01)
-            60 seconds ago for 1 second =	60 seconds ago for 1 second (2018/05/18 18:29:02)
-
-            Minutes
-            Example	= Description
-            1 minute = the current minute (2018/05/18 18:30:00 through 18:30:59)
-            60 minutes = 60 minutes ago for 60 minutes (2018/05/18 17:31:00 through 2018/05/18 18:30:59)
-            60 minutes ago for 1 minute = 60 minutes ago for 1 minute (2018/05/18 17:30:00 through 2018/05/18 17:30:59)
-
-            Hours
-            Example =	Description
-            1 hour = the current hour (2018/05/18 18:00 through 2018/05/18 18:59)
-            24 hours =	the same hour of day that was 24 hours ago for 24 hours (2018/05/17 19:00 through 2018/05/18 18:59)
-            24 hours ago for 1 hour =	the same hour of day that was 24 hours ago for 1 hour (2018/05/17 18:00 until 2018/05/17 18:59)
-
-            Days
-            Example	= Description
-            today	= the current day (2018/05/18 00:00 through 2018/05/18 23:59)
-            2 days =	all of yesterday and today (2018/05/17 00:00 through 2018/05/18 23:59)
-            1 day ago =	just yesterday (2018/05/17 00:00 until 2018/05/17 23:59)
-            7 days ago for 7 days =	the last complete 7 days (2018/05/11 00:00 until 2018/05/17 23:59)
-            today for 7 days = the current day, starting at midnight, for 7 days into the future (2018/05/18 00:00 until 2018/05/24 23:59)
-            last 3 days	= 2 days ago through the end of the current day (2018/05/16 00:00 until 2018/05/18 23:59)
-            7 days from now =	7 days in the future (2018/05/18 00:00 until 2018/05/25 23:59)
-
-            Weeks
-            Example	Description
-            1 week = top of the current week going forward (2018/05/14 00:00 through 2018/05/20 23:59)
-            this week	= top of the current week going forward (2018/05/14 00:00 through 2018/05/20 23:59)
-            before this week = anytime until the top of this week (before 2018/05/14 00:00)
-            after this week	= anytime after the top of this week (2018/05/14 00:00 and later)
-            next week	= the following Monday going forward 1 week (2018/05/21 00:00 through 2018/05/27 23:59)
-            2 weeks	= a week ago Monday going forward (2018/05/07 00:00 through 2018/05/20 23:59)
-            last week	= synonym for "1 week ago"
-            1 week ago = a week ago Monday going forward 1 week (2018/05/07 00:00 through 2018/05/13 23:59)
-
-            Months
-            Example	= Description
-            1 month	= the current month (2018/05/01 00:00 through 2018/05/31 23:59)
-            this month = synonym for "0 months ago" (2018/05/01 00:00 through 2018/05/31 23:59)
-            2 months = the past two months (2018/04/01 00:00 through 2018/05/31 23:59)
-            last month = all of 2018/04
-            2 months ago = all of 2018/03
-            before 2 months ago =	all time before 2018/03/01
-            next month = all of 2018/06
-            2 months from now	= all of 2018/07
-            6 months from now for 3 months =	2018/11 through 2019/01
-
-            Quarters
-            Example	= Description
-            1 quarter	= the current quarter (2018/04/01 00:00 through 2018/06/30 23:59)
-            this quarter = synonym for "0 quarters ago" (2018/04/01 00:00 through 2018/06/30 23:59)
-            2 quarters = the past two quarters (2018/01/01 00:00 through 2018/06/30 23:59)
-            last quarter = all of Q1 (2018/01/01 00:00 through 2018/03/31 23:59)
-            2 quarters ago = all of Q4 of last year (2017/010/01 00:00 through 2017/12/31 23:59)
-            before 2 quarters ago =	all time before Q4 of last year
-            next quarter = all of the following quarter (2018/07/01 00:00 through 2018/09/30 23:59)
-            2018-07-01 for 1 quarter = all of Q3 (2018/07/01 00:00 through 2018/09/30 23:59)
-            2018-Q4	= all of Q4 (2018/10/01 00:00 through 2018/12/31 23:59)
-            Note: If your Looker developers have specified using a fiscal year then you can type fiscal in these expressions to use a fiscal quarter instead of a calendar quarter. For example, you can use last fiscal quarter.
-
-            Years
-            Example	= Description
-            1 year = all of the current year (2018/01/01 00:00 through 2018/12/31 23:59)
-            this year =	all of the current year (2018/01/01 00:00 through 2018/12/31 23:59)
-            next year	= all of the following year (2019/01/01 00:00 through 2019/12/31 23:59)
-            2 years = the past two years (2017/01/01 00:00 through 2018/12/31 23:59)
-            last year	= all of 2017
-            2 years ago	= all of 2016
-            before 2 years ago = all time before 2016/01/01 (does not include any days between 2016/01/01 and 2016/05/18)
-
-            End date documentation.
-            
-            Example input and outputs:
-            ----------
-
-          ${exploreGenerationExamples && exploreGenerationExamples
-            .map((item) => `input: "${item.input}" ; output: ${item.output}`)
-            .join('\n')}
-
-            Input
-            ----------
-            ${prompt}
-
-            Output
-            ----------
-        `
-        const parameters = {
-          max_output_tokens: 1000,
-        }
-        console.log(contents)
-        const response = await sendMessage(contents, parameters)
-
-        const cleanResponse = unquoteResponse(response)
-        console.log(cleanResponse)
-
-        let toggleString = '&toggle=dat,pik,vis'
-        if (settings['show_explore_data'].value) {
-          toggleString = '&toggle=pik,vis'
-        }
-
-        const newExploreUrl = cleanResponse + toggleString
-
-        return newExploreUrl
-      } catch (error) {
-        console.error(
-          'Error waiting for data (lookml fields & training examples) to load:',
-          error,
-        )
-        showBoundary({
-          message:
-            'Error waiting for data (lookml fields & training examples) to load:',
-          error,
-        })
+      if (!dimensions.length || !measures.length) {
+        showBoundary(new Error('Dimensions or measures are not defined'))
         return
       }
+      const sharedContext = generateSharedContext(dimensions, measures, exploreGenerationExamples) || ''
+      const filterResponseJSON = await generateFilterParams(prompt, sharedContext, dimensions, measures)
+      const responseJSON = await generateBaseExploreParams(prompt, sharedContext)
+
+      responseJSON['filters'] = filterResponseJSON
+
+      // get the visualizations
+      // const visualizationResponseJSON = await generateVisualizationParams(
+      //   responseJSON,
+      //   prompt,
+      // )
+
+      // console.log(visualizationResponseJSON)
+
+      // responseJSON['vis_config'] = visualizationResponseJSON
+
+      return responseJSON
     },
     [settings],
   )
 
   const sendMessage = async (message: string, parameters: ModelParameters) => {
+    const wrappedMessage = promptWrapper(message)
     try {
-      let response = ''
-      if (settings.useCloudFunction.value) {
-        response = await vertextCloudFunction(message, parameters)
-      } else {
-        const rawResponse = await vertextBigQuery(message, parameters)
-        response = unquoteResponse(rawResponse)
+      if (
+        VERTEX_AI_ENDPOINT &&
+        VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME &&
+        VERTEX_BIGQUERY_MODEL_ID
+      ) {
+        throw new Error(
+          'Both Vertex AI and BigQuery are enabled. Please only enable one',
+        )
       }
-      return response
+
+      let response = ''
+      if (VERTEX_AI_ENDPOINT) {
+        response = await vertexCloudFunction(wrappedMessage, parameters)
+      } else if (
+        VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME &&
+        VERTEX_BIGQUERY_MODEL_ID
+      ) {
+        response = await vertexBigQuery(wrappedMessage, parameters)
+      } else {
+        throw new Error('No Vertex AI or BigQuery connection found')
+      }
+
+      return typeof response === 'string' ? response : JSON.stringify(response)
     } catch (error) {
       showBoundary(error)
       return ''
     }
   }
 
-  
-  const dispatch = useDispatch()
-  
-  const testVertexSettings = async () => {
-    if (settings.useCloudFunction.value && (!VERTEX_AI_ENDPOINT)) {
-      return false
-    }
-    try {
-      const response = settings.useCloudFunction.value ? await vertextCloudFunction('test', {}) : await vertextBigQuery('test', {})
-      
-      if (response !== '') {
-        dispatch(setVertexTestSuccessful(true))
-      } else {
-        dispatch(setVertexTestSuccessful(false))
-      }
-      return response !== ''
-    } catch (error) {
-      console.error('Error testing Vertex settings:', error)
-      dispatch(setVertexTestSuccessful(false))
-      return false
-    }
-  }
-
   return {
-    generateExploreUrl,
+    generateExploreParams,
+    generateBaseExploreParams,
+    generateFilterParams,
+    generateVisualizationParams,
     sendMessage,
     summarizePrompts,
     isSummarizationPrompt,

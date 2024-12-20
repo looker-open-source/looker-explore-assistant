@@ -1,6 +1,16 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { v4 as uuidv4 } from 'uuid'
 
+export interface ExploreParams {
+  fields?: string[]
+  filters?: Record<string, string>
+  pivots?: string[]
+  vis_config?: any
+  sorts?: string[]
+  limit?: string
+
+}
+
 export interface Setting {
   name: string
   description: string
@@ -56,7 +66,7 @@ export interface Message {
 
 export interface ExploreMessage {
   uuid: string
-  exploreUrl: string
+  exploreParams: ExploreParams
   actor: 'system'
   createdAt: number
   type: 'explore'
@@ -65,7 +75,7 @@ export interface ExploreMessage {
 
 export interface SummarizeMesage {
   uuid: string
-  exploreUrl: string
+  exploreParams: ExploreParams
   actor: 'system'
   createdAt: number
   type: 'summarize'
@@ -80,7 +90,7 @@ export type ExploreThread = {
   modelName: string
   exploreKey: string
   messages: ChatMessage[]
-  exploreUrl: string
+  exploreParams: ExploreParams
   summarizedPrompt: string
   promptList: string[]
   createdAt: number
@@ -106,7 +116,7 @@ export interface AssistantState {
   }
   sidePanel: {
     isSidePanelOpen: boolean
-    exploreUrl: string
+    exploreParams: ExploreParams
   }
   history: ExploreThread[]
   semanticModels: {
@@ -134,7 +144,7 @@ export const newThreadState = () => {
     exploreId: '',
     modelName: '',
     messages: [],
-    exploreUrl: '',
+    exploreParams: {},
     summarizedPrompt: '',
     promptList: [],
     createdAt: Date.now()
@@ -153,7 +163,7 @@ export const initialState: AssistantState = {
   },
   sidePanel: {
     isSidePanelOpen: false,
-    exploreUrl: '',
+    exploreParams: {},
   },
   history: [],
   query: '',
@@ -240,8 +250,8 @@ export const assistantSlice = createSlice({
     closeSidePanel: (state) => {
       state.sidePanel.isSidePanelOpen = false
     },
-    setSidePanelExploreUrl: (state, action: PayloadAction<string>) => {
-      state.sidePanel.exploreUrl = action.payload
+    setSidePanelExploreParams: (state, action: PayloadAction<ExploreParams>) => {
+      state.sidePanel.exploreParams = action.payload
     },
     clearHistory : (state) => {
       state.history = []
@@ -259,18 +269,18 @@ export const assistantSlice = createSlice({
         if (currentUuid !== lastHistoryUuid) {
           state.history.push({ ...state.currentExploreThread })
         } else {
-          state.history[state.history.length - 1] = state.currentExploreThread
+          state.history[state.history.length - 1] = { ...state.currentExploreThread }
         }
       }
     },
     setSemanticModels: (state, action: PayloadAction<AssistantState['semanticModels']>) => {
       state.semanticModels = action.payload
     },
-    setExploreUrl: (state, action: PayloadAction<string>) => {
+    setExploreParams: (state, action: PayloadAction<ExploreParams>) => {
       if (state.currentExploreThread === null) {
         state.currentExploreThread = newThreadState()
       }
-      state.currentExploreThread.exploreUrl = action.payload
+      state.currentExploreThread.exploreParams = action.payload
     },
     updateCurrentThread: (
       state,
@@ -330,7 +340,9 @@ export const assistantSlice = createSlice({
       const message = state.currentExploreThread.messages.find(
         (message) => message.uuid === uuid,
       ) as SummarizeMesage
-      message.summary = summary
+      if (message) {
+        message.summary = summary
+      }
     },
     setExploreSamples(
       state,
@@ -376,7 +388,7 @@ export const {
 
   setSemanticModels,
   setIsSemanticModelLoaded,
-  setExploreUrl,
+  setExploreParams,
   setQuery,
   resetChat,
   addMessage,
@@ -392,7 +404,7 @@ export const {
 
   openSidePanel,
   closeSidePanel,
-  setSidePanelExploreUrl,
+  setSidePanelExploreParams,
 
   setSetting,
   resetSettings,

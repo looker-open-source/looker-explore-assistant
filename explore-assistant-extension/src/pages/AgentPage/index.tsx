@@ -17,7 +17,7 @@ import {
   setCurrenExplore,
   setIsQuerying,
   setQuery,
-  setSidePanelExploreUrl,
+  setSidePanelExploreParams,
   updateCurrentThread,
   updateLastHistoryEntry,
 } from '../../slices/assistantSlice'
@@ -52,12 +52,13 @@ const AgentPage = () => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
   const [expanded, setExpanded] = useState(false)
-  const { generateExploreUrl, isSummarizationPrompt, summarizePrompts } =
+  const { generateExploreParams, isSummarizationPrompt, summarizePrompts } =
     useSendVertexMessage()
 
   const {
     isChatMode,
     query,
+    isQuerying,
     currentExploreThread,
     currentExplore,
     sidePanel,
@@ -75,6 +76,14 @@ const AgentPage = () => {
       exploreId: exploreParts[1],
     }
   })
+
+  const scrollIntoView = useCallback(() => {
+    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [endOfMessagesRef])
+
+  useEffect(() => {
+    scrollIntoView()
+  }, [currentExploreThread, query, isQuerying])
 
   const submitMessage = useCallback(async () => {
     if (query === '') {
@@ -95,7 +104,8 @@ const AgentPage = () => {
       }),
     )
 
-    const exploreKey = currentExploreThread?.exploreKey || currentExplore.exploreKey
+    const exploreKey =
+      currentExploreThread?.exploreKey || currentExplore.exploreKey
 
     // set the explore if it is not set
     if (!currentExploreThread?.modelName || !currentExploreThread?.exploreId) {
@@ -146,22 +156,13 @@ const AgentPage = () => {
       exploreGenerationExamples,
       trustedDashboards
     )
-    console.log('New Explore URL: ', newExploreUrl)
+    console.log('New Explore URL: ', newExploreParams)
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
 
-    // If the newExploreUrl is empty, do not update the current thread
-    if (
-      newExploreUrl === '' ||
-      newExploreUrl === null ||
-      newExploreUrl === undefined
-    ) {
-      return
-    }
-
     dispatch(
       updateCurrentThread({
-        exploreUrl: newExploreUrl,
+        exploreParams: newExploreParams,
         summarizedPrompt: promptSummary,
       }),
     )
@@ -169,8 +170,8 @@ const AgentPage = () => {
     if (isSummary) {
       dispatch(
         addMessage({
+          exploreParams: newExploreParams,
           uuid: uuidv4(),
-          exploreUrl: newExploreUrl,
           actor: 'system',
           createdAt: Date.now(),
           summary: '',
@@ -178,13 +179,13 @@ const AgentPage = () => {
         }),
       )
     } else {
-      dispatch(setSidePanelExploreUrl(newExploreUrl))
+      dispatch(setSidePanelExploreParams(newExploreParams))
       dispatch(openSidePanel())
 
       dispatch(
         addMessage({
+          exploreParams: newExploreParams,
           uuid: uuidv4(),
-          exploreUrl: newExploreUrl,
           summarizedPrompt: promptSummary,
           actor: 'system',
           createdAt: Date.now(),
@@ -193,6 +194,9 @@ const AgentPage = () => {
       )
     }
 
+    // scroll to bottom of message thread
+    scrollIntoView()
+
     // update the history with the current contents of the thread
     dispatch(updateLastHistoryEntry())
   }, [query, semanticModels, examples, currentExplore, currentExploreThread])
@@ -200,14 +204,12 @@ const AgentPage = () => {
   const isDataLoaded = isBigQueryMetadataLoaded && isSemanticModelLoaded
 
   useEffect(() => {
-    if (!query || query === '') {
+    if (!query || query === '' || !isDataLoaded) {
       return
     }
 
-    if (query !== '' && isDataLoaded) {
-      submitMessage()
-      endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
+    submitMessage()
+    scrollIntoView()
   }, [query, isDataLoaded])
 
   const toggleDrawer = () => {
@@ -319,26 +321,8 @@ const AgentPage = () => {
                 )}
               >
                 <div className="flex-grow overflow-y-auto max-h-full mb-36 ">
-                  <div className="max-w-4xl mx-auto">
-                    {!isDataLoaded ? (
-                      <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
-                        <h1 className="text-5xl font-bold">
-                          <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-                            Hello.
-                          </span>
-                        </h1>
-                        <h1 className="text-3xl text-gray-400">
-                          Loading the conversation and LookML Metadata...{' '}
-                        </h1>
-                        <div className="max-w-2xl text-blue-300">
-                          <LinearProgress color="inherit" />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="pt-8">
-                        <MessageThread />
-                      </div>
-                    )}
+                  <div className="max-w-4xl mx-auto mt-8">
+                    <MessageThread endOfMessageRef={endOfMessagesRef} />
                   </div>
                 </div>
                 <div
@@ -373,7 +357,7 @@ const AgentPage = () => {
                   <ExploreEmbed
                     modelName={currentExploreThread?.modelName}
                     exploreId={currentExploreThread?.exploreId}
-                    exploreUrl={sidePanel.exploreUrl}
+                    exploreParams={sidePanel.exploreParams}
                   />
                 </div>
                 <div className="bg-gray-400 text-white px-4 py-2 text-sm rounded-b-lg"></div>
@@ -426,7 +410,6 @@ const AgentPage = () => {
             </>
           )}
         </div>
-        <div ref={endOfMessagesRef} /> {/* Ref for the last message */}
       </main>
     </div>
   )

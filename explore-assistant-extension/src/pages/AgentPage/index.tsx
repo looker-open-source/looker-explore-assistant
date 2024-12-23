@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState, useContext } from 'react'
+import { ExtensionContext } from '@looker/extension-sdk-react'
 import PromptInput from './PromptInput'
 import Sidebar from './Sidebar'
 import { v4 as uuidv4 } from 'uuid'
@@ -51,6 +52,18 @@ const toCamelCase = (input: string): string => {
 }
 
 const AgentPage = () => {
+  const { core40SDK } = useContext(ExtensionContext);
+  const [username, setUsername] = useState('');
+  useEffect(() => {
+    const fetchUsername = async () => {
+      const me = await core40SDK.ok(core40SDK.me());
+      setUsername(me.display_name || me.first_name || '');
+    };
+    fetchUsername();
+  }, []);
+
+
+
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
   const [expanded, setExpanded] = useState(false)
@@ -248,7 +261,7 @@ const AgentPage = () => {
         <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
           <h1 className="text-5xl font-bold">
             <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-              Hello.
+              Hello {username ? `, ${username}` : '.'}.
             </span>
           </h1>
           <h1 className="text-3xl text-gray-400">
@@ -341,7 +354,7 @@ const AgentPage = () => {
                       <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
                         <h1 className="text-5xl font-bold">
                           <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-                            Hello.
+                            Hello {username ? `, ${username}` : '.'}.
                           </span>
                         </h1>
                         <h1 className="text-3xl text-gray-400">
@@ -401,7 +414,7 @@ const AgentPage = () => {
               <div className="flex flex-col space-y-4 mx-auto max-w-3xl p-4">
                 <h1 className="text-5xl font-bold">
                   <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-                    Hello.
+                    Hello {username ? `, ${username}` : '.'}.
                   </span>
                 </h1>
                 <h1 className="text-5xl text-gray-400">

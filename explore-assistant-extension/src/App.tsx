@@ -72,9 +72,6 @@ const ExploreApp = () => {
     <>
       <Switch>
         <Route path="/index" exact>
-            <div>
-              <button onClick={handleOAuthClick}>Authenticate with Google</button>
-            </div>
           <AgentPage />
         </Route>
         <Route path="/oauth/callback" exact>

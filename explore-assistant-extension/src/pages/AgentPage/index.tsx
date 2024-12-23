@@ -34,6 +34,8 @@ import {
   Tooltip,
 } from '@mui/material'
 import { getRelativeTimeString } from '../../utils/time'
+import { AuthProvider, isTokenExpired } from '../../components/Auth/AuthProvider';
+
 
 const toCamelCase = (input: string): string => {
   // Remove underscores, make following letter uppercase
@@ -232,7 +234,13 @@ const AgentPage = () => {
 
   }
 
-  const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded
+  const { access_token, expires_in } = useSelector((state: RootState) => state.auth);
+
+  
+  const isAgentReady = isBigQueryMetadataLoaded && 
+                      isSemanticModelLoaded && 
+                      access_token && 
+                      !isTokenExpired(access_token, expires_in);
 
   if (!isAgentReady) {
     return (
@@ -246,6 +254,9 @@ const AgentPage = () => {
           <h1 className="text-3xl text-gray-400">
             Getting everything ready...
           </h1>
+          <p className="text-lg text-gray-500">
+          You may be redirected to authenticate to use VertexAI.
+          </p>
           <div className="max-w-2xl text-blue-300">
             <LinearProgress color="inherit" />
           </div>

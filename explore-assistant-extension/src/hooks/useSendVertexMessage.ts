@@ -7,6 +7,7 @@ import { RootState } from '../store'
 import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
 import { AssistantState } from '../slices/assistantSlice'
+import { isTokenExpired } from '../components/Auth/AuthProvider'
 
 const unquoteResponse = (response: string | null | undefined) => {
   if(!response) {
@@ -75,6 +76,7 @@ const useSendVertexMessage = () => {
   const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
   const VERTEX_CF_AUTH_TOKEN = process.env.VERTEX_CF_AUTH_TOKEN || ''
 
+
   // bigquery
   const VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME =
     process.env.VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME || ''
@@ -83,6 +85,8 @@ const useSendVertexMessage = () => {
   const { core40SDK } = useContext(ExtensionContext)
   const { settings, examples, currentExplore, currentExploreThread} =
     useSelector((state: RootState) => state.assistant as AssistantState)
+
+  const { access_token } = useSelector((state: RootState) => state.auth)
 
   const currentExploreKey = currentExplore.exploreKey
   const exploreRefinementExamples = examples.exploreRefinementExamples[currentExploreKey]
@@ -138,13 +142,23 @@ const useSendVertexMessage = () => {
       parameters: parameters,
     })
 
-    const signature = CryptoJS.HmacSHA256(body, VERTEX_CF_AUTH_TOKEN).toString()
+  const signature = CryptoJS.HmacSHA256(body, VERTEX_CF_AUTH_TOKEN).toString()
+
+  console.log('Making request to Vertex AI:')
+  console.log('Endpoint:', VERTEX_AI_ENDPOINT)
+  console.log('Headers:', {
+    'Content-Type': 'application/json',
+    'X-Signature': signature,
+    'Authorization': `Bearer ${access_token}`
+  })
+  console.log('Body:', JSON.parse(body))
 
     const responseData = await fetch(VERTEX_AI_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Signature': signature,
+        // 'Authorization': `Bearer ${access_token}`
       },
 
       body: body,

@@ -136,6 +136,15 @@ def create_flask_app():
 
         try:
             response_text = generate_looker_query(contents, parameters)
+            data = [
+                {
+                    "prompt": contents,
+                    "parameters": json.dumps(parameters),
+                    "response": response_text,
+                    "recorded_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S")
+                }
+            ]
+            record_prompt(data)
             return response_text, 200, get_response_headers(request)
         except Exception as e:
             logging.error(f"Internal server error: {str(e)}")
@@ -170,23 +179,30 @@ def cloud_function_entrypoint(request):
         return handle_options_request(request)
 
     incoming_request = request.get_json()
+    print(incoming_request)
     contents = incoming_request.get("contents")
     parameters = incoming_request.get("parameters")
     if contents is None:
-        return "Missing 'contents' parameter", 400
+        return "Missing 'contents' parameter", 400, get_response_headers(request)
 
-    response_text = generate_looker_query(contents, parameters)
-    data = [
-        {
-            "prompt": contents,
-            "parameters": json.dumps(parameters),
-            "response": response_text,
-            "recorded_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S")
-        }
-    ]
-    record_prompt(data)
+    if not has_valid_signature(request):
+        return "Invalid signature", 403, get_response_headers(request)
 
-    return response_text, 200, get_response_headers(request)
+    try:
+        response_text = generate_looker_query(contents, parameters)
+        data = [
+            {
+                "prompt": contents,
+                "parameters": json.dumps(parameters),
+                "response": response_text,
+                "recorded_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S")
+            }
+        ]
+        record_prompt(data)
+        return response_text, 200, get_response_headers(request)
+    except Exception as e:
+        logging.error(f"Internal server error: {str(e)}")
+        return str(e), 500, get_response_headers(request)
 
 
 def handle_options_request(request):

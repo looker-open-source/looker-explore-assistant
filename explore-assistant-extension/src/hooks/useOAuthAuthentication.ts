@@ -1,5 +1,6 @@
 import { useContext } from 'react';
 import { ExtensionContext } from '@looker/extension-sdk-react';
+import process from 'process';
 
 export const useOAuthAuthentication = () => {
   const { extensionSDK } = useContext(ExtensionContext);
@@ -16,8 +17,9 @@ export const useOAuthAuthentication = () => {
       // console.log('OAUTH FLOW : Generated state:', state);  // Log the generated state for debugging
 
       // OAuth parameters
+      const client_id = process.env.OAUTH_CLIENT_ID || '';
       const authParameters = {
-        client_id: '136420034762-ltctaj3i2k7d7q13n7b6kgra45i7j4b6.apps.googleusercontent.com',
+        client_id: client_id,
         scope: 'https://www.googleapis.com/auth/userinfo.profile',
         response_type: 'token',
         prompt: 'consent',

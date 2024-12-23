@@ -8,12 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy the app's files into the container
 WORKDIR /app
-COPY main.py /app
-COPY test.py /app
 COPY requirements.txt /app
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+
+COPY main.py /app
+COPY test.py /app
+
+EXPOSE 8000
 # Set the entrypoint to run the Flask app
 CMD ["python", "main.py"]

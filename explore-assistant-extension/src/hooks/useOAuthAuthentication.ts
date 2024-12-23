@@ -20,6 +20,7 @@ export const useOAuthAuthentication = () => {
         client_id: '136420034762-ltctaj3i2k7d7q13n7b6kgra45i7j4b6.apps.googleusercontent.com',
         scope: 'https://www.googleapis.com/auth/userinfo.profile',
         response_type: 'token',
+        prompt: 'consent',
         state, // Include the generated state
       };
 

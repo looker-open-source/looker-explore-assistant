@@ -35,6 +35,7 @@ import { Spinner } from '@looker/components'
 import { ErrorBoundary } from 'react-error-boundary'
 import Fallback from './components/Error/ErrorFallback'
 import { ComponentsProvider } from '@looker/components'
+import { AuthProvider } from './components/Auth/AuthProvider'
 
 const getRoot = () => {
   const id = 'extension-root'
@@ -51,31 +52,21 @@ const getRoot = () => {
 
 const render = (Component: typeof App) => {
   const root = getRoot()
-  const logError = (error: Error, info: { componentStack: string }) => {
-    // Do something with the error, e.g. log to an external API
-    console.log("Error: ", error.name, error.message, error.stack)
-    console.log("Info: ", info)
-  };
   ReactDOM.render(
     <>
       <Provider store={store}>
         <PersistGate loading={<Spinner />} persistor={persistor}>
           <ExtensionProvider
-            loadingComponent={<Spinner />}
-            requiredLookerVersion=">=21.0"
+              loadingComponent={<Spinner />}
+              requiredLookerVersion=">=21.0"
           >
-            <ComponentsProvider
-              themeCustomizations={{
-                colors: { key: '#1A73E8' },
-                defaults: { externalLabel: false },
-              }}
-            >
-             <ErrorBoundary 
-              FallbackComponent={Fallback} 
-              onError={logError}>
-              <Component />
-             </ErrorBoundary>
-            </ComponentsProvider>
+            <AuthProvider>
+              <ComponentsProvider>
+                <ErrorBoundary FallbackComponent={Fallback}>
+                  <Component />
+                </ErrorBoundary>
+              </ComponentsProvider>
+            </AuthProvider>
           </ExtensionProvider>
         </PersistGate>
       </Provider>
@@ -83,7 +74,6 @@ const render = (Component: typeof App) => {
     root,
   )
 }
-
 window.addEventListener('DOMContentLoaded', async () => {
   render(App)
 })

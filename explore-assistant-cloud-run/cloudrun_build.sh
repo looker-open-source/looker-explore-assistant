@@ -34,9 +34,17 @@ docker build -t $IMAGE .
 echo "Pushing Docker image to GCR..."
 gcloud auth configure-docker $REPOSITORY_REGION
 
-gcloud artifacts repositories create $REPO_NAME --repository-format=docker \
-    --location=$REGION_NAME --description="Looker explore assistant repository" \
-    --project=$PROJECT_ID
+# Check if repository exists first
+REPO_EXISTS=$(gcloud artifacts repositories list --project=$PROJECT_ID --filter="name:$REPO_NAME" --format="get(name)")
+
+if [ -z "$REPO_EXISTS" ]; then
+    echo "Creating new repository $REPO_NAME..."
+    gcloud artifacts repositories create $REPO_NAME --repository-format=docker \
+        --location=$REGION_NAME --description="Looker explore assistant repository" \
+        --project=$PROJECT_ID
+else
+    echo "Repository $REPO_NAME already exists, skipping creation..."
+fi
 
 docker push $IMAGE
 
@@ -46,6 +54,8 @@ Image pushed to Artifact Registry.
 
 To deploy the image with terraform, please copy the following variables to variables.tfvars file:
 =================================================
+
+
 image="$IMAGE"
 use_cloud_run_backend=true
 

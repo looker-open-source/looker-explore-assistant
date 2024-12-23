@@ -5,5 +5,4 @@ use_bigquery_backend=false
 use_cloud_function_backend=false
 use_cloud_run_backend=true
 cloud_run_service_name="explore-assistant-endpoint-ken"
-image_name="explore-assistant-endpoint-ken"
-image_tag="4f35ab1"
+image="asia-southeast1-docker.pkg.dev/joon-sandbox/looker-explore-assistant/explore-assistant-api-ken:latest"

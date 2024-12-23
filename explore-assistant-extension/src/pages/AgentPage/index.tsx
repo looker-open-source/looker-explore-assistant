@@ -250,10 +250,7 @@ const AgentPage = () => {
   const { access_token, expires_in } = useSelector((state: RootState) => state.auth);
 
   
-  const isAgentReady = isBigQueryMetadataLoaded && 
-                      isSemanticModelLoaded && 
-                      access_token && 
-    !isTokenExpired(access_token, expires_in);
+  const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded
   
   console.log('Agent ready state:', {
     isBigQueryMetadataLoaded,
@@ -274,9 +271,6 @@ const AgentPage = () => {
           <h1 className="text-3xl text-gray-400">
             Getting everything ready...
           </h1>
-          <p className="text-lg text-gray-500">
-          You may be redirected to authenticate to use VertexAI.
-          </p>
           <div className="max-w-2xl text-blue-300">
             <LinearProgress color="inherit" />
           </div>

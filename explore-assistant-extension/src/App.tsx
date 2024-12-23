@@ -5,6 +5,11 @@ import { useLookerFields } from './hooks/useLookerFields'
 import { useBigQueryExamples } from './hooks/useBigQueryExamples'
 import AgentPage from './pages/AgentPage'
 import { useOAuthAuthentication } from './hooks/useOAuthAuthentication'; // Import custom hook
+import { useDispatch, useSelector } from 'react-redux';
+import AuthLoadingScreen from './components/Auth/AuthLoadingScreen'
+import { setAuthenticated, setToken, setExpiry } from './slices/authSlice'
+import { isTokenExpired } from './components/Auth/AuthProvider'
+
 
 // OAuth Callback handler component
 const OAuthCallbackPage = () => {
@@ -45,45 +50,46 @@ const OAuthCallbackPage = () => {
 };
 
 const ExploreApp = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // Track authentication status
-  const authenticate = useOAuthAuthentication(); // OAuth authentication function
+  const authenticate = useOAuthAuthentication()
+  const dispatch = useDispatch()
+  const { isAuthenticated, access_token, expires_in } = useSelector((state: RootState) => state.auth)
+
 
   // Load dimensions, measures, and examples into the state
   useLookerFields();
   useBigQueryExamples();
 
-  const handleOAuthClick = async () => {
+  const handleAuth = async () => {
     try {
-      const oauthResult = await authenticate(); // Trigger OAuth authentication when button is clicked
-
-      if (oauthResult) {
-        // Handle OAuth result (e.g., store the token, redirect, etc.)
-        console.log('OAuth successful', oauthResult);
-        setIsAuthenticated(true); // Mark as authenticated
-      } else {
-        console.error('OAuth failed');
+      const authResult = await authenticate()
+      if (authResult?.access_token) {
+        const newExpiry = Date.now() + (authResult.expires_in * 1000)
+        dispatch(setAuthenticated(true))
+        dispatch(setToken(authResult.access_token))
+        dispatch(setExpiry(newExpiry))
+        localStorage.setItem('lastAuthTime', Date.now().toString())
       }
     } catch (error) {
-      console.error('Error during OAuth:', error);
+      console.error('Auth failed:', error)
     }
-  };
+  }
+
+  if (!isAuthenticated || !access_token || isTokenExpired(access_token, expires_in)) {
+    return <AuthLoadingScreen onAuthClick={handleAuth} />
+  }
 
   return (
-    <>
-      <Switch>
-        <Route path="/index" exact>
-          <AgentPage />
-        </Route>
-        <Route path="/oauth/callback" exact>
-          <OAuthCallbackPage /> {/* Handle the OAuth callback here */}
-        </Route>
-        <Route>
-          <Redirect to="/index" />
-        </Route>
-      </Switch>
-
-      {/* Only show the OAuth button if not authenticated */}
-    </>
+    <Switch>
+      <Route path="/index" exact>
+        <AgentPage />
+      </Route>
+      <Route path="/oauth/callback" exact>
+        <OAuthCallbackPage />
+      </Route>
+      <Route>
+        <Redirect to="/index" />
+      </Route>
+    </Switch>
   )
 }
 

@@ -1,6 +1,6 @@
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useCallback, useContext } from 'react'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import { UtilsHelper } from '../utils/Helper'
 import CryptoJS from 'crypto-js'
 import { RootState } from '../store'
@@ -165,6 +165,14 @@ const useSendVertexMessage = () => {
     })
     if (!responseData.ok) {
       const error = await responseData.text()
+      if (responseData.status === 401) {
+        // this only happens on the very first oauth init of the user; 
+        // in subsequent token expiry the refresh happens in background.
+        // had to workaround this way cause useSendVertexMessage is called prematurely before the oauth is finished.
+        // TODO: find a better way to handle this
+        window.location.reload();
+        return await vertextCloudFunction(contents, raw_prompt, prompt_type, parameters);
+      }
       throw new Error(`Server responded with ${responseData.status}: ${error}`)
     }
   

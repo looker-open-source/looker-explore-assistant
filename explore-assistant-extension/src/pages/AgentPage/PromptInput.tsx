@@ -21,6 +21,13 @@ const PromptInput = () => {
   }
 
   const handleSubmit = useCallback(() => {
+    console.log('PromptInput submit:', {
+      inputText,
+      isQuerying,
+      currentExplore,
+      currentExploreThread
+  });
+  
 
     const prompt = inputText.trim()
     if (prompt && !isQuerying) {

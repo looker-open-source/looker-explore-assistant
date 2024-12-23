@@ -253,7 +253,14 @@ const AgentPage = () => {
   const isAgentReady = isBigQueryMetadataLoaded && 
                       isSemanticModelLoaded && 
                       access_token && 
-                      !isTokenExpired(access_token, expires_in);
+    !isTokenExpired(access_token, expires_in);
+  
+  console.log('Agent ready state:', {
+    isBigQueryMetadataLoaded,
+    isSemanticModelLoaded,
+    hasAccessToken: !!access_token,
+    tokenExpired: isTokenExpired(access_token, expires_in)
+});
 
   if (!isAgentReady) {
     return (

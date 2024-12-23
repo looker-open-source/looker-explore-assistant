@@ -158,11 +158,16 @@ const useSendVertexMessage = () => {
       headers: {
         'Content-Type': 'application/json',
         'X-Signature': signature,
-        // 'Authorization': `Bearer ${access_token}`
+        'Authorization': `Bearer ${access_token}`
       },
 
       body: body,
     })
+    if (!responseData.ok) {
+      const error = await responseData.text()
+      throw new Error(`Server responded with ${responseData.status}: ${error}`)
+    }
+  
     const response = await responseData.text()
     return response.trim()
   }

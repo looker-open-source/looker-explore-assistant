@@ -22,6 +22,7 @@ export const useOAuthAuthentication = () => {
         response_type: 'token',
         prompt: 'consent',
         state, // Include the generated state
+        access_type: 'online'
       };
 
       console.log('OAUTH FLOW : Auth Parameters:', authParameters); // Log auth parameters

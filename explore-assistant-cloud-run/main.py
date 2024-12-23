@@ -33,6 +33,8 @@ from datetime import datetime, timezone
 from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
 from flask import Flask, request, Response
 from flask_cors import CORS
+import requests
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -49,7 +51,7 @@ def get_response_headers(request):
     headers = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, X-Signature"
+        "Access-Control-Allow-Headers": "Content-Type, X-Signature, Authorization",
     }
     return headers
 
@@ -69,6 +71,36 @@ def has_valid_signature(request):
     expected_signature = hmac_obj.hexdigest()
 
     return hmac.compare_digest(signature, expected_signature)
+
+def validate_bearer_token(request):
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        logging.error("Missing or malformed Authorization header")
+        return False
+
+    token = auth_header.split(' ')[1]
+    try:
+        # Validate access token using Google's tokeninfo endpoint
+        response = requests.get(f'https://oauth2.googleapis.com/tokeninfo?access_token={token}')
+
+        if response.status_code == 200:
+            token_info = response.json()
+            # Verify the token was issued for our client ID
+            expected_client_id = '136420034762-ltctaj3i2k7d7q13n7b6kgra45i7j4b6.apps.googleusercontent.com'
+            if token_info.get('azp') != expected_client_id:
+                logging.error(f"Token was issued for different client ID: {token_info.get('azp')}")
+                return False
+
+            logging.info(f"Token verification successful. Info: {token_info}")
+            return True
+
+        logging.error(f"Token validation failed with status code: {response.status_code}")
+        logging.error(f"Response content: {response.text}")
+        return False
+
+    except Exception as e:
+        logging.error(f"Token validation failed with unexpected error: {str(e)}")
+        return False
 
 def generate_looker_query(contents, parameters=None, model_name="gemini-1.5-flash"):
 
@@ -105,8 +137,8 @@ def generate_looker_query(contents, parameters=None, model_name="gemini-1.5-flas
     # Complete a structured log entry.
     entry = dict(
         severity="INFO",
-        message={"request": contents, "response": response.text,
-                 "input_characters": metadata.prompt_token_count, "output_characters": metadata.candidates_token_count},
+        # message={"request": contents, "response": response.text,
+        #          "input_characters": metadata.prompt_token_count, "output_characters": metadata.candidates_token_count},
         # Log viewer accesses 'component' as jsonPayload.component'.
         component="explore-assistant-metadata",
     )
@@ -122,19 +154,29 @@ def create_flask_app():
     @app.route("/", methods=["POST", "OPTIONS"])
     def base():
         if request.method == "OPTIONS":
+            logging.info("Received OPTIONS request")
             return handle_options_request(request)
 
         incoming_request = request.get_json()
-        print(incoming_request)
+        logging.info(f"Received POST request with payload: {incoming_request}")
+        logging.info(f"Request headers: {dict(request.headers)}")
+
         contents = incoming_request.get("contents")
         parameters = incoming_request.get("parameters")
         if contents is None:
+            logging.warning("Missing 'contents' parameter in request")
             return "Missing 'contents' parameter", 400, get_response_headers(request)
 
         if not has_valid_signature(request):
+            logging.warning("Invalid signature detected")
             return "Invalid signature", 403, get_response_headers(request)
 
+        if not validate_bearer_token(request):
+            logging.warning("Invalid bearer token detected")
+            return "Invalid token", 401, get_response_headers(request)
+
         try:
+            logging.info(f"Generating Looker query for contents: {contents}")
             response_text = generate_looker_query(contents, parameters)
             data = [
                 {
@@ -149,6 +191,7 @@ def create_flask_app():
         except Exception as e:
             logging.error(f"Internal server error: {str(e)}")
             return str(e), 500, get_response_headers(request)
+
 
     @app.errorhandler(500)
     def internal_server_error(error):

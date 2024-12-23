@@ -41,7 +41,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      if (!access_token || isTokenExpired(access_token, expires_in)) {
+      // Add proactive token refresh
+      const shouldRefreshToken = !access_token || 
+                               isTokenExpired(access_token, expires_in) ||
+                               !localStorage.getItem('lastAuthTime');
+  
+      if (shouldRefreshToken) {
         try {
           const authResult = await authenticate();
           if (authResult?.access_token) {
@@ -49,14 +54,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             dispatch(setAuthenticated(true));
             dispatch(setToken(authResult.access_token));
             dispatch(setExpiry(newExpiry));
+            localStorage.setItem('lastAuthTime', Date.now().toString());
           }
         } catch (error) {
           console.error('Auth failed:', error);
         }
       }
     };
-
+  
     initializeAuth();
+    // Add refresh interval
+    const refreshInterval = setInterval(initializeAuth, 3500000); // Refresh before 1-hour expiry
+    
+    return () => clearInterval(refreshInterval);
   }, []);
 
   return <>{children}</>;

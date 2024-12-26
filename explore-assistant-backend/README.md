@@ -10,6 +10,13 @@ The Explore Assistant also uses a set of examples to improve the quality of its 
 
 Here we list the reasons and tradeoffs of each deployment approach in an effort to scope the right backend deployment approach based on individual preferences and existing setups. The backend setup will default for a Cloud Run installation.
 
+## Easy Cloud Shell Setup
+
+To simplify the backend installation, you can use the following link to open a Google Cloud Shell with the necessary setup commands pre-configured. This will provision the backend resources without any local software or configuration.
+
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=explore-assistant-backend&cloudshell_tutorial=cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
+
+
 **Regardless of Backend**:
 * Any Looker database connection can be used for fetching the actual data returned from the natural language query url
 * They implement the same API, as in no Looker Credentials are stored in the backends and the arguments are the same (*ie. model parameters and a prompt*)
@@ -104,12 +111,6 @@ If you use the defaults, you can test whether everything is working by running:
 ```
 
 Also, as part of the BigQuery backend setup, we create the Service Account that can be used to connect Looker to the BigQuery dataset to fetch the examples and use the model. You can follow the instructions for creating the connection in Looker here (https://cloud.google.com/looker/docs/db-config-google-bigquery#authentication_with_bigquery_service_accounts). You should be able to pickup the instructions on step 5. 
-
-## Easy Cloud Shell Setup
-
-To simplify the backend installation, you can use the following link to open a Google Cloud Shell with the necessary setup commands pre-configured. This will provision the backend resources without any local installations.
-
-[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=explore-assistant-backend&cloudshell_tutorial=cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
 
 ## Deployment Notes
 

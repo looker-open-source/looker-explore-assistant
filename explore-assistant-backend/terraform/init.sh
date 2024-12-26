@@ -26,6 +26,9 @@ prompt_for_env_vars() {
     export TF_VAR_region
   fi
 
+  # Set the project ID as the default and application-default project ID
+  gcloud config set project $TF_VAR_project_id
+  gcloud auth application-default set-quota-project $TF_VAR_project_id
 }
 
 # Function to create Cloud Function key

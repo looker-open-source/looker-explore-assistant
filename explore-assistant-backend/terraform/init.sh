@@ -30,9 +30,9 @@ prompt_for_env_vars() {
   gcloud config set project $TF_VAR_project_id
   # if gcloud auth application-default set-quota-project $TF_VAR_project_id; then
   #   echo "Application-default project set to $TF_VAR_project_id"
-  else
-    echo "Failed to set application-default project. Please ensure you have application-default credentials set up."
-  fi
+  # else
+  #   echo "Failed to set application-default project. Please ensure you have application-default credentials set up."
+  # fi
 }
 
 # Function to create Cloud Function key

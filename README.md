@@ -38,11 +38,36 @@ Additionally, the extension provides:
 
 ## Get Started
 
-Getting started involves (*in this order*):
- Open up this repository and follow the default instructions for a quick clean install: 
-   [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=./&cloudshell_tutorial=explore-assistant-backend/cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
+Getting started involves:
+ Provision backend resources by following the instructions in a cloud shell for a quick clean install: 
+  [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=./&cloudshell_tutorial=explore-assistant-backend/cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
 
-Alternately, follow the below directions.
+
+After provisioning backend resources, grant a service account access to the datasets created, then use that service account in a [Looker Connection](https://cloud.google.com/looker/docs/db-config-google-bigquery). 
+
+The looker connection can be specified during marketplace deployment, or by setting a override_constant in the remote_dependency. Open or create a manifest file to import the necessary LookML files and compiled frontend application.
+
+## manifest.lkml snippet 
+```
+remote_dependency: explore_assistant_marketplace {
+  url: "https://github.com/bytecodeio/explore-assistant-lookml"
+  
+  override_constant: LOOKER_BIGQUERY_CONNECTION_NAME {
+   value: "your_looker_connection_name"
+  }
+  
+  # BQML_REMOTE_CONNECTION_MODEL_ID is the ID of a remote connection to Vertex in BigQuery
+  # Only necessary for the BigQuery Backend install type.
+  # Can be left as an empty string for Cloud Function backend installs.
+  override_constant: BQML_REMOTE_CONNECTION_MODEL_ID {
+   value: ""
+  }
+}
+```
+
+
+Alternately, follow the below directions for a manual compilation and install.
+
 1. Clone or download a copy of this repository to your development machine.
    If you have a git ssh_config:
    ```bash

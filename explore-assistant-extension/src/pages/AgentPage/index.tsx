@@ -146,8 +146,6 @@ const AgentPage = () => {
     const exploreGenerationExamples =
       examples.exploreGenerationExamples[exploreKey]
 
-    const trustedDashboards =
-      examples.trustedDashboards[exploreKey]
 
     const newExploreUrl = await generateExploreParams(
       promptSummary,

@@ -91,14 +91,6 @@ If instead you wish to append examples:
 ./append_examples.sh
 ```
 
-Load the trusted dashboard lookml
-
-```bash
- python load_examples.py --project_id YOUR_PROJECT_ID --explore_id YOUR_EXPLORE_ID --table_id trusted_dashboards --json_file trusted_dashboards.lkml --format text --column_name lookml
-=======
-chmod +x update_examples.sh
-```
-
 
 ### Description
 

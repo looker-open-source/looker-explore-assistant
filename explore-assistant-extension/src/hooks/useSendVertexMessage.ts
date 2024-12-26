@@ -70,7 +70,6 @@ const useSendVertexMessage = () => {
   const currentExploreKey = currentExplore.exploreKey
   const exploreRefinementExamples =
     examples.exploreRefinementExamples[currentExploreKey]
-  const trustedDashboards = examples.trustedDashboards[currentExploreKey]
 
   const modelName = lookerHostData?.extensionId.split('::')[0]
 

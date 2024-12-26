@@ -67,3 +67,9 @@ PROJECT=XXXX LOCATION=us-central-1 VERTEX_CF_AUTH_TOKEN=$(cat ../.vertex_cf_auth
 ```
 
 In production, on the cloud function, you can manually set a variable in the GCP UI. Updating the variable will re-deploy the cloud function.
+
+## Easy Cloud Shell Setup
+
+To simplify the backend installation, you can use the following link to open a Google Cloud Shell with the necessary setup commands pre-configured. This will provision the backend resources without any local installations.
+
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/your-repo/explore-assistant-backend&cloudshell_working_dir=terraform&cloudshell_open_in_editor=init.sh&cloudshell_tutorial=README.md)

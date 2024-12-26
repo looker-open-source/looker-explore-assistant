@@ -28,6 +28,7 @@ prompt_for_env_vars() {
 
   # Reauthenticate and set the project ID as the default and application-default project ID
   gcloud auth login
+  gcloud auth application-default login
   gcloud config set project $TF_VAR_project_id  
 }
 

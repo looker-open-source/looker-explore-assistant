@@ -4,7 +4,7 @@ This is an automatic installer of the GCP Cloud Run backend service.
 This is intended to be installed in an empty google project. 
 To begin, please execute:
 ```
-cd terraform && ./init.sh && terraform apply
+cd explore-assistant-backend/terraform && ./init.sh && terraform apply
 ```
 
 # Caution

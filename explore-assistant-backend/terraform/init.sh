@@ -55,15 +55,20 @@ create_cf_key
 # Prompt for environment variables if not set
 prompt_for_env_vars
 
-
 # Set default use_cloud_function_backend to true
 export TF_VAR_use_cloud_function_backend=true
 cp backends/backend-gcs.tf backend.tf
-gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
+
+# Create GCS bucket for Terraform state
+if gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/; then
+  echo "GCS bucket created successfully."
+else
+  echo "Failed to create GCS bucket. Please check your permissions and try again."
+  exit 1
+fi
 
 echo "Initializing Terraform with remote GCS backend..."
 terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state"
-
 
 # Apply Terraform configuration
 terraform apply -auto-approve

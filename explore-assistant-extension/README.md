@@ -1,6 +1,31 @@
 # Explore Assistant Extension Frontend Deployment
 This documentation outlines the steps required to deploy the Explore Assistant Extension with the desired backend for generating Explore URL's based on Natural Language. It is intended to be installed via the Looker marketplace.
 
+Instead of compiling, building and deploying, it is recommended to use a prebuild Looker Project to handle the compiled code, views, model, and manifest for this application.  Either load the project directly from the marketplace, or add a remote dependency using this repo: https://github.com/bytecodeio/explore-assistant-lookml
+
+This contains a pre-compiled bundled application. All frontend variables can be entered through the configuration there. To quickly deploy a backend, create an empty Google project and click below. Follow the default instructions on the right side of this page for a quick clean install: 
+   [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=./&cloudshell_tutorial=explore-assistant-backend/cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
+
+After that deployment, it will be necessary to grant any service account access to the datasets created, then use that service account in a Looker Connection. The looker connection can be specified during marketplace deployment, or by setting a override_constant in the remote_dependency like this:
+## manifest.lkml snippet 
+```
+remote_dependency: explore_assistant_marketplace {
+  url: "https://github.com/bytecodeio/explore-assistant-lookml"
+  
+  override_constant: LOOKER_BIGQUERY_CONNECTION_NAME {
+   value: "your_looker_connection_name"
+  }
+  
+  # BQML_REMOTE_CONNECTION_MODEL_ID is the ID of a remote connection to Vertex in BigQuery
+  # Only necessary for the BigQuery Backend install type.
+  # Can be left as an empty string for Cloud Function backend installs.
+  override_constant: BQML_REMOTE_CONNECTION_MODEL_ID {
+   value: ""
+  }
+}
+
+# For Development Deploys ONLY:
+
 ## 1. Deployment
 
 1. Clone this repo locally

@@ -26,9 +26,7 @@ prompt_for_env_vars() {
     export TF_VAR_region
   fi
 
-  # Reauthenticate and set the project ID as the default and application-default project ID
-  gcloud auth login
-  gcloud auth application-default login
+  # Set the entered project ID as the default
   gcloud config set project $TF_VAR_project_id  
 }
 
@@ -56,12 +54,12 @@ export TF_VAR_use_cloud_function_backend=true
 cp backends/backend-gcs.tf backend.tf
 
 # Create GCS bucket for Terraform state
-# if gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/; then
-#   echo "GCS bucket created successfully."
-# else
-#   echo "Failed to create GCS bucket. Please check your permissions and try again."
-#   exit 1
-# fi
+if gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/; then
+  echo "GCS bucket created successfully."
+else
+  echo "Failed to create GCS bucket. Please check your permissions and try again."
+  exit 1
+fi
 
 echo "Initializing Terraform with remote GCS backend..."
 terraform init 

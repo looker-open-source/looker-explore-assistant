@@ -17,7 +17,7 @@ variable "use_bigquery_backend" {
   default = false
 }
 
-variable "VERTEX_CF_AUTH_TOKEN" {
+variable "vertex_cf_auth_token" {
   type = string
   description = "Vertex Cloud Function Auth Token"
 }

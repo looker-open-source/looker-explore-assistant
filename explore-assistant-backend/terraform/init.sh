@@ -32,7 +32,7 @@ prompt_for_env_vars() {
 create_cf_key() {
   VERTEX_CF_AUTH_TOKEN=$(openssl rand -base64 32)
   echo "Generated Cloud Function Key: $VERTEX_CF_AUTH_TOKEN"
-  export TF_VAR_VERTEX_CF_AUTH_TOKEN=$VERTEX_CF_AUTH_TOKEN
+  export TF_VAR_vertex_cf_auth_token=$VERTEX_CF_AUTH_TOKEN
 }
 
 # Check if an argument was provided
@@ -51,6 +51,7 @@ prompt_for_env_vars
 # Process the provided argument
 case "$1" in
   remote)
+  
     # Set default use_cloud_function_backend to true
     export TF_VAR_use_cloud_function_backend=true
     cp backends/backend-gcs.tf backend.tf

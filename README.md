@@ -52,7 +52,7 @@ Getting started involves (*in this order*):
    git clone https://github.com/looker-open-source/looker-explore-assistant.git
    ```
    Alternatively, open up this repository in: 
-   [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=explore-assistant-backend&cloudshell_tutorial=cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy&cloudshell_image=gcr.io/cloudshell-images/cloudshell:latest)
+   [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=explore-assistant-backend&cloudshell_tutorial=cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
 
 2. Make sure [pip](https://pip.pypa.io/en/stable/cli/pip_install/) is installed on your computer to run the `pip install -r requirements.txt` command line in the setup section.     
 3. Install [`google-cloud-sdk`](https://cloud.google.com/sdk/docs/install) in the looker-explore-assistant directory to install Google Cloud SDK before the backend setup. 

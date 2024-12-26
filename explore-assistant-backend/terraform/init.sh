@@ -28,7 +28,7 @@ prompt_for_env_vars() {
 
   # Set the project ID as the default and application-default project ID
   gcloud config set project $TF_VAR_project_id
-  gcloud auth application-default login 
+  
   # if gcloud auth application-default set-quota-project $TF_VAR_project_id; then
   #   echo "Application-default project set to $TF_VAR_project_id"
   # else

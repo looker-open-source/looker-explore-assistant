@@ -10,7 +10,7 @@ variable "project_id" {
   type = string
 }
 
-variable "VERTEX_CF_AUTH_TOKEN" {
+variable "vertex_cf_auth_token" {
   type = string
 }
 

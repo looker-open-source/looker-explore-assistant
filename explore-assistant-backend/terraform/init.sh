@@ -43,11 +43,6 @@ create_cf_key() {
   export TF_VAR_vertex_cf_auth_token=$VERTEX_CF_AUTH_TOKEN
 }
 
-# Function to refresh application-default credentials
-refresh_application_default_credentials() {
-  gcloud auth application-default login
-}
-
 # Check if an argument was provided
 if [ -z "$1" ]; then
   echo "No option provided. Defaulting to 'remote' backend."
@@ -60,16 +55,14 @@ create_cf_key
 # Prompt for environment variables if not set
 prompt_for_env_vars
 
-# Refresh application-default credentials
-refresh_application_default_credentials
 
-  # Set default use_cloud_function_backend to true
-  export TF_VAR_use_cloud_function_backend=true
-  cp backends/backend-gcs.tf backend.tf
-  gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
+# Set default use_cloud_function_backend to true
+export TF_VAR_use_cloud_function_backend=true
+cp backends/backend-gcs.tf backend.tf
+gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
 
-  echo "Initializing Terraform with remote GCS backend..."
-  terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state"
+echo "Initializing Terraform with remote GCS backend..."
+terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state"
 
 
 # Apply Terraform configuration

@@ -1,4 +1,3 @@
-
 #
 # REQUIRED VARIABLES
 #
@@ -16,6 +15,11 @@ variable "use_cloud_function_backend" {
 variable "use_bigquery_backend" {
   type = bool
   default = false
+}
+
+variable "VERTEX_CF_AUTH_TOKEN" {
+  type = string
+  description = "Vertex Cloud Function Auth Token"
 }
 
 #

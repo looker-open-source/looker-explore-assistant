@@ -8,7 +8,7 @@ The Explore Assistant also uses a set of examples to improve the quality of its 
 
 ### What backend should I use?
 
-Here we list the reasons and tradeoffs of each deployment approach in an effort to scope the right backend deployment approach based on individual preferences and existing setups. 
+Here we list the reasons and tradeoffs of each deployment approach in an effort to scope the right backend deployment approach based on individual preferences and existing setups. The backend setup will default for a Cloud Run installation.
 
 **Regardless of Backend**:
 * Any Looker database connection can be used for fetching the actual data returned from the natural language query url
@@ -16,6 +16,7 @@ Here we list the reasons and tradeoffs of each deployment approach in an effort 
 * By default both approaches fetch examples from a BigQuery table out of simplicity. For Cloud Functions you can modify [this React Hook](../explore-assistant-extension/src/hooks/useBigQueryExamples.ts) and change the `connection_name` on line 18 to point to the non BQ database connection in Looker that houses your example prompts/training data.
 
 **For Cloud Function/Run**:
+* Default method. 
 * Generally speaking, this approach is recommended for folks who want more development control on the backend
 * Your programming language of choice can be used
 * Workflows for custom codeflow like using custom models, combining models to improve results, fetching from external datastores, etc. are supported
@@ -32,7 +33,7 @@ Here we list the reasons and tradeoffs of each deployment approach in an effort 
 
 ## Prerequisites
 
-- Terraform installed on your machine.
+- Terraform installed on the GCP console.
 - Access to a GCP account with permission to create and manage resources.
 - A GCP project where the resources will be deployed.
 

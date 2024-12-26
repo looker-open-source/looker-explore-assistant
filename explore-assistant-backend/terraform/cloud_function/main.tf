@@ -1,4 +1,3 @@
-
 variable "cloud_run_service_name" {
   type = string
 }
@@ -8,6 +7,10 @@ variable "deployment_region" {
 }
 
 variable "project_id" {
+  type = string
+}
+
+variable "VERTEX_CF_AUTH_TOKEN" {
   type = string
 }
 
@@ -34,17 +37,9 @@ resource "google_secret_manager_secret" "vertex_cf_auth_token" {
   }
 }
 
-locals {
-  auth_token_file_path = "${path.module}/../../../.vertex_cf_auth_token"
-  auth_token_file_exists = fileexists(local.auth_token_file_path)
-  auth_token_file_content = local.auth_token_file_exists ? file(local.auth_token_file_path) : ""
-}
-
 resource "google_secret_manager_secret_version" "vertex_cf_auth_token_version" {
-  count       = local.auth_token_file_exists ? 1 : 0
   secret      = google_secret_manager_secret.vertex_cf_auth_token.name
-  secret_data = local.auth_token_file_content
-
+  secret_data = var.vertex_cf_auth_token
 }
 
 resource "google_secret_manager_secret_iam_binding" "vertex_cf_auth_token_accessor" {

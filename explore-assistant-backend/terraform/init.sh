@@ -14,22 +14,45 @@ show_help() {
   echo "  $0 local     # Initialize with local backend"
 }
 
+# Function to prompt for environment variables if not set
+prompt_for_env_vars() {
+  if [ -z "$TF_VAR_project_id" ]; then
+    read -p "Enter your GCP project ID: " TF_VAR_project_id
+    export TF_VAR_project_id
+  fi
+
+  if [ -z "$TF_VAR_region" ]; then
+    read -p "Enter your GCP region (e.g., us-central1): " TF_VAR_region
+    export TF_VAR_region
+  fi
+
+}
+
+# Function to create Cloud Function key
+create_cf_key() {
+  VERTEX_CF_AUTH_TOKEN=$(openssl rand -base64 32)
+  echo "Generated Cloud Function Key: $VERTEX_CF_AUTH_TOKEN"
+  export TF_VAR_VERTEX_CF_AUTH_TOKEN=$VERTEX_CF_AUTH_TOKEN
+}
+
 # Check if an argument was provided
 if [ -z "$1" ]; then
-  echo "Error: No option provided."
-  show_help
-  exit 1
+  echo "No option provided. Defaulting to 'remote' backend."
+  set -- "remote"
 fi
 
-# Check if TF_VAR_project_id is set
-if [ -z "$TF_VAR_project_id" ]; then
-  echo "Error: TF_VAR_project_id environment variable is not set."
-  exit 1
-fi
+# Create Cloud Function key
+create_cf_key
+
+# Prompt for environment variables if not set
+prompt_for_env_vars
+
 
 # Process the provided argument
 case "$1" in
   remote)
+    # Set default use_cloud_function_backend to true
+    export TF_VAR_use_cloud_function_backend=true
     cp backends/backend-gcs.tf backend.tf
     gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
 
@@ -38,6 +61,8 @@ case "$1" in
     ;;
   local)
     echo "Initializing Terraform with local backend..."
+    export TF_VAR_use_cloud_function_backend=false
+    export TF_VAR_use_bigquery_backend=true
     terraform init
     ;;
   help)
@@ -49,3 +74,6 @@ case "$1" in
     exit 1
     ;;
 esac
+
+# Apply Terraform configuration
+terraform apply -auto-approve

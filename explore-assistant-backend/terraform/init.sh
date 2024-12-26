@@ -28,7 +28,11 @@ prompt_for_env_vars() {
 
   # Set the project ID as the default and application-default project ID
   gcloud config set project $TF_VAR_project_id
-  gcloud auth application-default set-quota-project $TF_VAR_project_id
+  if gcloud auth application-default set-quota-project $TF_VAR_project_id; then
+    echo "Application-default project set to $TF_VAR_project_id"
+  else
+    echo "Failed to set application-default project. Please ensure you have application-default credentials set up."
+  fi
 }
 
 # Function to create Cloud Function key
@@ -36,6 +40,11 @@ create_cf_key() {
   VERTEX_CF_AUTH_TOKEN=$(openssl rand -base64 32)
   echo "Generated Cloud Function Key: $VERTEX_CF_AUTH_TOKEN"
   export TF_VAR_vertex_cf_auth_token=$VERTEX_CF_AUTH_TOKEN
+}
+
+# Function to refresh application-default credentials
+refresh_application_default_credentials() {
+  gcloud auth application-default login
 }
 
 # Check if an argument was provided
@@ -50,11 +59,12 @@ create_cf_key
 # Prompt for environment variables if not set
 prompt_for_env_vars
 
+# Refresh application-default credentials
+refresh_application_default_credentials
 
 # Process the provided argument
 case "$1" in
   remote)
-  
     # Set default use_cloud_function_backend to true
     export TF_VAR_use_cloud_function_backend=true
     cp backends/backend-gcs.tf backend.tf

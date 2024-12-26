@@ -39,6 +39,10 @@ Additionally, the extension provides:
 ## Get Started
 
 Getting started involves (*in this order*):
+ Open up this repository and follow the default instructions for a quick clean install: 
+   [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=./&cloudshell_tutorial=explore-assistant-backend/cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
+
+Alternately, follow the below directions.
 1. Clone or download a copy of this repository to your development machine.
    If you have a git ssh_config:
    ```bash
@@ -51,9 +55,7 @@ Getting started involves (*in this order*):
    # cd ~/ Optional. your user directory is usually a good place to git clone to.
    git clone https://github.com/looker-open-source/looker-explore-assistant.git
    ```
-   Alternatively, open up this repository in: 
-   [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=./&cloudshell_tutorial=cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
-cd terraform && ./init.sh && terraform apply
+  
 2. Make sure [pip](https://pip.pypa.io/en/stable/cli/pip_install/) is installed on your computer to run the `pip install -r requirements.txt` command line in the setup section.     
 3. Install [`google-cloud-sdk`](https://cloud.google.com/sdk/docs/install) in the looker-explore-assistant directory to install Google Cloud SDK before the backend setup. 
         >To install google-cloud-sdk, you can use this command `brew install —cask google-cloud-sdk`. Ensure you have [Homebrew](https://brew.sh/) installed first

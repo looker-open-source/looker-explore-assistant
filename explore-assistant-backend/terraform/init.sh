@@ -28,6 +28,7 @@ prompt_for_env_vars() {
 
   # Set the project ID as the default and application-default project ID
   gcloud config set project $TF_VAR_project_id
+  gcloud auth application-default login 
   # if gcloud auth application-default set-quota-project $TF_VAR_project_id; then
   #   echo "Application-default project set to $TF_VAR_project_id"
   # else
@@ -62,32 +63,14 @@ prompt_for_env_vars
 # Refresh application-default credentials
 refresh_application_default_credentials
 
-# Process the provided argument
-case "$1" in
-  remote)
-    # Set default use_cloud_function_backend to true
-    export TF_VAR_use_cloud_function_backend=true
-    cp backends/backend-gcs.tf backend.tf
-    gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
+  # Set default use_cloud_function_backend to true
+  export TF_VAR_use_cloud_function_backend=true
+  cp backends/backend-gcs.tf backend.tf
+  gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
 
-    echo "Initializing Terraform with remote GCS backend..."
-    terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state"
-    ;;
-  local)
-    echo "Initializing Terraform with local backend..."
-    export TF_VAR_use_cloud_function_backend=false
-    export TF_VAR_use_bigquery_backend=true
-    terraform init
-    ;;
-  help)
-    show_help
-    ;;
-  *)
-    echo "Error: Invalid option '$1'."
-    show_help
-    exit 1
-    ;;
-esac
+  echo "Initializing Terraform with remote GCS backend..."
+  terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state"
+
 
 # Apply Terraform configuration
 terraform apply -auto-approve

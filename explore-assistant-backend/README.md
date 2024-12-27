@@ -6,16 +6,15 @@ This Terraform configuration establishes a backend for the Looker Explore Assist
 
 The Explore Assistant also uses a set of examples to improve the quality of its answers. We store those examples in BigQuery. Please see the comparisons below when deciding which deployment approach to use.
 
-### What backend should I use?
-
-Here we list the reasons and tradeoffs of each deployment approach in an effort to scope the right backend deployment approach based on individual preferences and existing setups. The backend setup will default for a Cloud Run installation.
-
-## Easy Cloud Shell Setup
+## Cloud Shell Setup
 
 To simplify the backend installation, you can use the following link to open a Google Cloud Shell with the necessary setup commands pre-configured. This will provision the backend resources without any local software or configuration.
 
 [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=explore-assistant-backend&cloudshell_tutorial=cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
 
+### What backend should I use?
+
+Here we list the reasons and tradeoffs of each deployment approach in an effort to scope the right backend deployment approach based on individual preferences and existing setups. The backend setup will default for a Cloud Run installation.
 
 **Regardless of Backend**:
 * Any Looker database connection can be used for fetching the actual data returned from the natural language query url

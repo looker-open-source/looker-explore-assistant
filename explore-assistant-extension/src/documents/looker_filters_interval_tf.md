@@ -1,5 +1,3 @@
-export const looker_filters_interval_tf:string= `
-
 ## Intervals
 
 Interval options
@@ -134,7 +132,4 @@ This will split up each second into intervals with the specified number of milli
 2014-09-01 01:00:00.500
 2014-09-01 01:00:00.750
 To give an example, a row with a time of 2014-09-01 01:00:00.333 would have a millisecond250 of 2014-09-01 01:00:00.250.
-`
-
-
-export default looker_filters_interval_tf;
+                                                                          |

@@ -9,7 +9,8 @@ import { AssistantState } from '../slices/assistantSlice'
 
 import looker_filter_doc from '../documents/looker_filter_doc.md'
 import looker_visualization_doc from '../documents/looker_visualization_doc.md'
-import looker_filters_interval_tf from '../documents/looker_filters_interval_tf'
+import looker_filters_interval_tf from '../documents/looker_filters_interval_tf.md'
+import looker_pivots_url_parameters_doc from '../documents/looker_pivots_url_parameters_doc.md'
 
 import { ModelParameters } from '../utils/VertexHelper'
 import { BigQueryHelper } from '../utils/BigQueryHelper'
@@ -182,6 +183,7 @@ ${exploreRefinementExamples &&
     }
     let exampleText = ''
     if (exploreGenerationExamples && exploreGenerationExamples.length > 0) {
+      console.log("Line",exploreGenerationExamples)
       exampleText = exploreGenerationExamples.map((item) => `input: "${item.input}" ; output: ${JSON.stringify(parseLookerURL(item.output))}`).join('\n')
     }
     return `
@@ -192,6 +194,8 @@ ${exploreRefinementExamples &&
        ${looker_filters_interval_tf}   
       Here is general documentation on visualizations:
        ${looker_visualization_doc}
+      Here is general documentation on Looker JSON fields and pivots
+       ${looker_pivots_url_parameters_doc}
       # End Documentation
       
            
@@ -327,6 +331,7 @@ ${exploreRefinementExamples &&
   
   const parseLookerURL = (url: string): { [key: string]: any } => {
     // Split URL and extract model & explore
+    console.log("Line 331",url)
     const urlSplit = url.split("?");
     let model = ""
     let explore = ""

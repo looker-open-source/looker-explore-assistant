@@ -6,11 +6,19 @@ This Terraform configuration establishes a backend for the Looker Explore Assist
 
 The Explore Assistant also uses a set of examples to improve the quality of its answers. We store those examples in BigQuery. Please see the comparisons below when deciding which deployment approach to use.
 
+## Google Project
+
+A Google Cloud Project is necessary to provision backend resources. A new google project simplifies installation. If an existing google project is used, Terraform will not be usable.
+
 ## Cloud Shell Setup
 
-To simplify the backend installation, you can use the following link to open a Google Cloud Shell with the necessary setup commands pre-configured. This will provision the backend resources without any local software or configuration.
-
+To simplify the backend installation, you can use the following link to open a Google Cloud Shell. 
 [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=explore-assistant-backend&cloudshell_tutorial=cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
+Within the cloud shell, these [installation instructions](./cloudshell_README.md) will be shown.
+
+## Development Setup
+
+Alternately, follow the below directions for a manual compilation and install.
 
 ### What backend should I use?
 
@@ -39,7 +47,6 @@ Here we list the reasons and tradeoffs of each deployment approach in an effort 
 
 ## Prerequisites
 
-- Terraform installed on the GCP console.
 - Access to a GCP account with permission to create and manage resources.
 - A GCP project where the resources will be deployed.
 

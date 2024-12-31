@@ -1,28 +1,14 @@
 # Explore Assistant Extension Frontend Deployment
-This documentation outlines the steps required to deploy the Explore Assistant Extension with the desired backend for generating Explore URL's based on Natural Language. It is intended to be installed via the Looker marketplace.
+This documentation outlines the steps required to deploy the Explore Assistant Extension with the desired backend for generating Explore URL's based on Natural Language. It is intended to be installed via the Looker marketplace.  When installing from the marketplace, you will be prompted for a LOOKER_BIGQUERY_CONNECTION_NAME, EXTERNAL_API_URL, and (optional) BQML_REMOTE_CONNECTION_MODEL_ID. These can be gathered during the setup of the backend or found direclty using the GCP UI. 
 
-Instead of compiling, building and deploying, it is recommended to use a prebuild Looker Project to handle the compiled code, views, model, and manifest for this application.  Either load the project directly from the marketplace, or add a remote dependency using this repo: https://github.com/bytecodeio/explore-assistant-lookml
+## Prerequisites
+A backend Cloud Function or BigQuery Vertex connection are created.
+A Looker connection exists that can access the explore_assistant BigQuery dataset.
+The Examples, Samples, and Refinement BigQuery tables have been populated. 
 
-This contains a pre-compiled bundled application. All frontend variables can be entered through the configuration there. To quickly deploy a backend, create an empty Google project and click below. Follow the default instructions on the right side of this page for a quick clean install: 
-   [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=./&cloudshell_tutorial=explore-assistant-backend/cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
+## After Marketplace installation
+Open the application by choosing it from the Looker Applicattions menu. A config will pop up that allows selection of backend endpoint and tests the configurations. Please enter in the remote URL and the secret key from the backend setup. The application should now be fully operational. 
 
-After that deployment, it will be necessary to grant any service account access to the datasets created, then use that service account in a Looker Connection. The looker connection can be specified during marketplace deployment, or by setting a override_constant in the remote_dependency like this:
-## manifest.lkml snippet 
-```
-remote_dependency: explore_assistant_marketplace {
-  url: "https://github.com/bytecodeio/explore-assistant-lookml"
-  
-  override_constant: LOOKER_BIGQUERY_CONNECTION_NAME {
-   value: "your_looker_connection_name"
-  }
-  
-  # BQML_REMOTE_CONNECTION_MODEL_ID is the ID of a remote connection to Vertex in BigQuery
-  # Only necessary for the BigQuery Backend install type.
-  # Can be left as an empty string for Cloud Function backend installs.
-  override_constant: BQML_REMOTE_CONNECTION_MODEL_ID {
-   value: ""
-  }
-}
 
 # For Development Deploys ONLY:
 
@@ -51,22 +37,26 @@ remote_dependency: explore_assistant_marketplace {
    You can either drag & upload this file into your Looker project, or create a `manifest.lkml` with the same content. Change the `id`, `label`, or `url` as needed. 
    **IMPORTANT** please paste in the deployed Cloud Function URL into the `external_api_urls` list and uncomment that line if you are using the Cloud Function backend deployment. This will allowlist it in Looker for fetch requests.
 
-   ```lookml
-   application: explore_assistant {
-    label: "Explore Assistant"
-    # url: "https://localhost:8080/explore_assistant.js"
-    file: "explore_assistant.js"
-    entitlements: {
-      core_api_methods: ["lookml_model_explore","create_sql_query","run_sql_query","run_query","create_query"]
-      navigation: yes
-      use_embeds: yes
-      use_iframes: yes
-      new_window: yes
-      new_window_external_urls: ["https://developers.generativeai.google/*"]
-      local_storage: yes
-      external_api_urls: ["cloud function url"]
-    }
-   }
+```
+remote_dependency: explore_assistant_marketplace {
+  url: "https://github.com/bytecodeio/explore-assistant-lookml"
+  
+  override_constant: LOOKER_BIGQUERY_CONNECTION_NAME {
+   value: "your_looker_connection_name"
+  }
+  
+  # EXTERNAL_API_URL is used for the Cloud Function Backend
+  override_constant: EXTERNAL_API_URL {
+   value: "https://SOME_URL_TO_YOUR_BACKEND_FUNCTION"
+  }
+
+  # BQML_REMOTE_CONNECTION_MODEL_ID is the ID of a remote connection to Vertex in BigQuery
+  # Only necessary for the BigQuery Backend install type.
+  # Can be left as an empty string for Cloud Function backend installs.
+  override_constant: BQML_REMOTE_CONNECTION_MODEL_ID {
+   value: ""
+  }
+}
    ```
 
 7. Create a `model` LookML file in your project. The name doesn't matter. The model and connection won't be used, and in the future this step may be eliminated.

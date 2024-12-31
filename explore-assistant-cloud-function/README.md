@@ -1,5 +1,7 @@
 # Explore Assistant Cloud Function
 
+This file is not necessary for basic installation of the application.
+
 This cloud function provides an API for generating Looker queries using the Vertex AI Gemini Pro model. It allows users to input natural language descriptions of data queries, which the function then converts into Looker Explore URLs or query suggestions using a generative AI model.
 
 ## How It Works
@@ -67,9 +69,3 @@ PROJECT=XXXX LOCATION=us-central-1 VERTEX_CF_AUTH_TOKEN=$(cat ../.vertex_cf_auth
 ```
 
 In production, on the cloud function, you can manually set a variable in the GCP UI. Updating the variable will re-deploy the cloud function.
-
-## Easy Cloud Shell Setup
-
-To simplify the backend installation, you can use the following link to open a Google Cloud Shell with the necessary setup commands pre-configured. This will provision the backend resources without any local installations.
-
-[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=explore-assistant-backend&cloudshell_tutorial=cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)

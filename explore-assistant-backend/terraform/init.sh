@@ -65,4 +65,4 @@ echo "Initializing Terraform with remote GCS backend..."
 terraform init 
 
 # Apply Terraform configuration
-terraform apply -auto-approve
+terraform apply

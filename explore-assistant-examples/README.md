@@ -44,7 +44,8 @@ The script accepts several command line arguments to specify the details require
 ## Cloud Shell Setup
 
 To simplify the example loading , you can use the following link to open a Google Cloud Shell. 
-[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_tutorial=./explore-assistant-examples/README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
+
+  [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_tutorial=./explore-assistant-backend/cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
 Within the cloud shell, these [installation instructions](./README.md) will be shown.
 
 ```bash

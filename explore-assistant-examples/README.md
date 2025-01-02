@@ -19,7 +19,7 @@ Before you run this script, you need to ensure that your environment is set up w
 `LOOKERSDK_CLIENT_SECRET` API credentials client_secret. No default value.
 
 
-## Setup
+## Local Setup
 
 To run this script, you will need to install its dependencies. It is recommended to use a virtual environment at the top level of the repo:
 
@@ -29,7 +29,6 @@ source .venv/bin/activate
 cd ./explore-assistant-examples
 pip install -r requirements.txt
 ```
-## Usage
 
 ### Loading Script Parameters
 
@@ -40,6 +39,20 @@ The script accepts several command line arguments to specify the details require
 - `--table_id`: The ID of the BigQuery table where the data will be inserted. Defaults to `explore_assistant_examples`.
 - `--explore_id`: **Required.** A unique identifier formatted as `{lookml_model_name}:{explore_name}` for the dataset rows related to a specific use case or query (used in deletion and insertion).
 - `--json_file`: The path to the JSON file containing the data to be loaded. Defaults to `examples.json`.
+
+
+## Cloud Shell Setup
+
+To simplify the example loading , you can use the following link to open a Google Cloud Shell. 
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_tutorial=./explore-assistant-examples/README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
+Within the cloud shell, these [installation instructions](./README.md) will be shown.
+
+```bash
+cd ./explore-assistant-examples
+pip install -r requirements.txt
+nano .env
+```
+Within the .env file, please replace each string with an unquoted value and save the file.  Then execute the below commands.
 
 ### Running the Loading Script
 

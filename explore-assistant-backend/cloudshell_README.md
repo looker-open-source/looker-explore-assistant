@@ -76,7 +76,7 @@ gsutil mb -p $PROJECT_ID -l US gs://$BUCKET_NAME/
 ## 6: Upload Cloud Function Source Code
 (for Cloud Function backend ONLY)
 ```bash
-zip -r function-source.zip ../../explore-assistant-cloud-function/
+cd ./explore-assistant-cloud-function && zip -r ./function-source.zip * && cd ..
 gsutil cp function-source.zip gs://$BUCKET_NAME/
 ```
 
@@ -86,6 +86,7 @@ gsutil cp function-source.zip gs://$BUCKET_NAME/
 gcloud artifacts repositories create explore-assistant-repo \
     --repository-format=docker \
     --location=$REGION \
+    --project=$PROJECT_ID \
     --description="Docker repository for Explore Assistant"
 ```
 
@@ -93,7 +94,9 @@ gcloud artifacts repositories create explore-assistant-repo \
 (for Cloud Function backend ONLY)
 ```bash
 gcloud functions deploy $CLOUD_RUN_SERVICE_NAME \
+    --gen2 \
     --region=$REGION \
+    --project=$PROJECT_ID \
     --runtime=python310 \
     --entry-point=cloud_function_entrypoint \
     --trigger-http \

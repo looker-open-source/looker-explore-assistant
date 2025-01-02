@@ -14,6 +14,11 @@ variable "vertex_cf_auth_token" {
   type = string
 }
 
+variable "source_directory" {
+  type    = string
+  default = "../../explore-assistant-cloud-function"
+}
+
 resource "google_service_account" "explore-assistant-sa" {
   account_id   = "explore-assistant-cf-sa"
   display_name = "Looker Explore Assistant Cloud Function SA"
@@ -64,13 +69,16 @@ resource "google_storage_bucket" "default" {
 data "archive_file" "default" {
   type        = "zip"
   output_path = "/tmp/function-source.zip"
-  source_dir  = "../../explore-assistant-cloud-function/"
+  source_dir  = var.source_directory
+
+  // Ensure the files maintain their relative paths in the zip
+  output_file_mode = "0666"
 }
 
 resource "google_storage_bucket_object" "object" {
-  name   = "function-source.zip"
+  name   = "function-source-${data.archive_file.default.output_sha}.zip"  // Add hash to force update
   bucket = google_storage_bucket.default.name
-  source = data.archive_file.default.output_path # Add path to the zipped function source code
+  source = data.archive_file.default.output_path
 }
 
 resource "google_artifact_registry_repository" "default" {
@@ -87,7 +95,7 @@ resource "google_cloudfunctions2_function" "default" {
 
   build_config {
     runtime           = "python310"
-    entry_point       = "cloud_function_entrypoint" # Set the entry point
+    entry_point       = "cloud_function_entrypoint" // Set the entry point
     docker_repository = google_artifact_registry_repository.default.id
     source {
       storage_source {
@@ -99,6 +107,7 @@ resource "google_cloudfunctions2_function" "default" {
     environment_variables = {
       FUNCTIONS_FRAMEWORK = 1
       SOURCE_HASH         = data.archive_file.default.output_sha
+      GOOGLE_FUNCTION_SOURCE = "explore-assistant-cloud-function/main.py"  // Add this line
     }
   }
 

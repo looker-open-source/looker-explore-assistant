@@ -13,7 +13,7 @@ A Google Cloud Project is necessary to provision backend resources. A new google
 ## Cloud Shell Setup
 
 To simplify the backend installation, you can use the following link to open a Google Cloud Shell. 
-[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_workspace=explore-assistant-backend&cloudshell_tutorial=cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_tutorial=./explore-assistant-backend/cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
 Within the cloud shell, these [installation instructions](./cloudshell_README.md) will be shown.
 
 ## Development Setup

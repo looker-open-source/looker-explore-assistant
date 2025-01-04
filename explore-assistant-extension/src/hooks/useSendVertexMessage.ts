@@ -8,6 +8,7 @@ import { AssistantState, setVertexTestSuccessful } from '../slices/assistantSlic
 import looker_filter_doc from '../documents/looker_filter_doc.md'
 import looker_visualization_doc from '../documents/looker_visualization_doc.md'
 import looker_filters_interval_tf from '../documents/looker_filters_interval_tf'
+import looker_pivots_url_parameters_doc from '../documents/looker_pivots_url_parameters_doc.md'
 
 import { ModelParameters } from '../utils/VertexHelper'
 import { ExploreParams } from '../slices/assistantSlice'
@@ -212,6 +213,29 @@ ${exploreRefinementExamples &&
        ${looker_filters_interval_tf}   
       Here is general documentation on visualizations:
        ${looker_visualization_doc}
+      Here is general documentation on Looker JSON fields and pivots
+       ${looker_pivots_url_parameters_doc}
+             
+      ## Format of query object
+      
+      | Field              | Type   | Description                                                                                                                                                                                                                                                                          |
+      |--------------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+      | model              | string | Model                                                                                                                                                                                                                                                                                |
+      | view               | string | Explore Name                                                                                                                                                                                                                                                                         |
+      | fields             | string[] | Fields                                                                                                                                                                                                                                                                                |
+      | pivots             | string[] | Pivots                                                                                                                                                                                                                                                                                |
+      | fill_fields        | string[] | Fill Fields                                                                                                                                                                                                                                                                           |
+      | filters            | object | Filters                                                                                                                                                                                                                                                                               |
+      | filter_expression  | string | Filter Expression                                                                                                                                                                                                                                                                     |
+      | sorts              | string[] | Sorts                                                                                                                                                                                                                                                                                 |
+      | limit              | string | Limit                                                                                                                                                                                                                                                                                 |
+      | column_limit       | string | Column Limit                                                                                                                                                                                                                                                                          |
+      | total              | boolean | Total                                                                                                                                                                                                                                                                                 |
+      | row_total          | string | Raw Total                                                                                                                                                                                                                                                                             |
+      | subtotals          | string[] | Subtotals                                                                                                                                                                                                                                                                             |
+      | vis_config         | object | Visualization configuration properties. These properties are typically opaque and differ based on the type of visualization used. There is no specified set of allowed keys. The values can be any type supported by JSON. A "type" key with a string value is often present, and is used by Looker to determine which visualization to present. Visualizations ignore unknown vis_config properties. |
+      | filter_config      | object | The filter_config represents the state of the filter UI on the explore page for a given query. When running a query via the Looker UI, this parameter takes precedence over "filters". When creating a query or modifying an existing query, "filter_config" should be set to null. Setting it to any other value could cause unexpected filtering behavior. The format should be considered opaque. |
+          
       # End Documentation
       
            
@@ -241,6 +265,7 @@ ${exploreRefinementExamples &&
       # End Examples
       
   `}
+
 
   const isSummarizationPrompt = async (prompt: string) => {
     const contents = `

@@ -1,3 +1,4 @@
+
 # MIT License
 
 # Copyright (c) 2023 Looker Data Sciences, Inc.
@@ -40,22 +41,27 @@ model_name = os.environ.get("MODEL_NAME", "gemini-1.0-pro-001")
 
 vertexai.init(project=project, location=location)
 
-def verify_client_secret(request):
-    client_secret = request.json.get("client_secret")
-    if client_secret == vertex_cf_auth_token:
-        logging.info('Client secret verified')
-        return True
-    else:
-        logging.error('Forbidden: Invalid client secret')
-        return False
-
 def get_response_headers(request):
     headers = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
+        "Access-Control-Allow-Headers": "Content-Type, X-Signature"
     }
     return headers
+
+
+def has_valid_signature(request):
+    signature = request.headers.get("X-Signature")
+    if signature is None:
+        return False
+
+    # Validate the signature
+    secret = vertex_cf_auth_token.encode("utf-8")
+    request_data = request.get_data()
+    hmac_obj = hmac.new(secret, request_data, "sha256")
+    expected_signature = hmac_obj.hexdigest()
+
+    return hmac.compare_digest(signature, expected_signature)
 
 def generate_looker_query(contents, parameters=None, model_name="gemini-1.5-flash"):
 
@@ -111,10 +117,8 @@ def create_flask_app():
         if request.method == "OPTIONS":
             return handle_options_request(request)
 
-        if not verify_client_secret(request):
-            return "Forbidden: Invalid client secret", 403, get_response_headers(request)
-
         incoming_request = request.get_json()
+        print(incoming_request)
         contents = incoming_request.get("contents")
         parameters = incoming_request.get("parameters")
         if contents is None:

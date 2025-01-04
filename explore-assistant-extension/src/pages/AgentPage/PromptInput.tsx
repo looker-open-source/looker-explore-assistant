@@ -1,38 +1,16 @@
 import { Send } from '@material-ui/icons'
-import React, { useState, useRef, useCallback, useContext, useEffect } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import { setIsChatMode, setQuery } from '../../slices/assistantSlice'
 import clsx from 'clsx'
-import { ExtensionContext } from '@looker/extension-sdk-react'
 
 const PromptInput = () => {
   const dispatch = useDispatch()
   const [inputText, setInputText] = useState('')
-  const [letsGo, setLetsGo] = useState(false)
   const inputRef = useRef(null)
 
-  const { lookerHostData } = React.useContext(ExtensionContext)
-
   const { isQuerying } = useSelector((state: RootState) => state.assistant)
-
-  useEffect(() => {
-    // check if lookerHostData is undefined
-    if (lookerHostData) {
-      const queryPrompt = new URLSearchParams(lookerHostData?.route?.split('?')[1]).get('queryPrompt') as string
-      console.log('Query Prompt:', queryPrompt, lookerHostData)
-      if (queryPrompt && queryPrompt.length > 5) {
-        setInputText(queryPrompt)
-        setLetsGo(true)
-      }
-    }
-  }, [lookerHostData])
-
-  useEffect(() => {
-    if (letsGo) {
-      handleSubmit()
-    }
-  }, [letsGo])
 
   const handleInputChange = (e: any) => {
     setInputText(e.target.value)

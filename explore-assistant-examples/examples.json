@@ -1,35 +1,106 @@
-
-[
-  {
-      "input": "What are the top selling categories of products in the last 90 days, broken down by sale price bin, order id, number of items sold, percentage of defective production, and average sale price?",
-      "output": "fields=order_items.created_date,orders.number_of_orders,products.category,order_items.order_id,order_items.sale_price,order_items.sale_price_bin,order_items.number_of_order_items,order_items.percentage_defective_production,order_items.average_sale_price&f[products.category]=Accessories,Blazers & Jackets,Fashion Hoodies & Sweatshirts,Pants,Shorts,Sweaters&f[order_items.created_date]=90 days&f[users.country]=&f[users.state]=&f[users.traffic_source]=&f[users.gender]=&sorts=products.category,order_items.created_date&limit=500&column_limit=50&vis={\"type\":\"linear\"}"
-  },
-  {
-      "input": "What were the top 50 brands sold in January 2024, sorted by total sales?",
-      "output": "fields=order_items.total_sales,products.brand&f[order_items.created_date]=2024-01&sorts=order_items.total_sales asc 0&limit=5000&column_limit=50&vis={}"
-  },
-  {
-      "input": "What are the top 5000 session tiers, along with the number of unique sessions and whether the visitor is returning, sorted by session tier and then by number of unique sessions in descending order?",
-      "output": "fields=user_session_info.count_unique_sessions,user_session_info.is_returning_visitor,user_session_info.session_tiers&sorts=user_session_info.session_tiers,user_session_info.count_unique_sessions desc 0&limit=5000&column_limit=50&vis={}"
-  },
-  {
-      "input": "What are the sales of accessories, blazers, jackets, fashion hoodies, sweatshirts, pants, shorts, and sweaters in the last 90 days, broken down by category, order date, order ID, sale price, sale price bin, number of items, percentage of defective production, and average sale price?",
-      "output": "fields=order_items.created_date,orders.number_of_orders,products.category,order_items.order_id,order_items.sale_price,order_items.sale_price_bin,order_items.number_of_order_items,order_items.percentage_defective_production,order_items.average_sale_price&f[products.category]=Accessories,Blazers & Jackets,Fashion Hoodies & Sweatshirts,Pants,Shorts,Sweaters&f[order_items.created_date]=90 days&f[users.country]=&f[users.state]=&f[users.traffic_source]=&f[users.gender]=&sorts=products.category,order_items.created_date&limit=500&column_limit=50&vis={\"type\":\"linear\"}"
-  },
-  {
-      "input": "How many unique sessions did each user have, and were they returning visitors? What were their session tiers?",
-      "output": "fields=user_session_info.count_unique_sessions,user_session_info.is_returning_visitor,user_session_info.session_tiers&sorts=user_session_info.session_tiers,user_session_info.count_unique_sessions desc 0&limit=5000&column_limit=50&vis={}"
-  },
-  {
-      "input": "How many users are there in each postal code?",
-      "output": "fields=users.count,users.user_location,users.postal_code&f[users.postal_code]=98%&sorts=users.count desc 0&limit=500&column_limit=50&total=on&vis={\"type\":\"looker_google_map\"}"
-  },
-  {
-      "input": "What were the monthly order counts for the months of January and February 2023?",
-      "output": "fields=orders.created_month,D7472423335061702823&filter_expression=(${orders.created_date} >= add_days(19814, date(1970, 1, 1)) AND ${orders.created_date} <= add_days(19996, date(1970, 1, 1)))&sorts=orders.created_month asc &limit=5000&dynamic_fields=[{\"measure\": \"D7472423335061702823\", \"type\": \"sum\", \"based_on\": \"orders.count\" }]"
-  },
-  {
-      "input": "What are the total sale price, number of orders, number of returned items, unrecoverable failure cost, percentage of defective production, and month of creation for order items in the last 90 days, where the failure percentage of unrecoverable cost is 0.50% and the brand is not null?",
-      "output": "fields=order_items.total_sale_price,orders.number_of_orders,order_items.number_of_returned_items,order_items.unrecoverable_failure_cost,order_items.percentage_defective_production,inventory_items.created_month&fill_fields=inventory_items.created_month&f[products.brand]=-NULL&f[order_items.created_date]=90 day&f[order_items.failure_percentage_unrecoverable_cost]=0.50&f[distribution_centers.name]=&f[products.category]=&sorts=order_items.total_sale_price desc&limit=500&column_limit=50&vis={\"type\":\"greater than\"}"
-  }
-]
+[{
+  "input": "Top 10 Brand by Sales",
+  "output": "fields=products.brand,order_items.total_sale_price&sorts=order_items.total_sale_price desc 0&limit=10&column_limit=50"
+}, {
+  "input": "users by traffic source",
+  "output": "fields=users.traffic_source,users.count&sorts=users.count desc 0&limit=500"
+}, {
+  "input": "Severely delayed orders in Chicaco",
+  "output": "fields=order_items.created_date,order_items.order_id,products.item_name,order_items.status,users.email,order_items.average_days_to_process&f[distribution_centers.name]=Chicago IL&f[order_items.created_date]=before 3 days ago&f[order_items.status]=Processing&column_limit=50"
+}, {
+  "input": "Sales performance by state, on a map",
+  "output": "fields=order_items.order_count,users.count,order_items.total_sale_price,order_items.average_spend_per_user,users.state&f[order_items.created_date]=90 days&sorts=order_items.total_sale_price desc&limit=500&column_limit=50&vis={\"type\""
+}, {
+  "input": "customer with lifetime revenue \u003e 100",
+  "output": "fields=user_order_facts.lifetime_revenue&f[user_order_facts.lifetime_revenue]=\u003e100&sorts=user_order_facts.lifetime_revenue desc 0&limit=500"
+}, {
+  "input": "Count of Users by first purchase date",
+  "output": "fields=users.count,user_order_facts.first_order_date&sorts=users.count desc 0&limit=500"
+}, {
+  "input": "customers who likes columbia or levi\u0027s",
+  "output": "fields=users.email,products.brand,order_items.total_sale_price&f[products.brand]=Columbia, Levi\u0027s&sorts=order_items.total_sale_price desc 0&limit=500"
+}, {
+  "input": "number of orders this years vs last year",
+  "output": "fields=order_items.count,order_items.created_year,order_items.created_month_name&pivots=order_items.created_year&f[order_items.created_year]=this year, last year&sorts=order_items.created_year desc,order_items.count desc 0&limit=5000&column_limit=50"
+}, {
+  "input": "what were total sales over the last year",
+  "output": "fields=order_items.total_sale_price&f[order_items.created_date]=last year&limit=500"
+}, {
+  "input": "What s the total sales of brand Calvin Klein?",
+  "output": "fields=order_items.total_sale_price&f[products.brand]=Calvin Klein&vis={\"type\":\"single_value\"}"
+}, {
+  "input": "average order sales by category, as bar chart",
+  "output": "fields=order_items.average_sale_price,products.category&vis={\"type\":\"looker_bar\"}"
+}, {
+  "input": "repeat purchase rate by category, plot as pie",
+  "output": "fields=order_items.30_day_repeat_purchase_rate,products.category&vis={\"type\":\"looker_pie\"}"
+}, {
+  "input": "what are my top selling categories this year?",
+  "output": "fields=products.category,order_items.total_sale_price&f[order_items.created_date]=this year&sorts=order_items.total_sale_price desc 0&limit=500"
+}, {
+  "input": "Last week\u0027s revenue by category and department",
+  "output": "fields=products.category,products.department,order_items.total_sale_price&pivots=products.department&order_items.created_year&f[order_items.created_date]=last week&sorts=order_items.total_sale_price desc 0&limit=500&column_limit=50"
+}, {
+  "input": "how should i determine my most loyal customers",
+  "output": "fields=users.id,users.email,user_order_facts.lifetime_revenue,user_order_facts.lifetime_orders&f[user_order_facts.repeat_customer]=Yes&sorts=user_order_facts.lifetime_revenue desc&limit=500&column_limit=50&vis={\"type\":\"looker_grid\"}"
+}, {
+  "input": "30 Day Repeat Purchase Rate by Brand, column chart",
+  "output": "fields=order_items.30_day_repeat_purchase_rate,products.brand&f[products.brand]=&sorts=order_items.30_day_repeat_purchase_rate desc 0&limit=500&vis={\"type\":\"looker_column\"}"
+}, {
+  "input": "Who are the customer with highest revenue in New York?",
+  "output": "fields=users.email,user_order_facts.lifetime_revenue&f[users.state]=New York&sorts=user_order_facts.lifetime_revenue desc 0&limit=500=vis_config={\"type\""
+}, {
+  "input": "What\u0027s my sales for the last two years ? plot as bar chart",
+  "output": "fields=order_items.total_sale_price&f[order_items.created_date]=2 years&sorts=order_items.total_sale_price descvis={\"type\":\"looker_bar\"}"
+}, {
+  "input": "sales for Columbia, Levi\u0027s and Nike this year, as bar chart",
+  "output": "fields=products.brand,order_items.total_sale_price&f[products.brand]=Columbia,\"Levi\u0027s\", Nike&f[order_items.created_date]=this year&sorts=order_items.total_sale_price desc 0&limit=500&column_limit=50&vis={\"type\":\"looker_bar\"}"
+}, {
+  "input": "What\u0027s my sales for last 4 months by category ? plot as area",
+  "output": "fields=products.category,order_items.total_sale_price&f[order_items.created_date]=4 months&limit=500&vis={\"type\":\"single_value\"}"
+}, {
+  "input": "what were total sales over the last year break it down by brand",
+  "output": "fields=products.brand,order_items.total_sale_price&f[order_items.created_date]=last year&sorts=order_items.total_sale_price desc 0&limit=500"
+}, {
+  "input": "users with lifetime value \u003e 100$ and made more than 4 orders, as table",
+  "output": "fields=users.lifetime_revenue,users.lifetime_orders&f[users.lifetime_revenue]=\u003e100&f[users.lifetime_orders]=\u003e4&sorts=users.lifetime_revenue desc 0&vis={\"type\":\"looker_grid\"}"
+}, {
+  "input": "Customer who are currently active and made an order in the last day 30 days",
+  "output": "fields=users.email,order_items.created_date&f[user_order_facts.currently_active_customer]=Yes&f[order_items.created_date]=last 30 days&sorts=order_items.created_date desc"
+}, {
+  "input": "what are my top selling categories this year? which have the highest margins?",
+  "output": "fields=products.category,order_items.total_sale_price,order_items.total_gross_margin&f[order_items.created_date]=this year&sorts=order_items.total_sale_price desc 0&limit=500"
+}, {
+  "input": "Orders that are still in Processing after 3 days, filtered by Distribution Center",
+  "output": "fields=order_items.created_date,order_items.order_id,products.item_name,order_items.status,users.email,order_items.average_days_to_process&f[distribution_centers.name]=Chicago IL&f[order_items.created_date]=before 3 days ago&f[order_items.status]=Processing&sorts=order_items.created_date desc&column_limit=50&vis={\"type\":\"looker_grid\"}"
+}, {
+  "input": "let\u0027s build an audience list of customers with over $1,000 lifetime spend include email and state",
+  "output": "fields=users.email,users.state,user_order_facts.lifetime_revenue&f[user_order_facts.lifetime_revenue]=\u003e1000&sorts=user_order_facts.lifetime_revenue desc 0&limit=500"
+}, {
+  "input": "what are my top selling categories this year? which have the highest margins? pivot on department",
+  "output": "fields=products.category,products.department,order_items.total_sale_price,order_items.total_gross_margin&pivots=products.department&f[order_items.created_date]=this year&sorts=products.department,order_items.total_sale_price desc 0&limit=500"
+}, {
+  "input": "what were total sales over the last year break it down by brand only include brands with over 50000 in revenue",
+  "output": "fields=order_items.total_sale_price,products.brand&f[order_items.created_date]=last year&f[order_items.total_sale_price]=\u003e50000&sorts=order_items.total_sale_price desc 0&limit=500"
+}, {
+  "input": "how should i determine my most loyal customers which of these customers have made a purchase in the last 30 days?",
+  "output": "fields=users.id,users.email,user_order_facts.lifetime_revenue,user_order_facts.lifetime_orders&f[user_order_facts.repeat_customer]=Yes&f[user_order_facts.latest_order_date]=30 days&sorts=user_order_facts.lifetime_revenue desc&limit=500&column_limit=50&vis={\"type\":\"looker_grid\"}"
+}, {
+  "input": "Show monthly profit for the last year. Pivot on product category.Include only jeans vs. accessories.Display as an area chart.",
+  "output": "fields=products.category,order_items.total_gross_margin,order_items.created_month_name&pivots=products.category&f[products.category]=Jeans, Accessories&f[order_items.created_date]=last year&sorts=order_items.created_month_name asc,order_items.total_gross_margin desc 0&limit=500&vis={\"type\":\"looker_area\"}"
+}, {
+  "input": "what were total sales over the last year break it down by brand only include brands with over 50000 in revenue include user count",
+  "output": "fields=order_items.total_sale_price,products.brand,users.count&f[order_items.created_date]=last+year&f[products.brand]=&f[order_items.total_sale_price]=%3E50000&sorts=order_items.total_sale_price+desc+0&limit=500"
+}, {
+  "input": "let\u0027s build an audience list of customers with over $1,000 lifetime spend include email and state only include customers in the united states",
+  "output": "fields=users.email,users.state,user_order_facts.lifetime_revenue&f[user_order_facts.lifetime_revenue]=\u003e1000&f[users.country]=United States&sorts=user_order_facts.lifetime_revenue desc 0&limit=500"
+}, {
+  "input": "what were total sales over the last year break it down by brand only include brands with over 50000 in revenue include user count display as a table",
+  "output": "fields=products.brand,order_items.total_sale_price,users.count&f[order_items.created_date]=last year&f[products.brand]=&f[order_items.total_sale_price]=\u003e50000&sorts=order_items.total_sale_price desc 0&limit=500&column_limit=50&vis={\"type\":\"looker_grid\"}"
+}, {
+  "input": "let\u0027s build an audience list of customers with over $1,000 lifetime spend include email and state only include customers in the united states only include customers who came in from facebook or search",
+  "output": "fields=users.email,users.state,user_order_facts.lifetime_revenue&f[user_order_facts.lifetime_revenue]=\u003e1000&f[users.country]=United States&f[users.traffic_source]=Facebook,Search&sorts=user_order_facts.lifetime_revenue desc 0&limit=500"
+}, {
+  "input": "let\u0027s build an audience list of customers with over $1,000 lifetime spend include email and state only include customers in the united states only include customers who came in from facebook or search add when their latest order was",
+  "output": "fields=users.email,users.state,user_order_facts.lifetime_revenue,user_order_facts.latest_order_date&f[user_order_facts.lifetime_revenue]=\u003e1000&f[users.country]=United States&f[users.traffic_source]=Facebook,Search&sorts=user_order_facts.latest_order_date desc&limit=500"
+}]

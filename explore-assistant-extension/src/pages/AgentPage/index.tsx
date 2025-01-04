@@ -146,21 +146,19 @@ const AgentPage = () => {
     const exploreGenerationExamples =
       examples.exploreGenerationExamples[exploreKey]
 
-
-    const newExploreUrl = await generateExploreParams(
+    const newExploreParams = await generateExploreParams(
       promptSummary,
       dimensions,
       measures,
-      exploreGenerationExamples
-      
+      exploreGenerationExamples,
     )
-    console.log('New Explore URL: ', newExploreUrl)
+    console.log('New Explore URL: ', newExploreParams)
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
 
     dispatch(
       updateCurrentThread({
-        exploreParams: newExploreUrl,
+        exploreParams: newExploreParams,
         summarizedPrompt: promptSummary,
       }),
     )
@@ -168,7 +166,7 @@ const AgentPage = () => {
     if (isSummary) {
       dispatch(
         addMessage({
-          exploreParams: newExploreUrl,
+          exploreParams: newExploreParams,
           uuid: uuidv4(),
           actor: 'system',
           createdAt: Date.now(),
@@ -177,12 +175,12 @@ const AgentPage = () => {
         }),
       )
     } else {
-      dispatch(setSidePanelExploreParams(newExploreUrl))
+      dispatch(setSidePanelExploreParams(newExploreParams))
       dispatch(openSidePanel())
 
       dispatch(
         addMessage({
-          exploreParams: newExploreUrl,
+          exploreParams: newExploreParams,
           uuid: uuidv4(),
           summarizedPrompt: promptSummary,
           actor: 'system',

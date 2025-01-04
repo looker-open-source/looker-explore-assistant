@@ -19,14 +19,6 @@ Additionally, the extension provides:
  - Insight Summarization
  - Dynamic Explore Selection
 
-## Setup
-
-Please follow these steps in order for a successful installation.
-1. Backend Setup - setup the GCP backend for communicating with the Vertex API [using these instructions.](./explore-assistant-backend/README.md)
-2. Looker Connection - setup a Looker connection to the BigQuery dataset created in step 1 [using these instructions.](https://cloud.google.com/looker/docs/db-config-google-bigquery)
-3. Example generation - generate a list of examples and upload them to BigQuery [using these instructions.](./explore-assistant-examples/README.md)
-4. Frontend Setup - setup Looker Extension Framework Applications [using these instructions.](./explore-assistant-extension/README.md)
-
 ### Technologies Used
 #### Frontend
 - [React](https://reactjs.org/)
@@ -43,6 +35,50 @@ Please follow these steps in order for a successful installation.
 - [Google Cloud Platform](https://cloud.google.com/)
 - [Vertex AI](https://cloud.google.com/vertex-ai)
 - [Cloud Functions](https://cloud.google.com/functions)
+
+## Get Started
+
+Getting started involves (*in this order*):
+1. Clone or download a copy of this repository to your development machine.
+   If you have a git ssh_config:
+   ```bash
+   # cd ~/ Optional. your user directory is usually a good place to git clone to.
+   git clone git@github.com:looker-open-source/looker-explore-assistant.git
+   ```
+
+   If not:
+   ```bash
+   # cd ~/ Optional. your user directory is usually a good place to git clone to.
+   git clone https://github.com/looker-open-source/looker-explore-assistant.git
+   ```
+   Alternatively, open up this repository in: &nbsp;
+   [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/looker-open-source/looker-explore-assistant.git&cloudshell_workspace=explore-assistant-extension)
+2. Make sure [pip](https://pip.pypa.io/en/stable/cli/pip_install/) is installed on your computer to run the `pip install -r requirements.txt` command line in the setup section.     
+3. Install [`google-cloud-sdk`](https://cloud.google.com/sdk/docs/install) in the looker-explore-assistant directory to install Google Cloud SDK before the backend setup. 
+        >To install google-cloud-sdk, you can use this command `brew install —cask google-cloud-sdk`. Ensure you have [Homebrew](https://brew.sh/) installed first
+4. Create a GCP Project (you’ll need the ID later). It does not have to be the same project as the prompt tables but it is recommended for simplicity
+5. Create a Looker connection for that BigQuery project
+6. Create an empty Looker project
+       - Add the connection name to the model file
+       - Configure git
+       - That’s all you need to do for now. This is where the extension framework will be deployed. The connection should be the same as the one that holds the prompts
+
+The local cloud function backend and example generation require some python packages. It is recommended to create a python virtual environment and install the dependencies:
+
+```bash
+# Use python3 on Mac OS
+python -m venv .venv
+source .venv/bin/activate 
+pip install -r ./explore-assistant-examples/requirements.txt
+pip install -r ./explore-assistant-cloud-function/requirements.txt 
+```
+> If you hit a blocker with directory permissions, use `chmod +x <FILE NAME>` to allow write permissions.
+
+## Setup
+
+1. Backend Setup - setup the GCP backend for communicating with the Vertex API [using these instructions.](./explore-assistant-backend/README.md)
+2. Example generation - generate a list of examples and upload them to BigQuery [using these instructions.](./explore-assistant-examples/README.md)
+3. Frontend Setup - setup Looker Extension Framework Applications by following [these instructions](./explore-assistant-extension/README.md).
 
 ## Recommendations for fine tuning the model
 

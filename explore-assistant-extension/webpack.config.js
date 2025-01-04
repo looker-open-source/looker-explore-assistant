@@ -54,7 +54,7 @@ module.exports = {
   },
   output: {
     path: __dirname + '/dist',
-    filename: 'explore_assistant.js',
+    filename: 'bundle.js',
   },
   module: {
     rules: [

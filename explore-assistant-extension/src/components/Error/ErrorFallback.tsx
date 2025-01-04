@@ -17,36 +17,37 @@ export default function Fallback({ error}: {error: any}) {
     // Call resetErrorBoundary() to reset the error boundary and retry the render.
     const [errorMessage, setErrorMessage] = useState<ErrDiagnosis | null>(null)
     const errMap: ErrDiagnosisMap = {
-      
       lookmlNotFoundErr: {
-        diagnosis: "The error is likely related to your BigQuery refinements, examples and samples tables not using a valid explore_id.",
+        diagnosis: "The error is likely related to your Look specific `.env` variables.",
         steps: [
-          "Make sure your user has access to the models and explores used in the 'explore_id' column.",
-          "Check the Connection environment variables. Do valid BQ connections by those names exist in your Looker instance?"
+          "Make sure your user has access to this model and explore. At the very least with [`see_lookml`](https://cloud.google.com/looker/docs/admin-panel-users-roles#permissions_list) permissions.",
+          "Check the Connection environment variables. Do valid BQ connections by those names exist in your Looker instance?",
+          "Make sure the Vertex AI API is enabled if you're using a cloud function backend. Try: https://console.cloud.google.com/apis/library/aiplatform.googleapis.com?project=<YOUR_PROJECT_ID>"
         ]
       },
       lookmlExamplesUndefinedErr: {
-        diagnosis: "This error is likely related to your example data and not being able to find examples for the given LookML Model and Explore.",
+        diagnosis: "This error is likely related to your example data and not being able to find examples for the given LookML Model and Explore in you env variables.",
         steps: [
-          "First check BigQuery and the tables (examples, samples and refinements). Is there a row with and explore ID that matches your `LOOKML_MODEL` & `LOOKML_EXPLORE` in the format of `LOOKML_MODEL:LOOKML_EXPLORE`?",
+          "First check BigQuery and the two example tables (examples and refinements). Is there a row with and explore ID that matches your `LOOKML_MODEL` & `LOOKML_EXPLORE` in the format of `LOOKML_MODEL:LOOKML_EXPLORE`?",
           "If not, please upload examples for that explore id by following the [README instructions](https://github.com/looker-open-source/looker-explore-assistant/tree/main/explore-assistant-examples).",
           "If so, find the 2 sql runner queries in Looker -> Admin -> Queries and run those manually to break any old cache. Check the Explore Assistant again."
         ]
       },
       bigQueryExamplesErr: {
-        diagnosis: "The error is likely related to your BQ settings.",
+        diagnosis: "The error is likely related to your BQ database and BQ `.env` variables.",
         steps: [
           "Please read the error message from BigQuery, the `SQLException` error will give you the reason.",
-          "Ensure that the `BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME` manifest variable is valid and set to something that exists in Looker and that the examples can be accessed from this connection.",
+          "Ensure that the `BIGQUERY_EXAMPLE_PROMPTS_CONNECTION_NAME` env variable is valid and set to something that exists in Looker and that the examples can be accessed from this connection.",
           "Ensure that the `BIGQUERY_EXAMPLE_PROMPTS_DATASET_NAME` is set to the `project_id.dataset` name that contains the example tables.",
-          "Ensure that examples exist in both the [Examples, Samples and Refinement tables.](https://github.com/looker-open-source/looker-explore-assistant/tree/main/explore-assistant-examples)",
+          "Ensure that examples exist in both the [Examples and Refinement tables.](https://github.com/looker-open-source/looker-explore-assistant/tree/main/explore-assistant-examples)",
+          "If you are using the cloud backend, please remove VERTEX_BIGQUERY_MODEL_ID and VERTEX_BIGQUERY_EXPLORE_ID and try again."
         ]
       },
       bigQueryModelErr: {
-        diagnosis: "The error is likely related to your BQ settings.",
+        diagnosis: "The error is likely related to your BQ database and BQ `.env` variable for model.",
         steps: [
           "Please read the error message from BigQuery, the `SQLException` error will give you the reason.",
-          "Ensure that your BQ service account used for the Vertex BigQuery Looker Connection Name setting has [BigQuery Connections User](https://cloud.google.com/bigquery/docs/access-control#bigquery.connectionUser) permission to the remote connection provisioned by Terraform",
+          "Ensure that your BQ service account used for the `VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME` env variable has [BigQuery Connections User](https://cloud.google.com/bigquery/docs/access-control#bigquery.connectionUser) permission to the remote connection provisioned by Terraform",
           "Ensure the BQML model in the error message matches what exists in BQ.",
           "Ensure the BQML model is fully scoped ie. `project.dataset.table`"
         ]

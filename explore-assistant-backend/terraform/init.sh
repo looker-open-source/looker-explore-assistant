@@ -14,55 +14,38 @@ show_help() {
   echo "  $0 local     # Initialize with local backend"
 }
 
-# Function to prompt for environment variables if not set
-prompt_for_env_vars() {
-  if [ -z "$TF_VAR_project_id" ]; then
-    read -p "Enter your GCP project ID: " TF_VAR_project_id
-    export TF_VAR_project_id
-  fi
-
-  if [ -z "$TF_VAR_region" ]; then
-    read -p "Enter your GCP region (e.g., us-central1): " TF_VAR_region
-    export TF_VAR_region
-  fi
-
-  # Set the entered project ID as the default
-  gcloud config set project $TF_VAR_project_id  
-}
-
-# Function to create Cloud Function key
-create_cf_key() {
-  VERTEX_CF_AUTH_TOKEN=$(openssl rand -base64 32)
-  echo "Generated Cloud Function Key: $VERTEX_CF_AUTH_TOKEN"
-  export TF_VAR_vertex_cf_auth_token=$VERTEX_CF_AUTH_TOKEN
-}
-
 # Check if an argument was provided
 if [ -z "$1" ]; then
-  echo "No option provided. Defaulting to 'remote' backend."
-  set -- "remote"
-fi
-
-# Create Cloud Function key
-create_cf_key
-
-# Prompt for environment variables if not set
-prompt_for_env_vars
-
-# Set default use_cloud_function_backend to true
-export TF_VAR_use_cloud_function_backend=true
-cp backends/backend-gcs.tf backend.tf
-
-# Create GCS bucket for Terraform state
-if gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/; then
-  echo "GCS bucket created successfully."
-else
-  echo "Failed to create GCS bucket. Please check your permissions and try again."
+  echo "Error: No option provided."
+  show_help
   exit 1
 fi
 
-echo "Initializing Terraform with remote GCS backend..."
-terraform init 
+# Check if TF_VAR_project_id is set
+if [ -z "$TF_VAR_project_id" ]; then
+  echo "Error: TF_VAR_project_id environment variable is not set."
+  exit 1
+fi
 
-# Apply Terraform configuration
-terraform apply
+# Process the provided argument
+case "$1" in
+  remote)
+    cp backends/backend-gcs.tf backend.tf
+    gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/
+
+    echo "Initializing Terraform with remote GCS backend..."
+    terraform init -backend-config="bucket=${TF_VAR_project_id}-terraform-state"
+    ;;
+  local)
+    echo "Initializing Terraform with local backend..."
+    terraform init
+    ;;
+  help)
+    show_help
+    ;;
+  *)
+    echo "Error: Invalid option '$1'."
+    show_help
+    exit 1
+    ;;
+esac

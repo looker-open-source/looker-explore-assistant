@@ -14,7 +14,7 @@ export interface ExploreParams {
 export interface Setting {
   name: string
   description: string
-  value: string | boolean // Update to allow string values
+  value: boolean
 }
 
 export interface Settings {
@@ -126,10 +126,7 @@ export interface AssistantState {
   },
   settings: Settings,
   isBigQueryMetadataLoaded: boolean,
-  isSemanticModelLoaded: boolean,
-  testsSuccessful: boolean
-  bigQueryTestSuccessful: boolean
-  vertexTestSuccessful: boolean
+  isSemanticModelLoaded: boolean
 }
 
 export const newThreadState = () => {
@@ -166,47 +163,17 @@ export const initialState: AssistantState = {
   examples: {
     exploreGenerationExamples: {},
     exploreRefinementExamples: {},
-    exploreSamples: {},
+    exploreSamples: {}
   },
   settings: {
-    
-    useCloudFunction: {
-      name: 'Backend',
-      description: 'Toggle between Cloud Function and BigQuery',
-      value: true,
-    },
-    vertex_ai_endpoint: {
-      name: 'Vertex AI Endpoint',
-      description: 'This is your deployed cloud function endpoint with access to Vertex AI',
-      value: '',
-    },
-    vertex_cf_auth_token: {
-      name: 'Vertex CF Auth Token',
-      description: 'This is the token used to communicate with the cloud function',
-      value: '',
-    },
-    
-    bigquery_example_prompts_connection_name: {
-      name: 'BigQuery Example Prompts Connection Name',
-      description: 'The BQ connection name in Looker that has query access to example prompts. This may be the same as the Vertex Connection Name if using just one gcp project',
-      value: '',
-    },
     show_explore_data: {
       name: 'Show Explore Data',
       description: 'By default, expand the data panel in the Explore',
       value: false,
     },
-    bigquery_example_looker_model_name: {
-      name: 'BigQuery Example Looker Model Name',
-      description: 'the model name for the lookml model that has access to the training data explore',
-      value: 'explore_assistant',
-    }
   },
   isBigQueryMetadataLoaded: false,
-  isSemanticModelLoaded: false,
-  testsSuccessful: false,
-  bigQueryTestSuccessful: false,
-  vertexTestSuccessful: false,
+  isSemanticModelLoaded: false
 }
 
 export const assistantSlice = createSlice({
@@ -231,7 +198,7 @@ export const assistantSlice = createSlice({
     },
     setSetting: (
       state,
-      action: PayloadAction<{ id: keyof Settings; value: string | boolean }>,
+      action: PayloadAction<{ id: keyof Settings; value: boolean }>,
     ) => {
       const { id, value } = action.payload
       if (state.settings[id]) {
@@ -355,14 +322,7 @@ export const assistantSlice = createSlice({
     },
     setCurrenExplore: (state, action: PayloadAction<AssistantState['currentExplore']>) => {
       state.currentExplore = action.payload
-    },
-    setBigQueryTestSuccessful: (state, action: PayloadAction<boolean>) => {
-      state.bigQueryTestSuccessful = action.payload
-    },
-    setVertexTestSuccessful: (state, action: PayloadAction<boolean>) => {
-      state.vertexTestSuccessful = action.payload
-      state.testsSuccessful = state.bigQueryTestSuccessful && state.vertexTestSuccessful
-    },
+    }
   },
 })
 
@@ -383,7 +343,7 @@ export const {
   setExploreGenerationExamples,
   setExploreRefinementExamples,
   setExploreSamples,
-  
+
   setisBigQueryMetadataLoaded,
 
   updateCurrentThread,
@@ -401,8 +361,6 @@ export const {
   setCurrenExplore,
 
   resetExploreAssistant,
-  setBigQueryTestSuccessful,
-  setVertexTestSuccessful,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

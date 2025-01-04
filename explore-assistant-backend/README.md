@@ -6,24 +6,9 @@ This Terraform configuration establishes a backend for the Looker Explore Assist
 
 The Explore Assistant also uses a set of examples to improve the quality of its answers. We store those examples in BigQuery. Please see the comparisons below when deciding which deployment approach to use.
 
-## Google Project
-
-A Google Cloud Project is necessary to provision backend resources. A new google project simplifies installation. If an existing google project is used, Terraform will not be usable.
-
-## Cloud Shell Setup
-
-To simplify the backend installation, you can use the following link to open a Google Cloud Shell. 
-
-  [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/bytecodeio/looker-explore-assistant&cloudshell_tutorial=./explore-assistant-backend/cloudshell_README.md&shellonly=true&cloudshell_git_branch=marketplace_deploy)
-Within the cloud shell, these [installation instructions](./cloudshell_README.md) will be shown.
-
-## Development Setup
-
-Alternately, follow the below directions for a manual compilation and install.
-
 ### What backend should I use?
 
-Here we list the reasons and tradeoffs of each deployment approach in an effort to scope the right backend deployment approach based on individual preferences and existing setups. The backend setup will default for a Cloud Run installation.
+Here we list the reasons and tradeoffs of each deployment approach in an effort to scope the right backend deployment approach based on individual preferences and existing setups. 
 
 **Regardless of Backend**:
 * Any Looker database connection can be used for fetching the actual data returned from the natural language query url
@@ -31,7 +16,6 @@ Here we list the reasons and tradeoffs of each deployment approach in an effort 
 * By default both approaches fetch examples from a BigQuery table out of simplicity. For Cloud Functions you can modify [this React Hook](../explore-assistant-extension/src/hooks/useBigQueryExamples.ts) and change the `connection_name` on line 18 to point to the non BQ database connection in Looker that houses your example prompts/training data.
 
 **For Cloud Function/Run**:
-* Default method. 
 * Generally speaking, this approach is recommended for folks who want more development control on the backend
 * Your programming language of choice can be used
 * Workflows for custom codeflow like using custom models, combining models to improve results, fetching from external datastores, etc. are supported
@@ -48,6 +32,7 @@ Here we list the reasons and tradeoffs of each deployment approach in an effort 
 
 ## Prerequisites
 
+- Terraform installed on your machine.
 - Access to a GCP account with permission to create and manage resources.
 - A GCP project where the resources will be deployed.
 

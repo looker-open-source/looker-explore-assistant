@@ -1,3 +1,4 @@
+
 variable "cloud_run_service_name" {
   type = string
 }
@@ -8,15 +9,6 @@ variable "deployment_region" {
 
 variable "project_id" {
   type = string
-}
-
-variable "vertex_cf_auth_token" {
-  type = string
-}
-
-variable "source_directory" {
-  type    = string
-  default = "../../explore-assistant-cloud-function"
 }
 
 resource "google_service_account" "explore-assistant-sa" {
@@ -42,9 +34,17 @@ resource "google_secret_manager_secret" "vertex_cf_auth_token" {
   }
 }
 
+locals {
+  auth_token_file_path = "${path.module}/../../../.vertex_cf_auth_token"
+  auth_token_file_exists = fileexists(local.auth_token_file_path)
+  auth_token_file_content = local.auth_token_file_exists ? file(local.auth_token_file_path) : ""
+}
+
 resource "google_secret_manager_secret_version" "vertex_cf_auth_token_version" {
+  count       = local.auth_token_file_exists ? 1 : 0
   secret      = google_secret_manager_secret.vertex_cf_auth_token.name
-  secret_data = var.vertex_cf_auth_token
+  secret_data = local.auth_token_file_content
+
 }
 
 resource "google_secret_manager_secret_iam_binding" "vertex_cf_auth_token_accessor" {
@@ -69,16 +69,13 @@ resource "google_storage_bucket" "default" {
 data "archive_file" "default" {
   type        = "zip"
   output_path = "/tmp/function-source.zip"
-  source_dir  = var.source_directory
-
-  // Ensure the files maintain their relative paths in the zip
-  output_file_mode = "0666"
+  source_dir  = "../../explore-assistant-cloud-function/"
 }
 
 resource "google_storage_bucket_object" "object" {
-  name   = "function-source-${data.archive_file.default.output_sha}.zip"  // Add hash to force update
+  name   = "function-source.zip"
   bucket = google_storage_bucket.default.name
-  source = data.archive_file.default.output_path
+  source = data.archive_file.default.output_path # Add path to the zipped function source code
 }
 
 resource "google_artifact_registry_repository" "default" {
@@ -95,7 +92,7 @@ resource "google_cloudfunctions2_function" "default" {
 
   build_config {
     runtime           = "python310"
-    entry_point       = "cloud_function_entrypoint" // Set the entry point
+    entry_point       = "cloud_function_entrypoint" # Set the entry point
     docker_repository = google_artifact_registry_repository.default.id
     source {
       storage_source {
@@ -107,7 +104,6 @@ resource "google_cloudfunctions2_function" "default" {
     environment_variables = {
       FUNCTIONS_FRAMEWORK = 1
       SOURCE_HASH         = data.archive_file.default.output_sha
-      GOOGLE_FUNCTION_SOURCE = "explore-assistant-cloud-function/main.py"  // Add this line
     }
   }
 

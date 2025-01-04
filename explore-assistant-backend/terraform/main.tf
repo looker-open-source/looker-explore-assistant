@@ -87,7 +87,6 @@ module "cloud_run_backend" {
   project_id             = var.project_id
   deployment_region      = var.deployment_region
   cloud_run_service_name = var.cloud_run_service_name
-  vertex_cf_auth_token   = var.vertex_cf_auth_token
 
   depends_on = [time_sleep.wait_after_apis_activate]
 }

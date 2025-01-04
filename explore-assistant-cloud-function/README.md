@@ -1,7 +1,5 @@
 # Explore Assistant Cloud Function
 
-This file is not necessary for basic installation of the application.
-
 This cloud function provides an API for generating Looker queries using the Vertex AI Gemini Pro model. It allows users to input natural language descriptions of data queries, which the function then converts into Looker Explore URLs or query suggestions using a generative AI model.
 
 ## How It Works

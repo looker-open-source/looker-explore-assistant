@@ -1,11 +1,9 @@
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useCallback, useContext } from 'react'
-import { useSelector } from 'react-redux'
-import CryptoJS from 'crypto-js'
+import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../store'
-import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
-import { AssistantState } from '../slices/assistantSlice'
+import { AssistantState, setVertexTestSuccessful } from '../slices/assistantSlice'
 
 import looker_filter_doc from '../documents/looker_filter_doc.md'
 import looker_visualization_doc from '../documents/looker_visualization_doc.md'
@@ -13,7 +11,6 @@ import looker_filters_interval_tf from '../documents/looker_filters_interval_tf.
 import looker_pivots_url_parameters_doc from '../documents/looker_pivots_url_parameters_doc.md'
 
 import { ModelParameters } from '../utils/VertexHelper'
-import { BigQueryHelper } from '../utils/BigQueryHelper'
 import { ExploreParams } from '../slices/assistantSlice'
 import { ExploreFilterValidator, FieldType } from '../utils/ExploreFilterHelper'
 
@@ -55,53 +52,65 @@ function formatRow(field: {
 
 const useSendVertexMessage = () => {
   const { showBoundary } = useErrorBoundary()
+  const dispatch = useDispatch()
 
   // cloud function
-  const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
-  const VERTEX_CF_AUTH_TOKEN = process.env.VERTEX_CF_AUTH_TOKEN || ''
 
   // bigquery
-  const VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME =
-    process.env.VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME || ''
-  const VERTEX_BIGQUERY_MODEL_ID = process.env.VERTEX_BIGQUERY_MODEL_ID || ''
 
-  const { core40SDK } = useContext(ExtensionContext)
+  const { core40SDK, extensionSDK, lookerHostData } = useContext(ExtensionContext)
+
   const { settings, examples, currentExplore } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
+  const VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME =
+    settings['vertex_bigquery_looker_connection_name']?.value || ''
+  const VERTEX_BIGQUERY_MODEL_ID = settings['vertex_bigquery_model_id']?.value || ''
+  const VERTEX_AI_ENDPOINT = settings['vertex_ai_endpoint']?.value as string || '' as string
 
   const currentExploreKey = currentExplore.exploreKey
   const exploreRefinementExamples =
     examples.exploreRefinementExamples[currentExploreKey]
 
+  const modelName = lookerHostData?.extensionId.split('::')[0]
+
   const vertexBigQuery = async (
     contents: string,
     parameters: ModelParameters,
   ) => {
-    const createSQLQuery = await core40SDK.ok(
-      core40SDK.create_sql_query({
-        connection_name: VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME,
-        sql: BigQueryHelper.generateSQL(
-          VERTEX_BIGQUERY_MODEL_ID,
-          contents,
-          parameters,
-        ),
-      }),
-    )
-
-    if (createSQLQuery.slug) {
-      const runSQLQuery: any = await core40SDK.ok(
-        core40SDK.run_sql_query(createSQLQuery.slug, 'json'),
+    try {     // Escape special characters
+      const sanitizedContents = `"${contents
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, ' ') 
+        .replace(/\r/g, ' ') 
+        .replace(/\t/g, ' ') 
+        .replace(/,/g, ' ')  }"`
+      const query = await core40SDK.ok(
+        core40SDK.run_inline_query({
+          result_format: 'json',
+          body: {
+            model: modelName || "explore_assistant",
+            view: "explore_assistant",
+            filters: {
+              'explore_assistant.prompt': sanitizedContents,
+            },
+            fields: [`explore_assistant.generated_content`],
+          }
+        })
       )
-      const exploreData = await runSQLQuery[0]['generated_content']
 
-      // clean up the data by removing backticks
-      const cleanExploreData = exploreData
-        .replace(/```json/g, '')
-        .replace(/```/g, '')
-        .trim()
-
-      return cleanExploreData
+      if (query === undefined) {
+        return ''
+      }
+      return JSON.stringify(query)
+    } catch (error: any) {
+      if (error.name === 'LookerSDKError' || error.message === 'Model Not Found') {
+        console.error('Error running query:', error.message)
+        return ''
+      }
+      showBoundary(error)
+      throw new Error('error')
     }
   }
 
@@ -112,21 +121,32 @@ const useSendVertexMessage = () => {
     const body = JSON.stringify({
       contents: contents,
       parameters: parameters,
+      client_secret: extensionSDK.createSecretKeyTag("vertex_cf_auth_token")
     })
 
-    const signature = CryptoJS.HmacSHA256(body, VERTEX_CF_AUTH_TOKEN).toString()
+    try {
+      console.log('Sending request to Vertex Cloud Function with body:', body)
+      const response = await extensionSDK.fetchProxy(VERTEX_AI_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      })
+      console.log('Response from serverProxy:', response)
 
-    const responseData = await fetch(VERTEX_AI_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Signature': signature,
-      },
-
-      body: body,
-    })
-    const response = await responseData.text()
-    return response.trim()
+      if (response.ok) {
+        const responseData = await response.body
+        console.log('Response data:', responseData)
+        return responseData.trim()
+      } else {
+        console.error('Error response from serverProxy:', response.statusText)
+        return `Error: ${response.statusText}`
+      }
+    } catch (error) {
+      console.error('Error sending request to Vertex Cloud Function:', error)
+      throw error
+    }
   }
 
   const summarizePrompts = useCallback(
@@ -683,6 +703,29 @@ ${exploreRefinementExamples &&
     }
   }
 
+  const testVertexSettings = async () => {
+    if (settings.useCloudFunction.value && (!VERTEX_AI_ENDPOINT)) {
+      return false
+    }
+    if (!settings.useCloudFunction.value && (!VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME || !VERTEX_BIGQUERY_MODEL_ID)) {
+      return false
+    }
+    try {
+      const response = settings.useCloudFunction.value ? await vertexCloudFunction('test', {}) : await vertexBigQuery('test', {})
+      
+      if (response !== '') {
+        dispatch(setVertexTestSuccessful(true))
+      } else {
+        dispatch(setVertexTestSuccessful(false))
+      }
+      return response !== ''
+    } catch (error) {
+      console.error('Error testing Vertex settings:', error)
+      dispatch(setVertexTestSuccessful(false))
+      return false
+    }
+  }
+
   return {
     generateExploreParams,
     generateBaseExploreParams,
@@ -692,6 +735,7 @@ ${exploreRefinementExamples &&
     summarizePrompts,
     isSummarizationPrompt,
     summarizeExplore,
+    testVertexSettings,
   }
 }
 

@@ -455,22 +455,22 @@ ${exploreRefinementExamples &&
 
       const filterResponseInitial = await sendMessage(filterContents, {})
 
-      // check the response
-      const filterContentsCheck =
-        filterContents +
-        `
+      // // check the response
+      // const filterContentsCheck =
+      //   filterContents +
+      //   `
   
-           # Output
+      //      # Output
      
-           ${filterResponseInitial}
+      //      ${filterResponseInitial}
      
-           # Instructions
+      //      # Instructions
      
-           Verify the output, make changes and return the JSON
+      //      Verify the output, make changes and return the JSON
      
-           `
-      const filterResponseCheck = await sendMessage(filterContentsCheck, {})
-      const filterResponseCheckJSON = parseJSONResponse(filterResponseCheck)
+      //      `
+      // const filterResponseCheck = await sendMessage(filterContentsCheck, {})
+      const filterResponseCheckJSON = parseJSONResponse(filterResponseInitial)
 
       // Ensure filterResponseCheckJSON is an array
       const filterResponseArray = Array.isArray(filterResponseCheckJSON) ? filterResponseCheckJSON : []

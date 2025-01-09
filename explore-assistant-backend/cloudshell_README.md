@@ -152,6 +152,7 @@ bq query --use_legacy_sql=false --location=$REGION \
 
 ## 12: Create BigQuery Connection and Model  
 (For BigQuery backend install ONLY)
+> **Note:** This process is very expensive. It is better to use the Cloud Function Backend
 ``` bash
 gcloud services enable bigqueryconnection.googleapis.com
 

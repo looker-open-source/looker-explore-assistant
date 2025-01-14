@@ -177,7 +177,7 @@ If you want to restrict access to your Cloud Function to Looker's specific IP ra
 First, determine the list of your [Looker IPs](https://cloud.google.com/looker/docs/enabling-secure-db-access#:~:text=The%20list%20of%20IP%20addresses,(es)%20that%20are%20shown.)
 
 ## 13.1: Set variables
-Please modify the below command to include your [Looker IPs](https://cloud.google.com/looker/docs/enabling-secure-db-access#:~:text=The%20list%20of%20IP%20addresses,(es)%20that%20are%20shown.) from the previous step.
+Please modify the below command to include your [Looker IPs](https://cloud.google.com/looker/docs/enabling-secure-db-access#:~:text=The%20list%20of%20IP%20addresses,(es)%20that%20are%20shown.).
 ```bash
 export ALLOWED_IP_ADDRESSES="your.ip.address/32,second.ip.address/32,third.ip.address/32"
 export VPC_NETWORK_NAME=explore-assistant-vpc

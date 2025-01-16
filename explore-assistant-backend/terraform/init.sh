@@ -52,6 +52,7 @@ prompt_for_env_vars
 # Set default use_cloud_function_backend to true
 export TF_VAR_use_cloud_function_backend=true
 cp backends/backend-gcs.tf backend.tf
+sed -i "s/project-id/$TF_VAR_project_id/" backend.tf
 
 # Create GCS bucket for Terraform state
 if gsutil mb -p $TF_VAR_project_id gs://${TF_VAR_project_id}-terraform-state/; then

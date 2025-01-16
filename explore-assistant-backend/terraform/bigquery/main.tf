@@ -31,32 +31,32 @@ variable "connection_id" {
 #######################################################################################################
 
 
-resource "time_sleep" "wait_after_iam_assignment" {
-  depends_on      = [ google_project_iam_member.bigquery_connection_remote_model ]
-  create_duration = "120s"
-}
+# resource "time_sleep" "wait_after_iam_assignment" {
+#   depends_on      = [ google_project_iam_member.bigquery_connection_remote_model ]
+#   create_duration = "120s"
+# }
 
-resource "google_bigquery_job" "create_bq_model_llm" {
-  job_id = "create_looker_llm_model-${formatdate("YYYYMMDDhhmmss", timestamp())}"
-  query {
-    query              = <<EOF
-CREATE OR REPLACE MODEL `${var.dataset_id}.explore_assistant_llm`
-REMOTE WITH CONNECTION `projects/739825782560/locations/asia-southeast1/connections/explore_assistant_llm`
-OPTIONS (endpoint = 'gemini-1.5-flash')
-EOF
-    create_disposition = ""
-    write_disposition  = ""
-    allow_large_results = false
-    flatten_results = false
-    maximum_billing_tier = 0
-    schema_update_options = [ ]
-    use_legacy_sql = false
-  }
+# resource "google_bigquery_job" "create_bq_model_llm" {
+#   job_id = "create_looker_llm_model-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+#   query {
+#     query              = <<EOF
+# CREATE OR REPLACE MODEL `${var.dataset_id}.explore_assistant_llm`
+# REMOTE WITH CONNECTION `projects/739825782560/locations/asia-southeast1/connections/explore_assistant_llm`
+# OPTIONS (endpoint = 'gemini-1.5-flash')
+# EOF
+#     create_disposition = ""
+#     write_disposition  = ""
+#     allow_large_results = false
+#     flatten_results = false
+#     maximum_billing_tier = 0
+#     schema_update_options = [ ]
+#     use_legacy_sql = false
+#   }
 
-  location = var.deployment_region
-  depends_on = [ google_project_iam_member.bigquery_connection_remote_model, time_sleep.wait_after_iam_assignment ]
-  lifecycle {
-    ignore_changes  = [query, job_id]
-  }
-}
+#   location = var.deployment_region
+#   depends_on = [ google_project_iam_member.bigquery_connection_remote_model, time_sleep.wait_after_iam_assignment ]
+#   lifecycle {
+#     ignore_changes  = [query, job_id]
+#   }
+# }
 

@@ -38,7 +38,7 @@ resource "google_project_iam_member" "iam_permission_looker_aiplatform" {
 resource "google_secret_manager_secret" "vertex_cf_auth_token" {
   project   = var.project_id
   # secret_id = "VERTEX_CF_AUTH_TOKEN-kendev" # # FOR LOCAL DEV
-  secret_id = "VERTEX_CF_AUTH_TOKEN" 
+  secret_id = "VERTEX_CF_AUTH_TOKEN"
   replication {
     user_managed {
       replicas {
@@ -76,6 +76,7 @@ resource "google_cloud_run_service" "default" {
 
   template {
     spec {
+      service_account_name = google_service_account.explore_assistant_sa.email
       containers {
         image = "${var.image}"
         resources {

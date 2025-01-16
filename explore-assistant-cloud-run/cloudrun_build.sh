@@ -35,7 +35,7 @@ echo "Pushing Docker image to GCR..."
 gcloud auth configure-docker $REPOSITORY_REGION
 
 # Check if repository exists first
-REPO_EXISTS=$(gcloud artifacts repositories list --project=$PROJECT_ID --filter="name:$REPO_NAME" --format="get(name)")
+REPO_EXISTS=$(gcloud artifacts repositories list --project=$PROJECT_ID --filter="name=$REPO_NAME" --format="get(name)")
 
 if [ -z "$REPO_EXISTS" ]; then
     echo "Creating new repository $REPO_NAME..."

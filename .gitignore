@@ -14,3 +14,11 @@ dist
 
 explore-assistant-backend/terraform/backend.tf
 variables.tfvars
+
+service_account.json
+
+
+__pycache__
+*.pyc
+# terraform
+plan.dat

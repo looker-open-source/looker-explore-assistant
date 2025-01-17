@@ -40,8 +40,8 @@ module "bg-backend-project-services" {
   depends_on = [module.base-project-services, time_sleep.wait_after_basic_apis_activate]
 }
 
-module "cf-backend-project-services" {
-  count                       = var.use_cloud_function_backend ? 1 : 0
+module "cr-backend-project-services" {
+  count                       = var.use_cloud_run_backend ? 1 : 0
   source                      = "terraform-google-modules/project-factory/google//modules/project_services"
   version                     = "14.2.1"
   disable_services_on_destroy = false
@@ -52,7 +52,6 @@ module "cf-backend-project-services" {
   activate_apis = [
     "cloudapis.googleapis.com",
     "cloudbuild.googleapis.com",
-    "cloudfunctions.googleapis.com",
     "run.googleapis.com",
     "storage-api.googleapis.com",
     "storage.googleapis.com",
@@ -65,9 +64,9 @@ module "cf-backend-project-services" {
 
 
 resource "time_sleep" "wait_after_apis_activate" {
-  depends_on      = [
+  depends_on = [
     time_sleep.wait_after_basic_apis_activate,
-    module.cf-backend-project-services,
+    module.cr-backend-project-services,
     module.bg-backend-project-services
   ]
   create_duration = "120s"
@@ -82,10 +81,11 @@ resource "google_bigquery_dataset" "dataset" {
 }
 
 module "cloud_run_backend" {
-  count                  = var.use_cloud_function_backend ? 1 : 0
-  source                 = "./cloud_function"
+  count                  = var.use_cloud_run_backend ? 1 : 0
+  source                 = "./cloud_run"
   project_id             = var.project_id
   deployment_region      = var.deployment_region
+  image                  = var.image
   cloud_run_service_name = var.cloud_run_service_name
 
   depends_on = [time_sleep.wait_after_apis_activate]
@@ -100,4 +100,9 @@ module "bigquery_backend" {
   connection_id     = var.connection_id
 
   depends_on = [time_sleep.wait_after_apis_activate, google_bigquery_dataset.dataset]
+}
+
+output "cloud_run_uri" {
+  description = "Cloud Run URI"
+  value       = var.use_cloud_run_backend ? module.cloud_run_backend[0].cloud_run_uri : null
 }

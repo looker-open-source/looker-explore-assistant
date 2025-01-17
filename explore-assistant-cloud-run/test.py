@@ -2,6 +2,12 @@ import hmac
 import hashlib
 import requests
 import json
+import os
+
+secret_key = os.environ.get("VERTEX_CF_AUTH_TOKEN")
+url=os.getenv("CLOUDRUN_ENDPOINT")
+if not url:
+    url = "http://localhost:8000"
 
 def generate_hmac_signature(secret_key, data):
     """
@@ -22,18 +28,16 @@ def send_request(url, data, signature):
     return response.text
 
 def main():
-    # URL of the endpoint
-    url = 'http://localhost:8000'
+    print("Sending request to:", url)
 
     # Request payload
-    data = {"contents":"how are you doing?", "parameters":{"max_output_tokens": 1000}}
+    data = {"contents":"I am just testing if my response works. Can you reply 'HEALTHY'?", "parameters":{"max_output_tokens": 1000}}
 
-    # Read the secret key from a file
-    with open('../.vertex_cf_auth_token', 'r') as file:
-        secret_key = file.read().strip()  # Remove any potential newline characters
-
+    if not secret_key:
+        raise ValueError("no VERTEX_CF_AUTH_TOKEN found")
+    else:
     # Generate HMAC signature
-    signature = generate_hmac_signature(secret_key, data)
+        signature = generate_hmac_signature(secret_key, data)
 
     # Send the request
     response = send_request(url, data, signature)

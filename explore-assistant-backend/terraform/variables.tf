@@ -18,6 +18,11 @@ variable "use_bigquery_backend" {
   default = false
 }
 
+variable "use_cloud_run_backend" {
+  type = bool
+  default = false
+}
+
 #
 # VARIABLES WITH DEFAULTS
 #
@@ -28,10 +33,22 @@ variable "deployment_region" {
   default = "us-central1"
 }
 
+#
+# CLOUD RUN VARIABLES
+#
+
 variable "cloud_run_service_name" {
     type = string
+    description = "the name of cloud run service upon deployment"
     default = "explore-assistant-api"
 }
+
+variable "image" {
+  description = "The full path to image on your Google artifacts repo"
+  type        = string
+}
+
+
 
 #
 # BIGQUERY VARIABLES

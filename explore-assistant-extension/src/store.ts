@@ -7,6 +7,7 @@ import assistantReducer, {
   initialState,
   Settings,
 } from './slices/assistantSlice'
+import { authSlice } from './slices/authSlice'
 
 
 // Define keys that should never be persisted
@@ -64,12 +65,13 @@ const persistConfig = {
   key: 'explore-assistant-state',
   version: 1,
   storage,
-  whitelist: ['assistant'],
+  whitelist: ['assistant','auth'],
   transforms: [filterTransform],
 }
 
 const rootReducer = combineReducers({
   assistant: assistantReducer,
+  auth: authSlice.reducer
 })
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)

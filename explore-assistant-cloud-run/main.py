@@ -43,6 +43,7 @@ project = os.environ.get("PROJECT_NAME")
 location = os.environ.get("REGION_NAME")
 model_name = os.environ.get("MODEL_NAME", "gemini-1.0-pro-001")
 oauth_client_id = os.environ.get("OAUTH_CLIENT_ID")
+is_dev_server = os.environ.get("IS_DEV_SERVER")
 # checks env var before initiate server
 if (
     not project or
@@ -64,6 +65,10 @@ def get_response_headers(request):
 
 
 def validate_bearer_token(request):
+    
+    if is_dev_server:
+        # bypass for local development server
+        return True
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
         logging.error("Missing or malformed Authorization header")

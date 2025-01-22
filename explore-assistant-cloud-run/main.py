@@ -22,7 +22,6 @@
 # SOFTWARE.
 
 import os
-import hmac
 import functions_framework
 import vertexai
 import logging
@@ -40,10 +39,17 @@ logging.basicConfig(level=logging.INFO)
 
 
 # Initialize the Vertex AI
-project = os.environ.get("PROJECT")
-location = os.environ.get("REGION")
-vertex_cf_auth_token = os.environ.get("VERTEX_CF_AUTH_TOKEN")
+project = os.environ.get("PROJECT_NAME")
+location = os.environ.get("REGION_NAME")
 model_name = os.environ.get("MODEL_NAME", "gemini-1.0-pro-001")
+oauth_client_id = os.environ.get("OAUTH_CLIENT_ID")
+# checks env var before initiate server
+if (
+    not project or
+    not location or 
+    not oauth_client_id
+    ):
+    raise ValueError("one of environment variables is not set. Please check your delpoyment settings.")
 
 vertexai.init(project=project, location=location)
 
@@ -51,26 +57,11 @@ def get_response_headers(request):
     headers = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, X-Signature, Authorization",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
     }
     return headers
 
 
-def has_valid_signature(request):
-    signature = request.headers.get("X-Signature")
-    if signature is None:
-        return False
-
-    # Validate the signature
-    if not vertex_cf_auth_token:
-        raise ValueError("no VERTEX_CF_AUTH_TOKEN found")
-    else:
-        secret = vertex_cf_auth_token.encode("utf-8")
-    request_data = request.get_data()
-    hmac_obj = hmac.new(secret, request_data, "sha256")
-    expected_signature = hmac_obj.hexdigest()
-
-    return hmac.compare_digest(signature, expected_signature)
 
 def validate_bearer_token(request):
     auth_header = request.headers.get('Authorization')
@@ -86,7 +77,7 @@ def validate_bearer_token(request):
         if response.status_code == 200:
             token_info = response.json()
             # Verify the token was issued for our client ID
-            expected_client_id = '136420034762-ltctaj3i2k7d7q13n7b6kgra45i7j4b6.apps.googleusercontent.com'
+            expected_client_id = oauth_client_id
             if token_info.get('azp') != expected_client_id:
                 logging.error(f"Token was issued for different client ID: {token_info.get('azp')}")
                 return False
@@ -167,10 +158,6 @@ def create_flask_app():
             logging.warning("Missing 'contents' parameter in request")
             return "Missing 'contents' parameter", 400, get_response_headers(request)
 
-        # if not has_valid_signature(request):
-        #     logging.warning("Invalid signature detected")
-        #     return "Invalid signature", 403, get_response_headers(request)
-
         if not validate_bearer_token(request):
             logging.warning("Invalid bearer token detected")
             return "Invalid token", 401, get_response_headers(request)
@@ -228,8 +215,6 @@ def cloud_function_entrypoint(request):
     if contents is None:
         return "Missing 'contents' parameter", 400, get_response_headers(request)
 
-    if not has_valid_signature(request):
-        return "Invalid signature", 403, get_response_headers(request)
 
     try:
         response_text = generate_looker_query(contents, parameters)

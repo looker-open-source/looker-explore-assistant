@@ -2,3 +2,5 @@ functions-framework==3.*
 google-cloud-aiplatform>=1.50
 Flask
 Flask-Cors
+debugpy
+python-dotenv

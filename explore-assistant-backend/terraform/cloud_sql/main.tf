@@ -1,21 +1,50 @@
+variable "deployment_region" {
+  type        = string
+  description = "Region to deploy the Cloud SQL service. Example: us-central1"
+}
+
+variable "project_id" {
+  type = string
+}
+
+variable "root_password" {
+  type = string
+}
+
+variable "user_password" {
+  type = string
+}
+
+terraform {
+  required_version = "~> 1.7"
+  required_providers {
+    google = {
+      source  = "hashicorp/google",
+      version = "~> 5.0"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
+  }
+}
 
 resource "google_sql_database_instance" "main" {
   database_version     = "MYSQL_8_0_31"
   deletion_protection  = true
   encryption_key_name  = null
   instance_type        = "CLOUD_SQL_INSTANCE"
-  maintenance_version  = "MYSQL_8_0_31.R20241208.01_00"
   master_instance_name = null
-  name                 = "beck-test-instance"
-  project              = "joon-sandbox"
-  region               = "asia-southeast1"
-  root_password        = null # sensitive
+  name                 = "bach-test-instance" #input your instance name
+  project              = var.project_id
+  region               = var.deployment_region
+  root_password        = var.root_password # sensitive
   settings {
     activation_policy           = "ALWAYS"
     availability_type           = "ZONAL"
     collation                   = null
     connector_enforcement       = "NOT_REQUIRED"
-    deletion_protection_enabled = true
+    deletion_protection_enabled = false
     disk_autoresize             = true
     disk_autoresize_limit       = 0
     disk_size                   = 10
@@ -40,7 +69,6 @@ resource "google_sql_database_instance" "main" {
     insights_config {
       query_insights_enabled  = false
       query_plans_per_minute  = 0
-      query_string_length     = 0
       record_application_tags = false
       record_client_address   = false
     }
@@ -49,7 +77,6 @@ resource "google_sql_database_instance" "main" {
       enable_private_path_for_google_cloud_services = false
       ipv4_enabled                                  = true
       private_network                               = null
-      require_ssl                                   = false
       authorized_networks {
         expiration_time = null
         name            = null
@@ -62,7 +89,7 @@ resource "google_sql_database_instance" "main" {
       zone                   = "asia-southeast1-c"
     }
     maintenance_window {
-      day          = 0
+      day          = 1
       hour         = 0
       update_track = "canary"
     }
@@ -86,12 +113,33 @@ resource "google_sql_database_instance" "main" {
 # Create production database
 resource "google_sql_database" "production" {
   name     = "production"
+  project  = var.project_id
   instance = google_sql_database_instance.main.name
 }
 
 // Create cloud sql user
 resource "google_sql_user" "cloud_sql_user" {
-  name     = "cloud_sql_user"
-  instance = google_sql_database_instance.main.name
-  password = "password"
+  name       = "cloud_sql_user"
+  project    = var.project_id
+  instance   = google_sql_database_instance.main.name
+  host       = "%"
+  password   = var.user_password
+  depends_on = [google_sql_database.production]
+}
+
+output "cloudsql_instance_info" {
+  value = {
+    public_ip = google_sql_database_instance.main.public_ip_address
+    username  = google_sql_user.cloud_sql_user.name
+    password  = google_sql_user.cloud_sql_user.password
+    database  = google_sql_database.production.name
+  }
+  sensitive  = true
+  depends_on = [google_sql_user.cloud_sql_user]
+}
+
+resource "null_resource" "run_python" {
+  provisioner "local-exec" {
+    command = "python create_tables.py"
+  }
 }

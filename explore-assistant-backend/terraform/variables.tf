@@ -4,22 +4,22 @@
 #
 
 variable "project_id" {
-  type = string
+  type        = string
   description = "GCP Project ID"
 }
 
 variable "use_cloud_function_backend" {
-  type = bool
+  type    = bool
   default = false
 }
 
 variable "use_bigquery_backend" {
-  type = bool
+  type    = bool
   default = false
 }
 
 variable "use_cloud_run_backend" {
-  type = bool
+  type    = bool
   default = false
 }
 
@@ -28,9 +28,9 @@ variable "use_cloud_run_backend" {
 #
 
 variable "deployment_region" {
-  type = string
+  type        = string
   description = "Region to deploy the Cloud Run service. Example: us-central1"
-  default = "us-central1"
+  default     = "us-central1"
 }
 
 #
@@ -38,14 +38,24 @@ variable "deployment_region" {
 #
 
 variable "cloud_run_service_name" {
-    type = string
-    description = "the name of cloud run service upon deployment"
-    default = "explore-assistant-api"
+  type        = string
+  description = "the name of cloud run service upon deployment"
+  default     = "explore-assistant-api"
 }
 
 variable "image" {
   description = "The full path to image on your Google artifacts repo"
   type        = string
+}
+
+variable "explore-assistant-cr-oauth-client-id" {
+  type        = string
+  description = "GCP Client ID for cloud run to perform oauth verifications."
+}
+
+variable "explore-assistant-cr-sa-id" {
+  type        = string
+  description = "service account for cloud run to use & make vertexai requests."
 }
 
 
@@ -55,12 +65,12 @@ variable "image" {
 #
 
 variable "dataset_id_name" {
-    type = string
-    default = "explore_assistant"
+  type    = string
+  default = "explore_assistant"
 }
 
 variable "connection_id" {
-    type = string
-    default = "explore_assistant_llm"
+  type    = string
+  default = "explore_assistant_llm"
 }
 

@@ -7,19 +7,27 @@ import SummaryMessage from '../../components/Chat/SummaryMessage'
 import { CircularProgress } from '@material-ui/core'
 import { AssistantState, ChatMessage } from '../../slices/assistantSlice'
 
+// MessageThread component is responsible for rendering the chat messages
+// within the current explore thread. It displays different types of messages
+// such as regular chat messages, explore messages, and summary messages.
 const MessageThread = () => {
+  // Extract currentExploreThread and isQuerying from the Redux store
   const { currentExploreThread, isQuerying } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
 
-  if(currentExploreThread === null) {
+  // If there is no current explore thread, return an empty fragment
+  if (currentExploreThread === null) {
     return <></>
   }
 
+  // Extract messages from the current explore thread
   const messages = currentExploreThread.messages as ChatMessage[]
+
   return (
     <div className="">
       {messages.map((message) => {
+        // Render an ExploreMessage component for messages of type 'explore'
         if (message.type === 'explore') {
           return (
             <ExploreMessage
@@ -30,9 +38,13 @@ const MessageThread = () => {
               prompt={message.summarizedPrompt}
             />
           )
-        } else if (message.type === 'summarize') {
+        } 
+        // Render a SummaryMessage component for messages of type 'summarize'
+        else if (message.type === 'summarize') {
           return <SummaryMessage key={message.uuid} message={message} />
-        } else {
+        } 
+        // Render a regular Message component for other message types
+        else {
           return (
             <Message
               key={message.uuid}
@@ -43,6 +55,7 @@ const MessageThread = () => {
           )
         }
       })}
+      {/* Display a loading spinner if a query is currently being processed */}
       {isQuerying && (
         <div className="flex flex-col text-gray-300 size-8">
           <CircularProgress color={'inherit'} size={'inherit'} />

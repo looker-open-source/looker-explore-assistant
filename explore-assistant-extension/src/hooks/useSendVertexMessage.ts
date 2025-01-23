@@ -117,7 +117,16 @@ const useSendVertexMessage = () => {
     }
   }
 
-  const vertextCloudFunction = async ( // TODO
+  const vertextCloudFunction = async (
+    // TODO JOON : update this to call new endpoint /prompt instead of root /
+    // currently vertextCloudFunction will send the following requests to our cloud run : 
+    // generateExploreUrl,
+    // summarizePrompts,
+    // isSummarizationPrompt,
+    // summarizeExplore
+
+
+
     contents: string,
     raw_prompt: string,
     prompt_type: string,
@@ -168,6 +177,10 @@ const useSendVertexMessage = () => {
     return response.trim()
   }
 
+  // this function is the entrypoint whenever user sends a chat. 
+  // the result summarized prompt from vertex will be passed onto next 2 functions :
+  // 1. isSummarizationPrompt for categorization.
+  // 2. generateExploreUrl to generate looker url
   const summarizePrompts = useCallback(
     async (promptList: string[]) => {
       const contents = `
@@ -233,6 +246,8 @@ ${exploreRefinementExamples && exploreRefinementExamples
     return response === 'data summary'
   }
 
+  // this function takes the url generate from generateExploreUrl, execute it to get the data.
+  // afterwards the result data is appended to another prompt to vertex requesting to analyze and summarize the data.
   const summarizeExplore = useCallback(
     async (exploreQueryArgs: string) => {
       const params = new URLSearchParams(exploreQueryArgs)

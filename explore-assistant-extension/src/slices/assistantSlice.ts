@@ -1,6 +1,240 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { v4 as uuidv4 } from 'uuid'
 
+// TODO JOON : ENDPOINT /chat/history :  migrate chat history from in cache to cloud run endpoint.
+
+// step 1 : create a thunk to fetch chat history from cloud run endpoint
+
+// src/slices/assistantSlice.ts
+// import { createAsyncThunk } from '@reduxjs/toolkit';
+// import { RootState } from '../store';
+
+// export const fetchChatHistory = createAsyncThunk(
+//   'assistant/fetchChatHistory',
+//   async (threadId: string, { getState }) => {
+//     const state = getState() as RootState;
+//     const access_token = state.auth.access_token;
+//     const VERTEX_CF_SECRET = process.env.VERTEX_CF_SECRET || '';
+
+//     const headers = {
+//       'Content-Type': 'application/json',
+//       'X-Signature': VERTEX_CF_SECRET,
+//       'Authorization': `Bearer ${access_token}`,
+//     };
+
+//     const response = await fetch(`http://your-flask-server-url/chat/history`, {
+//       method: 'POST',
+//       headers: headers,
+//       body: JSON.stringify({ contents: { user_id: threadId } }),
+//     });
+
+//     if (!response.ok) {
+//       throw new Error(`Failed to fetch chat history: ${response.statusText}`);
+//     }
+
+//     return await response.json();
+//   }
+// );
+
+
+// step 2 : Update Reducers to Handle the Fetched Data
+// src/slices/assistantSlice.ts
+// import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+// import { fetchChatHistory } from './path/to/thunks';
+
+// const assistantSlice = createSlice({
+//   name: 'assistant',
+//   initialState,
+//   reducers: {
+//     // existing reducers
+//   },
+//   extraReducers: (builder) => {
+//     builder.addCase(fetchChatHistory.fulfilled, (state, action) => {
+//       if (state.currentExploreThread) {
+//         state.currentExploreThread.messages = action.payload;
+//       }
+//     });
+//   },
+// });
+
+// export const { /* existing actions */ } = assistantSlice.actions;
+// export default assistantSlice.reducer;
+
+// step 3 : Dispatch Fetch Action in MessageThread.tsx
+// Ensure that the MessageThread component fetches chat history when it mounts.
+
+
+// src/pages/AgentPage/MessageThread.tsx
+// import React, { useEffect } from 'react';
+// import { useSelector, useDispatch } from 'react-redux';
+// import { RootState } from '../../store';
+// import { fetchChatHistory } from '../../slices/assistantSlice';
+// import Message from '../../components/Chat/Message';
+// import ExploreMessage from '../../components/Chat/ExploreMessage';
+// import SummaryMessage from '../../components/Chat/SummaryMessage';
+// import { CircularProgress } from '@material-ui/core';
+// import { AssistantState, ChatMessage } from '../../slices/assistantSlice';
+
+// const MessageThread = () => {
+//   const dispatch = useDispatch();
+//   const { currentExploreThread, isQuerying } = useSelector(
+//     (state: RootState) => state.assistant as AssistantState,
+//   );
+
+//   useEffect(() => {
+//     if (currentExploreThread) {
+//       dispatch(fetchChatHistory(currentExploreThread.uuid));
+//     }
+//   }, [currentExploreThread, dispatch]);
+
+//   if (currentExploreThread === null) {
+//     return <></>;
+//   }
+
+//   const messages = currentExploreThread.messages as ChatMessage[];
+
+//   return (
+//     <div className="">
+//       {messages.map((message) => {
+//         if (message.type === 'explore') {
+//           return (
+//             <ExploreMessage
+//               key={message.uuid}
+//               modelName={currentExploreThread.modelName}
+//               exploreId={currentExploreThread.exploreId}
+//               queryArgs={message.exploreUrl}
+//               prompt={message.summarizedPrompt}
+//             />
+//           );
+//         } else if (message.type === 'summarize') {
+//           return <SummaryMessage key={message.uuid} message={message} />;
+//         } else {
+//           return (
+//             <Message
+//               key={message.uuid}
+//               message={message.message}
+//               actor={message.actor}
+//               createdAt={message.createdAt}
+//             />
+//           );
+//         }
+//       })}
+//       {isQuerying && (
+//         <div className="flex flex-col text-gray-300 size-8">
+//           <CircularProgress color={'inherit'} size={'inherit'} />
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
+
+// export default MessageThread;
+
+// step 4 : update the cloud run endpoint with the history of the chat
+
+// explore-assistant-cloud-run/main.py
+// from flask import Flask, request, jsonify
+// import mysql.connector
+
+// app = Flask(__name__)
+
+// # Configure your MySQL connection
+// db_config = {
+//     'user': 'your-username',
+//     'password': 'your-password',
+//     'host': 'your-cloud-sql-instance-ip',
+//     'database': 'your-database-name'
+// }
+
+// @app.route('/chat/history', methods=['POST'])
+// def chat_history():
+//     headers = request.headers
+//     data = request.get_json()
+
+//     # Verify headers and authorization
+//     if headers.get('X-Signature') != '<VERTEX_CF_SECRET>':
+//         return jsonify({'error': 'Invalid signature'}), 401
+
+//     # Connect to MySQL
+//     conn = mysql.connector.connect(**db_config)
+//     cursor = conn.cursor(dictionary=True)
+
+//     # Example: Retrieve chat history for a user
+//     user_id = data['contents']['user_id']
+//     query = "SELECT * FROM Messages WHERE user_id = %s ORDER BY createdAt"
+//     cursor.execute(query, (user_id,))
+//     chat_history = cursor.fetchall()
+
+//     cursor.close()
+//     conn.close()
+
+//     return jsonify(chat_history)
+
+
+
+
+
+// TODO JOON : endpoint /chat to create new chat thread
+// step 1 
+// **Create a New Thunk**: This should be placed in your Redux slice file, such as `assistantSlice.ts`, where other thunks and actions are defined. 
+// This keeps all state management logic centralized.
+
+// src/slices/assistantSlice.ts
+// import { createAsyncThunk } from '@reduxjs/toolkit';
+
+// export const createChatThread = createAsyncThunk(
+//   'assistant/createChatThread',
+//   async (threadData: { userId: string, initialMessage: string }) => {
+//     const response = await fetch('http://your-server-url/chat/threads', {
+//       method: 'POST',
+//       headers: {
+//         'Content-Type': 'application/json',
+//       },
+//       body: JSON.stringify(threadData),
+//     });
+
+//     if (!response.ok) {
+//       throw new Error('Failed to create chat thread');
+//     }
+
+//     return await response.json();
+//   }
+// );
+
+
+// step 2  : 
+// Trigger Thread Creation: Identify the component where the user initiates a new chat thread. 
+// This could be a button or form submission. 
+// If this action is part of the initial app setup or a specific page, you might consider placing it in App.tsx or a dedicated component for starting new threads.
+
+// Then, Dispatch the Thunk: Use the useDispatch hook to dispatch the createChatThread thunk. 
+// This could be done in App.tsx if the thread creation is part of the app's initial setup or in a specific component where the user starts a new conversation.
+// Example in App.tsx or a relevant component:
+
+// import React from 'react';
+// import { useDispatch } from 'react-redux';
+// import { createChatThread } from './slices/assistantSlice';
+
+// const StartChatComponent = () => {
+//   const dispatch = useDispatch();
+
+//   const handleStartChat = () => {
+//     const threadData = {
+//       userId: 'user-id', // Replace with actual user ID
+//       initialMessage: 'Hello, I want to start a new chat thread.',
+//     };
+//     dispatch(createChatThread(threadData));
+//   };
+
+//   return (
+//     <button onClick={handleStartChat}>Start New Chat</button>
+//   );
+// };
+
+// export default StartChatComponent;
+
+
+
 export interface Setting {
   name: string
   description: string

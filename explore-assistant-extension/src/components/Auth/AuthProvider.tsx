@@ -7,7 +7,7 @@ import { setAuthenticated, setToken, setExpiry } from '../../slices/authSlice';
 // Export a function that takes both access_token and expires_in
 export const isTokenExpired = (access_token: string | null, expires_in: number | null) => {
   console.group('Token Verification Check');
-  console.log('Current token:', access_token);
+  // console.log('Current token:', access_token);
   console.log('Expiry time:', new Date(expires_in).toLocaleString());
   console.log('Current time:',  new Date().toLocaleString());
   

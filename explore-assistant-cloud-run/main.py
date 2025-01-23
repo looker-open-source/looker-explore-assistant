@@ -141,6 +141,22 @@ def generate_looker_query(contents, parameters=None, model_name="gemini-1.5-flas
     logging.info(entry)
     return response.text
 
+def log_request(data: dict | str, caller: str):
+    # Check if the input data is a string
+    if isinstance(data, str):
+        # If it's a string, create a JSON object with the caller and message
+        log_data = {"caller": caller, "message": data}
+    else:
+        log_data = data
+        log_data.update({"caller": caller})    
+    with open("request.log", "a") as f:
+        f.write("\n\n\n\n" + "=" * 100 + "\n\n\n\n")
+        f.write(json.dumps(log_data,indent=4))
+        f.write("\n\n\n\n" + "=" * 100 + "\n\n\n\n")
+
+if is_dev_server:
+    with open("request.log", 'w') as log_file:
+        log_file.write('')  # Truncate the file
 
 # Flask app for running as a web server
 def create_flask_app():
@@ -149,11 +165,14 @@ def create_flask_app():
 
     @app.route("/", methods=["POST", "OPTIONS"])
     def base():
+        # debug : log down all the calls
         if request.method == "OPTIONS":
             logging.info("Received OPTIONS request")
             return handle_options_request(request)
 
         incoming_request = request.get_json()
+        log_request(incoming_request, 'incoming_request') if is_dev_server else None
+
         logging.info(f"Received POST request with payload: {incoming_request}")
         logging.info(f"Request headers: {dict(request.headers)}")
 
@@ -170,6 +189,8 @@ def create_flask_app():
         try:
             logging.info(f"Generating Looker query for contents: {contents}")
             response_text = generate_looker_query(contents, parameters)
+            log_request(response_text,'vertex_reply__generate_looker_query') if is_dev_server else None
+
             data = [
                 {
                     "prompt": contents,

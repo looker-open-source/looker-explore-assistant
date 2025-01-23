@@ -13,7 +13,7 @@ services:
     volumes:
       # mount your local creds here
       - "/home/ken/dev/joons-docker/EVERYTHING/joons/genai/looker-explore-assistant/explore-assistant-cloud-run/service_account.json:/root/.config/gcloud/application_default_credentials.json"
-      - "/home/ken/dev/joons-docker/EVERYTHING/joons/genai/looker-explore-assistant/explore-assistant-cloud-run/logs:/app/logs"
+      - "/home/ken/dev/joons-docker/EVERYTHING/joons/genai/looker-explore-assistant/explore-assistant-cloud-run:/app"
     command: [
       "python", 
       "-m", "debugpy", "--listen", "0.0.0.0:5678",

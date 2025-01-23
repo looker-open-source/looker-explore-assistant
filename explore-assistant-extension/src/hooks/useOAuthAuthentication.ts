@@ -36,7 +36,7 @@ export const useOAuthAuthentication = () => {
       // Initiate OAuth authentication via Looker SDK
       const response = await extensionSDK.oauth2Authenticate(authEndpoint, authParameters);
 
-      console.log('OAUTH FLOW : OAuth response:', response);  // Log the OAuth response for debugging
+      // console.log('OAUTH FLOW : OAuth response:', response);  // Log the OAuth response for debugging
 
       // Assuming the response contains the access token and expiry time
       const { access_token, expires_in } = response;

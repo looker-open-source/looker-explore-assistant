@@ -74,7 +74,6 @@ const useSendVertexMessage = () => {
   const { showBoundary } = useErrorBoundary()
   // cloud function
   const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
-  const VERTEX_CF_AUTH_TOKEN = process.env.VERTEX_CF_AUTH_TOKEN || ''
 
 
   // bigquery
@@ -142,22 +141,19 @@ const useSendVertexMessage = () => {
       parameters: parameters,
     })
 
-  const signature = CryptoJS.HmacSHA256(body, VERTEX_CF_AUTH_TOKEN).toString()
 
   console.log('Making request to Vertex AI:')
   console.log('Endpoint:', VERTEX_AI_ENDPOINT)
-  console.log('Headers:', {
-    'Content-Type': 'application/json',
-    'X-Signature': signature,
-    'Authorization': `Bearer ${access_token}`
-  })
+  // console.log('Headers:', {
+  //   'Content-Type': 'application/json',
+  //   'Authorization': `Bearer ${access_token}`
+  // })
   console.log('Body:', JSON.parse(body))
 
     const responseData = await fetch(VERTEX_AI_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Signature': signature,
         'Authorization': `Bearer ${access_token}`
       },
 

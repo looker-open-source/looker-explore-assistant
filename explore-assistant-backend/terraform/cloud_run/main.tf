@@ -20,11 +20,18 @@ variable "image" {
 }
 
 
+variable "explore-assistant-cr-oauth-client-id" {
+  type        = string
+  description = "GCP Client ID for cloud run to perform oauth verifications."
+}
+
+variable "explore-assistant-cr-sa-id" {
+  type = string
+  description = "service account for cloud run to use & make vertexai requests."
+}
 
 resource "google_service_account" "explore_assistant_sa" {
-  # account_id   = "explore-assistant-cf-sa-kendev"  # FOR LOCAL DEV
-  account_id   = "explore-assistant-cf-sa"
-
+  account_id   = var.explore-assistant-cr-sa-id
   display_name = "Looker Explore Assistant Cloud Run SA"
 }
 
@@ -33,41 +40,16 @@ resource "google_project_iam_member" "iam_permission_looker_aiplatform" {
   role    = "roles/aiplatform.user"
   member  = format("serviceAccount:%s", google_service_account.explore_assistant_sa.email)
 }
-
-
-resource "google_secret_manager_secret" "vertex_cf_auth_token" {
-  project   = var.project_id
-  # secret_id = "VERTEX_CF_AUTH_TOKEN-kendev" # # FOR LOCAL DEV
-  secret_id = "VERTEX_CF_AUTH_TOKEN"
-  replication {
-    user_managed {
-      replicas {
-        location = var.deployment_region
-      }
-    }
-  }
+resource "google_project_iam_member" "iam_permission_bq_user" {
+  project = var.project_id
+  role    = "roles/bigquery.user"
+  member  = format("serviceAccount:%s", google_service_account.explore_assistant_sa.email)
 }
-
-locals {
-  auth_token_file_path    = "${path.module}/../../../.vertex_cf_auth_token"
-  auth_token_file_exists  = fileexists(local.auth_token_file_path)
-  auth_token_file_content = local.auth_token_file_exists ? file(local.auth_token_file_path) : ""
+resource "google_project_iam_member" "iam_permission_bq_data_editor" {
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = format("serviceAccount:%s", google_service_account.explore_assistant_sa.email)
 }
-
-resource "google_secret_manager_secret_version" "vertex_cf_auth_token_version" {
-  count       = local.auth_token_file_exists ? 1 : 0
-  secret      = google_secret_manager_secret.vertex_cf_auth_token.name
-  secret_data = local.auth_token_file_content
-}
-
-resource "google_secret_manager_secret_iam_binding" "vertex_cf_auth_token_accessor" {
-  secret_id = google_secret_manager_secret.vertex_cf_auth_token.secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  members = [
-    "serviceAccount:${google_service_account.explore_assistant_sa.email}",
-  ]
-}
-
 
 resource "google_cloud_run_service" "default" {
   name     = var.cloud_run_service_name
@@ -86,34 +68,32 @@ resource "google_cloud_run_service" "default" {
           }
         }
         env {
-          name = "VERTEX_CF_AUTH_TOKEN" # The name of the environment variable in the container
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.vertex_cf_auth_token.secret_id
-              key  = "latest" # Fetches the latest version of the secret
-            }
-          }
+          name  = "OAUTH_CLIENT_ID"
+          value = var.explore-assistant-cr-oauth-client-id
         }
-      }
-    }
-
-    metadata {
-      annotations = {
-        "autoscaling.knative.dev/minScale" = "0"
-        "autoscaling.knative.dev/maxScale" = "10"
+        env {
+          name  = "REGION_NAME"
+          value = var.deployment_region
+        }
+        env {
+          name  = "PROJECT_NAME"
+          value = var.project_id
+        }
       }
     }
   }
 
-
+  metadata {
+    annotations = {
+      "autoscaling.knative.dev/minScale" = "0"
+      "autoscaling.knative.dev/maxScale" = "10"
+    }
+  }
 
   traffic {
     percent         = 100
     latest_revision = true
   }
-
-  depends_on = [google_secret_manager_secret.vertex_cf_auth_token]
-
 }
 
 ### IAM permissions for Cloud Run (public access)

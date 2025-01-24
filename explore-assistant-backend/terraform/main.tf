@@ -12,15 +12,17 @@ module "base-project-services" {
   enable_apis = true
 
   activate_apis = [
+    "aiplatform.googleapis.com",
     "serviceusage.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
+    "artifactregistry.googleapis.com",
   ]
 }
 
 resource "time_sleep" "wait_after_basic_apis_activate" {
   depends_on      = [module.base-project-services]
-  create_duration = "120s"
+  create_duration = "160s"
 }
 
 module "bg-backend-project-services" {
@@ -33,7 +35,6 @@ module "bg-backend-project-services" {
   enable_apis = true
 
   activate_apis = [
-    "aiplatform.googleapis.com",
     "bigquery.googleapis.com",
   ]
 

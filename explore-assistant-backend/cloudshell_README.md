@@ -40,7 +40,8 @@ gcloud services enable serviceusage.googleapis.com \
     storage-api.googleapis.com \
     storage.googleapis.com \
     compute.googleapis.com \
-    secretmanager.googleapis.com
+    secretmanager.googleapis.com \
+    aiplatform.googleapis.com
 ```
 
 ## 3: Create Service Account

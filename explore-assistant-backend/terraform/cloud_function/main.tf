@@ -107,7 +107,7 @@ resource "google_cloudfunctions2_function" "default" {
     environment_variables = {
       FUNCTIONS_FRAMEWORK = 1
       SOURCE_HASH         = data.archive_file.default.output_sha
-      GOOGLE_FUNCTION_SOURCE = "explore-assistant-cloud-function/main.py"  // Add this line
+      GOOGLE_FUNCTION_SOURCE = "../explore-assistant-cloud-function/main.py"  // Add this line
     }
   }
 

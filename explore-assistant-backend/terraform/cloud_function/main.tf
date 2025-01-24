@@ -40,6 +40,10 @@ resource "google_secret_manager_secret" "vertex_cf_auth_token" {
       }
     }
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "google_secret_manager_secret_version" "vertex_cf_auth_token_version" {

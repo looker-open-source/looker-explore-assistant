@@ -43,10 +43,6 @@ module "bg-backend-project-services" {
   ]
 
   depends_on = [module.base-project-services, time_sleep.wait_after_basic_apis_activate]
-
-  lifecycle {
-    ignore_changes = [activate_apis]
-  }
 }
 
 module "cf-backend-project-services" {
@@ -70,10 +66,6 @@ module "cf-backend-project-services" {
   ]
 
   depends_on = [module.base-project-services, time_sleep.wait_after_basic_apis_activate]
-
-  lifecycle {
-    ignore_changes = [activate_apis]
-  }
 }
 
 resource "time_sleep" "wait_after_apis_activate" {
@@ -106,10 +98,6 @@ module "cloud_run_backend" {
   vertex_cf_auth_token   = var.vertex_cf_auth_token
 
   depends_on = [time_sleep.wait_after_apis_activate]
-
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
 module "bigquery_backend" {
@@ -120,8 +108,4 @@ module "bigquery_backend" {
   dataset_id        = var.dataset_id_name
 
   depends_on = [time_sleep.wait_after_apis_activate, google_bigquery_dataset.dataset]
-
-  lifecycle {
-    create_before_destroy = true
-  }
 }

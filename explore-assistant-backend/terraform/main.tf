@@ -3,7 +3,6 @@ provider "google" {
 }
 
 module "base-project-services" {
-  count                       = var.use_bigquery_backend ? 1 : 0
   source                      = "terraform-google-modules/project-factory/google//modules/project_services"
   version                     = "14.2.1"
   disable_services_on_destroy = false

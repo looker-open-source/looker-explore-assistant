@@ -18,10 +18,6 @@ module "base-project-services" {
     "iam.googleapis.com",
     "artifactregistry.googleapis.com",
   ]
-
-  lifecycle {
-    ignore_changes = [activate_apis]
-  }
 }
 
 resource "time_sleep" "wait_after_basic_apis_activate" {

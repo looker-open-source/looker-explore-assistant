@@ -18,11 +18,15 @@ module "base-project-services" {
     "iam.googleapis.com",
     "artifactregistry.googleapis.com",
   ]
+
+  lifecycle {
+    ignore_changes = [activate_apis]
+  }
 }
 
 resource "time_sleep" "wait_after_basic_apis_activate" {
   depends_on      = [module.base-project-services]
-  create_duration = "160s"
+  create_duration = "300s"  // Increase wait time to 300 seconds (5 minutes)
 }
 
 module "bg-backend-project-services" {
@@ -39,6 +43,10 @@ module "bg-backend-project-services" {
   ]
 
   depends_on = [module.base-project-services, time_sleep.wait_after_basic_apis_activate]
+
+  lifecycle {
+    ignore_changes = [activate_apis]
+  }
 }
 
 module "cf-backend-project-services" {
@@ -62,8 +70,11 @@ module "cf-backend-project-services" {
   ]
 
   depends_on = [module.base-project-services, time_sleep.wait_after_basic_apis_activate]
-}
 
+  lifecycle {
+    ignore_changes = [activate_apis]
+  }
+}
 
 resource "time_sleep" "wait_after_apis_activate" {
   depends_on      = [
@@ -71,7 +82,7 @@ resource "time_sleep" "wait_after_apis_activate" {
     module.cf-backend-project-services, 
     module.bg-backend-project-services
   ]
-  create_duration = "120s"
+  create_duration = "300s"  // Increase wait time to 300 seconds (5 minutes)
 }
 
 resource "google_bigquery_dataset" "dataset" {
@@ -80,6 +91,10 @@ resource "google_bigquery_dataset" "dataset" {
   description   = "big query dataset for examples"
   location      = var.deployment_region
   depends_on    = [time_sleep.wait_after_apis_activate]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 module "cloud_run_backend" {
@@ -91,6 +106,10 @@ module "cloud_run_backend" {
   vertex_cf_auth_token   = var.vertex_cf_auth_token
 
   depends_on = [time_sleep.wait_after_apis_activate]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 module "bigquery_backend" {
@@ -101,4 +120,8 @@ module "bigquery_backend" {
   dataset_id        = var.dataset_id_name
 
   depends_on = [time_sleep.wait_after_apis_activate, google_bigquery_dataset.dataset]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }

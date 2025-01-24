@@ -64,6 +64,10 @@ resource "google_storage_bucket" "default" {
   location                    = "US"
   uniform_bucket_level_access = true
   depends_on                  = [random_id.default]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 data "archive_file" "default" {
@@ -79,6 +83,10 @@ resource "google_storage_bucket_object" "object" {
   name   = "function-source-${data.archive_file.default.output_sha}.zip"  // Add hash to force update
   bucket = google_storage_bucket.default.name
   source = data.archive_file.default.output_path
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "google_artifact_registry_repository" "default" {
@@ -86,6 +94,10 @@ resource "google_artifact_registry_repository" "default" {
   location      = var.deployment_region
   project       = var.project_id
   format        = "DOCKER"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "google_cloudfunctions2_function" "default" {
@@ -133,6 +145,10 @@ resource "google_cloudfunctions2_function" "default" {
     all_traffic_on_latest_revision = true
     service_account_email          = google_service_account.explore-assistant-sa.email
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 ### IAM permissions for Cloud Functions Gen2 (requires run invoker as well) for public access
@@ -143,6 +159,10 @@ resource "google_cloudfunctions2_function_iam_member" "default" {
   cloud_function = google_cloudfunctions2_function.default.name
   role           = "roles/cloudfunctions.invoker"
   member         = "allUsers"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 data "google_iam_policy" "noauth" {
@@ -160,6 +180,10 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
   service  = google_cloudfunctions2_function.default.name
 
   policy_data = data.google_iam_policy.noauth.policy_data
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 output "function_uri" {

@@ -76,21 +76,14 @@ resource "google_storage_bucket" "default" {
 data "archive_file" "default" {
   type        = "zip"
   output_path = "/tmp/function-source.zip"
-  source {
-    // Define the source block
-    directory = "../../../explore-assistant-cloud-function"
-  }
+  source_dir  = "../../explore-assistant-cloud-function/"
   output_file_mode = "0666"
 }
 
 resource "google_storage_bucket_object" "object" {
-  name   = "function-source-${data.archive_file.default.output_sha}.zip"  // Add hash to force update
+  name   = "function-source.zip"
   bucket = google_storage_bucket.default.name
-  source = data.archive_file.default.output_path
-
-  lifecycle {
-    create_before_destroy = true
-  }
+  source = data.archive_file.default.output_path # Add path to the zipped function source code
 }
 
 resource "google_artifact_registry_repository" "default" {

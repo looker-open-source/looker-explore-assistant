@@ -15,7 +15,7 @@ variable "vertex_cf_auth_token" {
 }
 
 locals {
-  source_directory = "${path.module}/../../explore-assistant-cloud-function"
+  source_directory = "../../../explore-assistant-cloud-function"
 }
 
 resource "google_service_account" "explore-assistant-sa" {
@@ -61,7 +61,7 @@ resource "google_secret_manager_secret_iam_binding" "vertex_cf_auth_token_access
 resource "random_id" "default" {
   byte_length = 8
 }
-
+ 
 resource "google_storage_bucket" "default" {
   name                        = "${random_id.default.hex}-${var.project_id}-gcf-source" # Every bucket name must be globally unique
   location                    = "US"
@@ -76,9 +76,7 @@ resource "google_storage_bucket" "default" {
 data "archive_file" "default" {
   type        = "zip"
   output_path = "/tmp/function-source.zip"
-  source_dir  = local.source_directory
-
-  // Ensure the files maintain their relative paths in the zip
+  source  = ../../../explore-assistant-cloud-function
   output_file_mode = "0666"
 }
 

@@ -76,7 +76,7 @@ resource "google_storage_bucket" "default" {
 data "archive_file" "default" {
   type        = "zip"
   output_path = "/tmp/function-source.zip"
-  source  = ../../../explore-assistant-cloud-function
+  source  = "../../../explore-assistant-cloud-function"
   output_file_mode = "0666"
 }
 

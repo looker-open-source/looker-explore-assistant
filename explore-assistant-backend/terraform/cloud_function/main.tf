@@ -14,9 +14,8 @@ variable "vertex_cf_auth_token" {
   type = string
 }
 
-variable "source_directory" {
-  type    = string
-  default = "${path.module}/../../explore-assistant-cloud-function"
+locals {
+  source_directory = "${path.module}/../../explore-assistant-cloud-function"
 }
 
 resource "google_service_account" "explore-assistant-sa" {
@@ -77,7 +76,7 @@ resource "google_storage_bucket" "default" {
 data "archive_file" "default" {
   type        = "zip"
   output_path = "/tmp/function-source.zip"
-  source_dir  = var.source_directory
+  source_dir  = local.source_directory
 
   // Ensure the files maintain their relative paths in the zip
   output_file_mode = "0666"

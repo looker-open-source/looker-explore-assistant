@@ -43,8 +43,10 @@ gcloud services enable serviceusage.googleapis.com \
     secretmanager.googleapis.com \
     aiplatform.googleapis.com
 ```
+THEN, you must wait a bit. These APIs need time to activate. Have a coffee, drink some water, then come back and proceed with the next step. Let the scripts do the heavy lifting, but give them time.
 
 ## 3: Create Service Account
+Did you remember to take a break before starting this step? Please do, the APIs need time to activate & propogate change to the regionless services like IAM. :coffee:
 (for Both backend types)
 ```bash 
 gcloud iam service-accounts create explore-assistant-cf-sa \

@@ -16,7 +16,7 @@ variable "vertex_cf_auth_token" {
 
 variable "source_directory" {
   type    = string
-  default = "../../explore-assistant-cloud-function"
+  default = "${path.module}/../../explore-assistant-cloud-function"
 }
 
 resource "google_service_account" "explore-assistant-sa" {
@@ -123,7 +123,7 @@ resource "google_cloudfunctions2_function" "default" {
     environment_variables = {
       FUNCTIONS_FRAMEWORK = 1
       SOURCE_HASH         = data.archive_file.default.output_sha
-      GOOGLE_FUNCTION_SOURCE = "../explore-assistant-cloud-function/main.py"  // Add this line
+      GOOGLE_FUNCTION_SOURCE = "main.py"  // Ensure this line is correct
     }
   }
 

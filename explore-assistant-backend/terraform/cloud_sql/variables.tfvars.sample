@@ -1,0 +1,4 @@
+project_id = "joon-sandbox"
+deployment_region = "asia-southeast1"
+root_password = "Your root user password"
+user_password = "Your mysql user password"

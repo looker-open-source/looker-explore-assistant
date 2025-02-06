@@ -1,0 +1,1022 @@
+[
+    {
+        "input": "How many pounds of frozen blueberries were sold on promotion over this winter versus last winter?",
+        "output": "fields=spins_nlp.rma_units_incremental_promo_any_sum,spins_nlp.product_type,spins_nlp.period_ending_year&pivots=spins_nlp.period_ending_year&fill_fields=spins_nlp.period_ending_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_date]=2+year+ago+for+2+year&f[spins_nlp.period_ending_month_name]=December%2CJanuary%2CFebruary&sorts=spins_nlp.period_ending_year,spins_nlp.rma_units_incremental_promo_any_sum+desc+0"
+    },
+    {
+        "input": "How many dollars of frozen blueberries were sold on promotion over this fall versus last fall?",
+        "output": "fields=spins_nlp.rma_units_incremental_promo_any_sum,spins_nlp.product_type,spins_nlp.period_ending_year&pivots=spins_nlp.period_ending_year&fill_fields=spins_nlp.period_ending_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_date]=2+year+ago+for+2+year&f[spins_nlp.period_ending_month_name]=September%2COctober%2CNovember&sorts=spins_nlp.period_ending_year,spins_nlp.rma_units_incremental_promo_any_sum+desc+0"
+    },
+    {
+        "input": "What parent companies sell the most Frozen Blueberries by pounds?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_lbs&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%25&f[spins_nlp.total_units]=&sorts=spins_nlp.total_lbs+desc"
+    },
+    {
+        "input": "Show all the sales by units at Albertson stores",
+        "output": "fields=spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=%25ALBERTSON%25&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_abbreviated]=&sorts=spins_nlp.total_units+desc+0"
+    },
+    {
+        "input": "How many pounds of blueberries were sold last month compared to the year prior?",
+        "output": "fields=spins_nlp.geography_filter,spins_nlp.date_in_period_month,spins_nlp.total_lbs,spins_nlp.total_lbs_prior&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&sorts=spins_nlp.date_in_period_month+desc"
+    },
+    {
+        "input": "Is total US blueberry sales up this year versus last year for January? ",
+        "output": "fields=spins_nlp.total_dollars,spins_nlp.period_ending_year,spins_nlp.period_ending_month_name&pivots=spins_nlp.period_ending_year&fill_fields=spins_nlp.period_ending_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_month]=after+2023%2F01%2F01&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25%2CFZ+FRUIT+-+BLUEBERRIES%25&f[spins_nlp.period_ending_month_name]=January&sorts=spins_nlp.period_ending_year,spins_nlp.total_dollars+desc+0"
+    },
+    {
+        "input": "What parent companies sell the most Fresh Blueberries by units?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25&f[spins_nlp.total_units]=&sorts=spins_nlp.total_units+desc"
+    },
+    {
+        "input": "What parent companies sell no Frozen Blueberries?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%25&f[spins_nlp.total_units]=0&sorts=spins_nlp.total_units+desc"
+    },
+    {
+        "input": "What parent companies sell no Fresh Blueberries?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25&f[spins_nlp.total_units]=0&sorts=spins_nlp.total_units+desc"
+    },
+    {
+        "input": "How many blueberries were sold in January 2024 in the US?",
+        "output": "fields=spins_nlp.total_units,spins_nlp.geography_filter,spins_nlp.period_ending_month_name&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_month]=2024%2F01%2F01+to+2024%2F02%2F01"
+    },
+    {
+        "input": "What are the top 5 regions for Fresh and Frozen Blueberry sales in the last year by pounds sold?",
+        "output": "fields=spins_nlp.total_lbs,spins_nlp.geography_filter&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=Market&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&sorts=spins_nlp.total_lbs+desc+0"
+    },
+    {
+        "input": "What is the sales volume comparison between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.total_dollars,spins_nlp.geography_filter&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_year]=2024%2F01%2F01+to+2025%2F01%2F01&sorts=spins_nlp.total_dollars+desc+0"
+    },
+    {
+        "input": "What is the most popular product description by pounds sold?",
+        "output": "fields=spins_nlp.total_lbs,spins_nlp.product_description&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_abbreviated]=&sorts=spins_nlp.total_lbs+desc"
+    },
+    {
+        "input": "What is the rate of change in blueberry sales volume?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How has the quantity of blueberries sold changed in the past year?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Do blueberry sales volumes peak during specific seasons?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have there been seasonal fluctuations in blueberry sales volume?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any notable trends in the volume of blueberries sold?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have economic factors played a role in blueberry sales volume trends?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What has been the overall volume trend for blueberry sales?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "When are blueberries typically sold in the largest quantities?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have changes in consumer preferences affected the volume of blueberries sold?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the general pattern of blueberry sales volume over the last 12 months?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have weather conditions impacted blueberry production and sales volume?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are blueberry sales volumes increasing, decreasing, or remaining stable?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have there been significant changes in blueberry sales volume?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have seasonal sales volume patterns for blueberries changed in the past year?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How has the quantity of blueberries sold evolved over the past year?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any regional variations in blueberry sales volume seasonality?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How has the quantity of blueberries sold per unit of time evolved?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "2. Volume Trends: What is the trend in sales volume for blueberries over the last year?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What factors have influenced blueberry sales volume trends?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "By how much have blueberry sales volumes increased or decreased?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any regional-specific factors driving blueberry sales volume patterns?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_lbs_sum&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Which regions have shown the highest sales growth for blueberries?",
+        "output": "fields=spins_nlp.total_dollars,spins_nlp.geography_filter,spins_nlp.total_dollars_prior&f[spins_nlp.geography_type]=Region&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.current_date_range]=1+years&sorts=spins_nlp.total_dollars+desc+0"
+    },
+    {
+        "input": "How many organic blueberries were sold in 2023?",
+        "output": "fields=spins_nlp.total_units,spins_nlp.geography_filter,spins_nlp.period_ending_year&f[spins_nlp.period_ending_year]=2023%2F01%2F01+to+2024%2F01%2F01&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography]=TOTAL+US+-+NATURAL+CHANNEL"
+    },
+    {
+        "input": "Do price differences between different blueberry packaging types impact sales?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Which blueberry packaging format is the most widely available?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Is the demand for any particular blueberry packaging type growing or declining?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How has the popularity of different blueberry packaging formats changed over time?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Which packaging type for blueberries has a larger market share?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any innovative packaging solutions for blueberries gaining traction?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the relative demand for different blueberry packaging types?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any regional variations in the popularity of different blueberry packaging formats?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Which packaging types for blueberries are most in demand?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Which blueberry packaging types have the highest sales volume?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What factors influence the popularity of different blueberry packaging types?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the most popular way to package blueberries for sale?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do the sales of bulk blueberries compare to pre-packaged blueberries?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What are the preferred packaging options for blueberries among consumers?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there significant differences in popularity between bulk and pre-packaged blueberries?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What are the future prospects for different blueberry packaging types?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do consumer preferences affect the choice of blueberry packaging?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do supply chain factors influence the availability and popularity of different blueberry packaging types?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any emerging trends in blueberry packaging preferences?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Which blueberry packaging formats are most successful in the market?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "9. Packaging Preferences: What packaging types (e.g., bulk, pre-packaged) are most popular based on sales?",
+        "output": "fields=spins_nlp.base_size,spins_nlp.total_dollars,spins_nlp.total_lbs&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have total blueberry sales trended by quarter over the past year across different regions?",
+        "output": "fields=spins_nlp.geography_filter,spins_nlp.total_dollars,spins_nlp.period_ending_quarter&f[spins_nlp.geography_type]=Region&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.current_date_range]=1+years&sorts=spins_nlp.period_ending_quarter"
+    },
+    {
+        "input": "How did blueberries stack up against other fresh fruit products in 2023 in the conventional grow method?",
+        "output": "fields=spins_nlp.rma_units_sum,spins_nlp.product_type&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_month]=after+2023%2F01%2F01&f[spins_nlp.product_type]=FRESH+FRUIT%25&sorts=spins_nlp.rma_units_sum+desc"
+    },
+    {
+        "input": "How do supply and demand dynamics influence the sales volume differences between different blueberry formats?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "By how much do the sales volumes of different blueberry formats differ?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do consumer preferences affect the sales volumes of fresh, frozen, and dried blueberries?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the ratio of sales volume among fresh, frozen, and dried blueberries?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do the sales volumes of different blueberry formats compare?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do the sales volumes of different blueberry formats stack up against each other?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Which blueberry format has the highest sales volume?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How has the sales volume gap between different blueberry formats evolved?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the percentage difference in sales volume between fresh, frozen, and dried blueberries?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there significant differences in sales volume between different blueberry formats?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any trends in the market share of fresh, frozen, and dried blueberries?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the sales volume distribution among fresh, frozen, and dried blueberries?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Which blueberry format has the largest market share?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any regional variations in the sales volume comparison among different blueberry formats?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Do price differences between different blueberry formats impact sales volumes?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Is the sales volume of any blueberry format increasing or decreasing relative to the others?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Is the demand for any blueberry format growing faster or slower than the others?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What factors influence the sales volume differences between different blueberry formats?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "6. Product Formats: How do sales volumes compare for different blueberry formats (fresh, frozen, dried)?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have the sales volumes of different blueberry formats changed over time?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the relative popularity of fresh, frozen, and dried blueberries in terms of sales?",
+        "output": "fields=spins_nlp.rma_lbs_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What market saw the lowest retail sales in fresh blueberries in the last 12 weeks?",
+        "output": "fields=spins_nlp.geography_filter,spins_nlp.rma_dollars_sum&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY&f[spins_nlp.period_ending_week]=12+weeks&f[spins_nlp.geography_type]=Market&sorts=spins_nlp.rma_dollars_sum"
+    },
+    {
+        "input": "What parent companies sell the most Fresh Blueberries by pounds?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_lbs&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_month]=after+2023%2F01%2F01&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25&sorts=spins_nlp.total_lbs+desc"
+    },
+    {
+        "input": "What is the trend in sales volume for blueberries over the last year?",
+        "output": "fields=spins_nlp.total_dollars,spins_nlp.period_ending_quarter&fill_fields=spins_nlp.period_ending_quarter&f[spins_nlp.geography_type]=Region&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.current_date_range]=1+years&sorts=spins_nlp.period_ending_quarter"
+    },
+    {
+        "input": "how many pounds of blueberries were sold in March of 2023 by week in the total US?",
+        "output": "fields=spins_nlp.geography_filter,spins_nlp.period_ending_date,spins_nlp.total_lbs&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_month]=2023%2F03%2F01+to+2023%2F04%2F01&sorts=spins_nlp.period_ending_date"
+    },
+    {
+        "input": "What retail market saw the most growth in fresh blueberry sales by dollars in the last 12 weeks?",
+        "output": "fields=spins_nlp.geography_filter,spins_nlp.rma_dollars_sum&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY&f[spins_nlp.period_ending_week]=12+weeks&f[spins_nlp.geography_type]=Market&sorts=spins_nlp.rma_dollars_sum+desc"
+    },
+    {
+        "input": "Which Blueberry manufacturer sells the most units of Blueberries in NYC?",
+        "output": "fields=spins_nlp.total_units,spins_nlp.parent_company&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_abbreviated]=%25NEW+YORK%5E%2C+NY%25&sorts=spins_nlp.total_units+desc+0"
+    },
+    {
+        "input": "What are the bottom 5 markets for Blueberry sales in total pounds?",
+        "output": "fields=spins_nlp.geography_abbreviated,spins_nlp.total_lbs&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_abbreviated]=&f[spins_nlp.geography_type]=Market&sorts=spins_nlp.total_lbs"
+    },
+    {
+        "input": "What is the most popular brand of blueberries?",
+        "output": "fields=spins_nlp.total_dollars,spins_nlp.geography_filter,spins_nlp.parent_company&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_year]=2024%2F01%2F01+to+2025%2F01%2F01&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&sorts=spins_nlp.total_dollars+desc+0&limit=50"
+    },
+    {
+        "input": "What are the total sales in Florida in the last two years by units sold?",
+        "output": "fields=spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_week]=2+year+ago+for+2+year&f[spins_nlp.geography_abbreviated]=%25FL%25&f[spins_nlp.geography_type]=Market"
+    },
+    {
+        "input": "What package size is the most popular for organic fresh blueberries in 2023 by total units sold?",
+        "output": "fields=spins_nlp.total_units,spins_nlp.base_size_filter&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%2CFRESH+FRUIT+-+BLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_year]=2023&sorts=spins_nlp.total_units+desc+0"
+    },
+    {
+        "input": "Are there any regional-specific factors driving blueberry price patterns?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any notable trends in blueberry price fluctuations?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the rate of change in blueberry prices?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have blueberry prices fluctuated over the years?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the general pattern of blueberry price changes?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have blueberry prices changed per unit of time?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have there been significant changes in blueberry prices?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have economic factors played a role in blueberry price trends?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "By how much have blueberry prices increased or decreased?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "3. Price Trends: How have average prices for blueberries changed over time?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Do blueberry prices peak during specific seasons?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are blueberry prices increasing, decreasing, or remaining stable?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have weather conditions impacted blueberry production and prices?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have blueberry prices evolved over time?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have there been seasonal fluctuations in blueberry prices?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have seasonal price patterns for blueberries changed over time?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any regional variations in blueberry price seasonality?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What has been the overall trend in blueberry prices?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have changes in consumer preferences affected blueberry prices?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What factors have influenced blueberry price trends?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "When are blueberry prices typically highest?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.total_dollars&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Can you show me the trend of blueberry sales over the last 3 years by month?",
+        "output": "fields=spins_nlp.total_dollars,spins_nlp.period_ending_month&fill_fields=spins_nlp.period_ending_month&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_year]=2022%2F01%2F01+to+2025%2F01%2F01&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&sorts=spins_nlp.period_ending_month"
+    },
+    {
+        "input": "What parent company sells the most Fresh and Frozen Blueberries in the Florida market by Units sold?",
+        "output": "fields=spins_nlp.total_units,spins_nlp.parent_company&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_abbreviated]=%25FL%25&f[spins_nlp.geography_type]=Market&sorts=spins_nlp.total_units+desc+0"
+    },
+    {
+        "input": "What are the worst 5 regions for Fresh and Frozen Blueberry sales in the last year by pounds sold?",
+        "output": "fields=spins_nlp.total_lbs,spins_nlp.geography_filter&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.period_ending_date]=1+year+ago+for+1+year&f[spins_nlp.geography_type]=Market&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&sorts=spins_nlp.total_lbs"
+    },
+    {
+        "input": "What is the most popular product size in Florida by total units?",
+        "output": "fields=spins_nlp.total_units,spins_nlp.base_size_filter&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_abbreviated]=%25FL%25&f[spins_nlp.geography_type]=Market&sorts=spins_nlp.total_units+desc+0"
+    },
+    {
+        "input": "How do the sales volumes of organic and conventional blueberries compare?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Which type of blueberry has higher sales volume, organic or conventional?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What factors influence the sales volume difference between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the difference in sales volume between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the ratio of sales volume between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the percentage difference in sales volume between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "By how much do the sales volumes of organic and conventional blueberries differ?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do supply and demand dynamics influence the sales volume difference between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How does the sales volume of organic blueberries compare to that of conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Is the demand for organic blueberries growing faster or slower than that for conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How has the sales volume gap between organic and conventional blueberries evolved?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the relative sales volume of organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Do price differences between organic and conventional blueberries impact sales volumes?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there significant differences in sales volume between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any regional variations in the sales volume comparison between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "5. Organic vs. Conventional: What is the sales volume comparison between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Which type of blueberry has a larger market share, organic or conventional?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do consumer preferences affect the sales volumes of organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Is the sales volume of organic blueberries increasing or decreasing relative to conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have the sales volumes of organic and conventional blueberries changed over time?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any trends in the market share of organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.total_lbs&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=-TOTAL+US+-+FOOD&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What are the bottom 5 regions for Fresh and Frozen Blueberry sales in the last complete year by units sold?",
+        "output": "fields=spins_nlp.geography_filter,spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.period_ending_date]=1+year+ago+for+1+year&f[spins_nlp.geography_type]=Market&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&sorts=spins_nlp.total_units"
+    },
+    {
+        "input": "How do sales volumes compare for different blueberry formats (fresh, frozen, dried)?",
+        "output": "fields=spins_nlp.total_dollars,spins_nlp.geography_filter,spins_nlp.product_type&f[spins_nlp.geography_type]=US+Total&f[spins_nlp.period_ending_year]=2024%2F01%2F01+to+2025%2F01%2F01&f[spins_nlp.product_type]=DRIED+FRUIT+-+BLUEBERRY%2CFRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&sorts=spins_nlp.total_dollars+desc+0"
+    },
+    {
+        "input": "How have seasonal sales patterns for blueberries changed in the past year?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Where have blueberry sales declined the most in the past year?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Do blueberry sales peak during specific seasons in different parts of the country?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Which regions have experienced the largest growth in blueberry sales?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have blueberry sales been by dollars over the past year across different regions?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What factors have influenced blueberry sales trends in different regions?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have there been seasonal fluctuations in blueberry sales across different regions?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have weather conditions impacted blueberry production and sales?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have economic factors played a role in blueberry sales trends?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have blueberry sales trended over the past year across different regions?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have changes in consumer preferences affected blueberry sales?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have blueberry sales by dollars over the past year across different regions?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the general sales trend for blueberries on a regional basis?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there significant regional differences in blueberry sales trends?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have blueberry sales been over the past year across different regions?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have blueberry sales been by dollars over the past year across different regions?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any regional-specific factors driving blueberry sales patterns?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What has been the overall sales trajectory for blueberries in the past year?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "When are blueberries typically most popular in various regions?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any regional variations in blueberry sales seasonality?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have blueberry sales dollars over the past year across different regions?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How have blueberry sales evolved across various regions in the last 12 months?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do blueberry sales in the northern regions compare to those in the southern regions?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any notable regional disparities in blueberry sales patterns?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the overall pattern of blueberry sales across the country?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Have blueberry sales increased, decreased, or remained stable in different regions?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.geography,spins_nlp.rma_dollars_sum&pivots=spins_nlp.geography&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_week]=52+weeks&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What are the bottom 5 regions for Fresh and Frozen Blueberry sales in the last complete year by dollars sold?",
+        "output": "fields=spins_nlp.geography_filter,spins_nlp.total_dollars&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.period_ending_date]=1+year+ago+for+1+year&f[spins_nlp.geography_type]=Market&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&sorts=spins_nlp.total_dollars"
+    },
+    {
+        "input": "What are the top 5 regions for Fresh and Frozen Blueberry sales in the last complete year by total units sold?",
+        "output": "fields=spins_nlp.geography_filter,spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.period_ending_date]=1+year+ago+for+1+year&f[spins_nlp.geography_type]=Market&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&sorts=spins_nlp.total_units+desc"
+    },
+    {
+        "input": "What are the least popular package sizes when looking at units sold?",
+        "output": "fields=spins_nlp.total_lbs,spins_nlp.base_size_filter&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_abbreviated]=&f[spins_nlp.geography_type]=&f[spins_nlp.base_size_filter]=-NULL&sorts=spins_nlp.total_lbs"
+    },
+    {
+        "input": "What are the top 5 regions for Fresh and Frozen Blueberry sales in the last complete year by dollars sold?",
+        "output": "fields=spins_nlp.geography_filter,spins_nlp.total_dollars&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.period_ending_date]=1+year+ago+for+1+year&f[spins_nlp.geography_type]=Market&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&sorts=spins_nlp.total_dollars+desc+0"
+    },
+    {
+        "input": "What retailer sold the lowest amount of Blueberry units in the last two complete years?",
+        "output": "fields=spins_nlp.geography_abbreviated,spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_date]=2+year+ago+for+2+year&f[spins_nlp.geography_type]=Total+Retailer&sorts=spins_nlp.total_units"
+    },
+    {
+        "input": "What retailer sells the most Blueberries on promotion?",
+        "output": "fields=spins_nlp.rma_units_incremental_promo_any_sum,spins_nlp.geography_abbreviated&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_type]=Total+Retailer&sorts=spins_nlp.rma_units_incremental_promo_any_sum+desc+0"
+    },
+    {
+        "input": "Which Target Division sells the most Blueberries?",
+        "output": "fields=spins_nlp.geography_abbreviated,spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_abbreviated]=%25TARGET+CORP%25%2C%25TARGET+CORP+TTL%25%2C%25TARGET+SUPER+TARGET%25&sorts=spins_nlp.total_units+desc+0"
+    },
+    {
+        "input": "What market sold the highest number of pounds of 16 oz Blueberry containers?",
+        "output": "fields=spins_nlp.geography_abbreviated,spins_nlp.total_lbs&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_abbreviated]=&f[spins_nlp.geography_type]=Market&f[spins_nlp.base_size_filter]=16+OUNCE&sorts=spins_nlp.total_lbs+desc+0"
+    },
+    {
+        "input": "How do sales figures compare between organic and conventional blueberries? Is there a growing preference for organic options? - Need to create a % of total market measure",
+        "output": "fields=spins_nlp.geography_filter,spins_nlp.rma_tdp_sum&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_type]=Market&f[spins_nlp.comparison_period]=Period&f[spins_nlp.current_date_range]=365+days&sorts=spins_nlp.rma_tdp_sum+desc"
+    },
+    {
+        "input": "What product descriptions sold zero pounds in the last two years?",
+        "output": "fields=spins_nlp.total_lbs,spins_nlp.product_description&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_week]=2+year+ago+for+2+year&f[spins_nlp.geography_abbreviated]=&f[spins_nlp.total_lbs]=0&sorts=spins_nlp.total_lbs+desc"
+    },
+    {
+        "input": "How does the last 12 months of Blueberry sales compare to other fresh berries by pounds sold at Meijer?",
+        "output": "fields=spins_nlp.product_type,spins_nlp.total_lbs&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=%25MEIJER%25&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFRESH+FRUIT+-+BLACKBERRY%2CFRESH+FRUIT+-+RASPBERRY%2CFRESH+FRUIT+-+STRAWBERRY&f[spins_nlp.period_ending_date]=1+year+ago+for+1+year&sorts=spins_nlp.total_lbs+desc+0"
+    },
+    {
+        "input": "How does the last 12 months of Blueberry sales compare to other fresh berries by pounds sold at Publix?",
+        "output": "fields=spins_nlp.product_type,spins_nlp.total_lbs&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=%25PUBLIX%25&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFRESH+FRUIT+-+BLACKBERRY%2CFRESH+FRUIT+-+RASPBERRY%2CFRESH+FRUIT+-+STRAWBERRY&f[spins_nlp.period_ending_date]=12+month+ago+for+12+month&sorts=spins_nlp.total_lbs+desc+0"
+    },
+    {
+        "input": "How does the last 12 months of Blueberry sales compare to other fresh berries by pounds sold at Albertsons?",
+        "output": "fields=spins_nlp.product_type,spins_nlp.total_lbs&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=%25ALBERTSON%25&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFRESH+FRUIT+-+BLACKBERRY%2CFRESH+FRUIT+-+RASPBERRY%2CFRESH+FRUIT+-+STRAWBERRY&f[spins_nlp.period_ending_date]=12+month+ago+for+12+month&sorts=spins_nlp.total_lbs+desc+0"
+    },
+    {
+        "input": "Do the ratios of frozen unit sales to fresh blueberry unit sales differ from different markets?",
+        "output": "fields=spins_nlp.rma_units_sum,spins_nlp.product_type,spins_nlp.geography_filter&pivots=spins_nlp.product_type&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=Region&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25%2CFZ+FRUIT+-+BLUEBERRIES%25&sorts=spins_nlp.product_type,percent_of_total_sales+desc+1"
+    },
+    {
+        "input": "What are the sales of Fresh Blueberries vs Frozen Blueberries in Florida by Units sold?",
+        "output": "fields=spins_nlp.total_units,spins_nlp.product_type&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_week]=2+year+ago+for+2+year&f[spins_nlp.geography_abbreviated]=%25FL%25&f[spins_nlp.geography_type]=Market&sorts=spins_nlp.product_type"
+    },
+    {
+        "input": "What are the top 5 markets for Blueberry sales in total pounds?",
+        "output": "fields=spins_nlp.geography_abbreviated,spins_nlp.total_lbs&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_week]=2+year+ago+for+2+year&f[spins_nlp.geography_abbreviated]=&f[spins_nlp.geography_type]=Market&sorts=spins_nlp.total_lbs+desc+0"
+    },
+    {
+        "input": "What geography buys the most pounds of Blueberries?",
+        "output": "fields=spins_nlp.geography_abbreviated,spins_nlp.total_lbs&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_week]=2+year+ago+for+2+year&f[spins_nlp.geography_abbreviated]=&f[spins_nlp.geography_type]=Market&sorts=spins_nlp.total_lbs+desc+0"
+    },
+    {
+        "input": "When were the most retail units sold on promotion for fresh blueberries in the last 2 years?",
+        "output": "fields=spins_nlp.period_ending_week,spins_nlp.rma_units_incremental_promo_any_sum&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY&f[spins_nlp.period_ending_date]=2+year+ago+for+2+year&f[spins_nlp.rma_units_incremental_promo_any_sum]=NOT+NULL&sorts=spins_nlp.rma_units_incremental_promo_any_sum+desc"
+    },
+    {
+        "input": "What are the forcasted total distribution points for the next 3 months?",
+        "output": "fields=spins_nlp.rma_tdp_sum,spins_nlp.period_ending_month&fill_fields=spins_nlp.period_ending_month&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_type]=Market&f[spins_nlp.period_ending_month]=after+2023%2F01%2F01&sorts=spins_nlp.period_ending_month+desc"
+    },
+    {
+        "input": "What market has the highest dollar amount of bagged Blueberry sales?",
+        "output": "fields=spins_nlp.geography_abbreviated,spins_nlp.total_dollars&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_abbreviated]=&f[spins_nlp.geography_type]=Market&f[spins_nlp.base_size_filter]=&f[spins_nlp.packaging_type_primary]=BAG&sorts=spins_nlp.total_dollars+desc+0"
+    },
+    {
+        "input": "How does the last 12 months of Blueberry sales in dollars compare to other fresh berries when on promotion?",
+        "output": "fields=spins_nlp.rma_units_incremental_promo_any_sum,spins_nlp.product_type&pivots=spins_nlp.product_type&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFRESH+FRUIT+-+BLACKBERRY%2CFRESH+FRUIT+-+RASPBERRY%2CFRESH+FRUIT+-+STRAWBERRY&f[spins_nlp.period_ending_date]=12+month+ago+for+12+month&sorts=spins_nlp.product_type"
+    },
+    {
+        "input": "What yearly quarter has the lowest blueberry sales by dollars?",
+        "output": "fields=spins_nlp.period_ending_quarter_of_year,spins_nlp.total_dollars&fill_fields=spins_nlp.period_ending_quarter_of_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_month]=8+quarter+ago+for+8+quarter&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25%2CFZ+FRUIT+-+BLUEBERRIES%25&sorts=spins_nlp.total_dollars"
+    },
+    {
+        "input": "What parent company sells the most Fresh Blueberries by total pounds?",
+        "output": "fields=spins_nlp.product_type,spins_nlp.parent_company,spins_nlp.total_lbs&pivots=spins_nlp.product_type&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_month]=after+2023%2F01%2F01&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25%2CFZ+FRUIT+-+BLUEBERRIES%25&sorts=spins_nlp.product_type,spins_nlp.total_lbs+desc+0"
+    },
+    {
+        "input": "What yearly quarter has the highest blueberry sales by dollars over the last two years?",
+        "output": "fields=spins_nlp.period_ending_quarter_of_year,spins_nlp.total_dollars&fill_fields=spins_nlp.period_ending_quarter_of_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_month]=8+quarter+ago+for+8+quarter&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25%2CFZ+FRUIT+-+BLUEBERRIES%25&sorts=spins_nlp.total_dollars+desc+0"
+    },
+    {
+        "input": "What yearly quarter has the highest blueberry sales by RMA dollars?",
+        "output": "fields=spins_nlp.period_ending_quarter_of_year,spins_nlp.rma_dollars_sum&fill_fields=spins_nlp.period_ending_quarter_of_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_month]=8+quarter+ago+for+8+quarter&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25%2CFZ+FRUIT+-+BLUEBERRIES%25&sorts=spins_nlp.rma_dollars_sum+desc"
+    },
+    {
+        "input": "What yearly quarter has the highest blueberry sales by RMA dollars?",
+        "output": "fields=spins_nlp.period_ending_quarter_of_year,spins_nlp.rma_dollars_sum&fill_fields=spins_nlp.period_ending_quarter_of_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.period_ending_month]=8+quarter+ago+for+8+quarter&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25%2CFZ+FRUIT+-+BLUEBERRIES%25&sorts=spins_nlp.rma_dollars_sum+desc+0"
+    },
+    {
+        "input": "What retailers sell no Fresh or Frozen Blueberries on promotion?",
+        "output": "fields=spins_nlp.rma_units_incremental_promo_any_sum,spins_nlp.geography_abbreviated&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_date]=2+year+ago+for+2+year&f[spins_nlp.geography_type]=Total+Retailer&f[spins_nlp.rma_units_incremental_promo_any_sum]=0&sorts=spins_nlp.rma_units_incremental_promo_any_sum"
+    },
+    {
+        "input": "What is the percent change year over year in pounds sold?",
+        "output": "fields=spins_nlp.total_lbs_current,spins_nlp.total_lbs_prior,spins_nlp.total_lbs_perc_change&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%2CFRESH+FRUIT+-+BLUEBERRY&f[spins_nlp.comparison_period]=Period&f[spins_nlp.current_date_range]=365+days&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_year]=2023&sorts=spins_nlp.total_lbs_perc_change+desc"
+    },
+    {
+        "input": "How do blueberry sales vary throughout the year, and are there any specific weeks or months that see a significant increase or decrease?",
+        "output": "fields=spins_nlp.period_ending_week_of_year,spins_nlp.total_lbs_current,spins_nlp.total_lbs_prior&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_type]=Market&f[spins_nlp.comparison_period]=Period&f[spins_nlp.current_date_range]=365+days&f[spins_nlp.total_lbs_current]=NOT+NULL&sorts=spins_nlp.total_lbs_current+desc+0"
+    },
+    {
+        "input": "Compare sales of Fresh and Frozen Blueberries in the last two complete years by total pounds sold",
+        "output": "fields=spins_nlp.product_type,spins_nlp.period_ending_year,spins_nlp.total_lbs&pivots=spins_nlp.period_ending_year&fill_fields=spins_nlp.period_ending_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%2CFRESH+FRUIT+-+BLUEBERRY&f[spins_nlp.period_ending_date]=2+year+ago+for+2+year&f[spins_nlp.period_ending_month_name]=&sorts=spins_nlp.period_ending_year,spins_nlp.total_lbs+desc+0"
+    },
+    {
+        "input": "What was the largest region in blueberry sales?",
+        "output": "fields=spins_nlp.total_dollars,spins_nlp.geography_filter&f[spins_nlp.geography_type]=Region&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&sorts=spins_nlp.total_dollars+desc+0"
+    },
+    {
+        "input": "Which region realized the greatest growth percentage in blueberry pounds sold in 2023?",
+        "output": "fields=spins_nlp.total_lbs_current,spins_nlp.total_lbs_prior,spins_nlp.geography_filter,spins_nlp.total_lbs_perc_change&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%2CFRESH+FRUIT+-+BLUEBERRY&f[spins_nlp.comparison_period]=Period&f[spins_nlp.current_date_range]=365+days&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_year]=2023&sorts=spins_nlp.total_lbs_perc_change+desc"
+    },
+    {
+        "input": "Compare sales of Fresh and Frozen Blueberries in the last two complete years by units sold",
+        "output": "fields=spins_nlp.product_type,spins_nlp.period_ending_year,spins_nlp.total_units&pivots=spins_nlp.period_ending_year&fill_fields=spins_nlp.period_ending_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%2CFRESH+FRUIT+-+BLUEBERRY&f[spins_nlp.period_ending_date]=2+year+ago+for+2+year&f[spins_nlp.period_ending_month_name]=&sorts=spins_nlp.period_ending_year,spins_nlp.total_units+desc+0"
+    },
+    {
+        "input": "Compare sales of Fresh and Frozen Blueberries in the last two complete years by total dollars sold",
+        "output": "fields=spins_nlp.product_type,spins_nlp.period_ending_year,spins_nlp.total_dollars&pivots=spins_nlp.period_ending_year&fill_fields=spins_nlp.period_ending_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%2CFRESH+FRUIT+-+BLUEBERRY&f[spins_nlp.period_ending_date]=2+year+ago+for+2+year&f[spins_nlp.period_ending_month_name]=&sorts=spins_nlp.period_ending_year,spins_nlp.total_dollars+desc+0"
+    },
+    {
+        "input": "What is the forcasted total distribution points for the next 3 months by region?",
+        "output": "fields=spins_nlp.rma_tdp_sum,spins_nlp.period_ending_month,spins_nlp.geography_filter&pivots=spins_nlp.geography_filter&fill_fields=spins_nlp.period_ending_month&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_type]=Region&f[spins_nlp.period_ending_month]=after+2023%2F01%2F01&sorts=spins_nlp.geography_filter,spins_nlp.period_ending_month+desc"
+    },
+    {
+        "input": "How have seasonal blueberry sales trends changed over time?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do seasonal sales fluctuations for blueberries compare to other fruits?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "When are blueberries typically most popular in terms of sales?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "When do blueberry sales reach their peak?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "When do blueberry sales experience their lowest points?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any pronounced seasonal highs and lows in blueberry sales?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any regional variations in seasonal blueberry sales patterns?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the difference in sales volume between peak and off-peak seasons?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there significant seasonal differences in blueberry sales?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the seasonal sales cycle for blueberries?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What factors influence the seasonal fluctuations in blueberry sales?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Do weather conditions impact seasonal blueberry sales?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any seasonal variations in blueberry production that affect sales?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "What is the seasonal sales pattern for blueberries?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do consumer preferences affect seasonal blueberry demand?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "7. Seasonal Trends: How do sales volumes fluctuate seasonally for blueberries?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do blueberry sales fluctuate between peak and off-peak periods?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Are there any emerging patterns in seasonal blueberry sales?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "Is the seasonality of blueberry sales becoming more or less pronounced?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do blueberry sales vary throughout the year?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How do seasonal pricing strategies influence blueberry sales fluctuations?",
+        "output": "fields=spins_nlp.period_ending_month_name&f[spins_nlp.geography]=&f[spins_nlp.category]=PRODUCE&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.geography_type]=Region&f[spins_nlp.rma_dollars_sum]=NOT+NULL"
+    },
+    {
+        "input": "How are total unit sales the week of the Christmas compared to other weeks? (has custom chart config settings)",
+        "output": "fields=spins_nlp.total_units,spins_nlp.period_ending_week,spins_nlp.is_week_before_christmas&pivots=spins_nlp.is_week_before_christmas&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_week]=2+year+ago+for+2+year&f[spins_nlp.geography_abbreviated]=&f[spins_nlp.total_units]=NOT+NULL&sorts=spins_nlp.is_week_before_christmas,spins_nlp.period_ending_week+desc"
+    },
+    {
+        "input": "What are the top 5 regions for Fresh and Frozen Blueberry sales in the last year by units sold?",
+        "output": "fields=spins_nlp.total_units,spins_nlp.geography_filter,spins_nlp.period_ending_year&f[spins_nlp.period_ending_year]=1+years&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.geography_type]=Region"
+    },
+    {
+        "input": "What parent company sells the most Frozen Blueberries by weight?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_lbs&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%25&sorts=spins_nlp.total_lbs+desc"
+    },
+    {
+        "input": "What parent companies sell the most Frozen Blueberries by units?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%25&sorts=spins_nlp.total_units+desc"
+    },
+    {
+        "input": "What parent company sells the most Frozen Blueberries by unit?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%25&sorts=spins_nlp.total_units+desc"
+    },
+    {
+        "input": "How are sales the week before the Fourth of July compared to other weeks? (has custom chart config settings)",
+        "output": "fields=spins_nlp.total_units,spins_nlp.period_ending_week,spins_nlp.is_week_before_fourth_of_july&pivots=spins_nlp.is_week_before_fourth_of_july&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%2CFZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_week]=2+year+ago+for+2+year&f[spins_nlp.geography_abbreviated]=&f[spins_nlp.total_units]=NOT+NULL&sorts=spins_nlp.is_week_before_fourth_of_july,spins_nlp.period_ending_week+desc"
+    },
+    {
+        "input": "What parent company sells the most Fresh Blueberries by unit?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_units&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25&sorts=spins_nlp.total_units+desc"
+    },
+    {
+        "input": "What parent company sells the most Fresh Blueberries by dollars in the conventional grow method?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_dollars&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY&sorts=spins_nlp.total_dollars+desc"
+    },
+    {
+        "input": "Are there significant price differences between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "Is the price premium for organic blueberries sustainable?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "How do consumer preferences affect the price that consumers are willing to pay for organic blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "17. Organic Premium: What is the price premium for organic blueberries compared to conventional?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "How much more expensive are organic blueberries than conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "Are there any trends in the price premium for organic blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "Is the price gap between organic and conventional blueberries widening or narrowing?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "How has the price difference between organic and conventional blueberries evolved?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "How much more do organic blueberries cost compared to conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "What is the price difference between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "How do supply and demand dynamics influence the price premium for organic blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "How have the price premiums for organic blueberries changed over time?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "By how much do organic blueberries cost more than conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "What is the price markup for organic blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "What is the percentage price difference between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "What is the price ratio between organic and conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "How much of a premium do consumers pay for organic blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "What is the price premium for organic blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "What factors influence the price premium for organic blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "Do production costs for organic blueberries differ significantly from those for conventional blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "Are there any regional variations in the price premium for organic blueberries?",
+        "output": "fields=spins_nlp.labeled_organic,spins_nlp.price_usd_lb&pivots=spins_nlp.labeled_organic&f[spins_nlp.geography]=TOTAL+US+-+MULO%2CTOTAL+US+-+NATURAL+CHANNEL&f[spins_nlp.commodity]=BLUEBERRIES%2CBLUEBERRY&f[spins_nlp.period_ending_week]=52+weeks"
+    },
+    {
+        "input": "What parent companies sell the most Frozen Blueberries by dollars?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_dollars&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%25&sorts=spins_nlp.total_dollars+desc"
+    },
+    {
+        "input": "What parent company sells the most Frozen Blueberries by dollars in the conventional grow method?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_dollars&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%25&sorts=spins_nlp.total_dollars+desc"
+    },
+    {
+        "input": "What parent companies sell the most Fresh Blueberries by dollars?",
+        "output": "fields=spins_nlp.parent_company,spins_nlp.total_dollars&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.geography_type]=&f[spins_nlp.product_type]=FRESH+FRUIT+-+BLUEBERRY%25&sorts=spins_nlp.total_dollars+desc"
+    },
+    {
+        "input": "What markets saw a decrease in Blueberry sales Year over Year? (None)",
+        "output": "fields=spins_nlp.total_lbs_current,spins_nlp.total_lbs_prior,spins_nlp.total_lbs_perc_change,spins_nlp.geography_abbreviated&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES%2CFRESH+FRUIT+-+BLUEBERRY&f[spins_nlp.comparison_period]=Period&f[spins_nlp.current_date_range]=365+days&f[spins_nlp.geography_type]=Market&f[spins_nlp.period_ending_year]=2023&f[spins_nlp.total_lbs_perc_change]=%3C0&sorts=spins_nlp.total_lbs_perc_change"
+    },
+    {
+        "input": "How many pounds of frozen blueberries were sold on promotion over this spring versus last spring?",
+        "output": "fields=spins_nlp.rma_units_incremental_promo_any_sum,spins_nlp.product_type,spins_nlp.period_ending_year&pivots=spins_nlp.period_ending_year&fill_fields=spins_nlp.period_ending_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_date]=2+year+ago+for+2+year&f[spins_nlp.period_ending_month_name]=March%2CApril%2CMay&sorts=spins_nlp.period_ending_year,spins_nlp.rma_units_incremental_promo_any_sum+desc+0"
+    },
+    {
+        "input": "How many dollars of frozen blueberries were sold on promotion over this summer versus last summer?",
+        "output": "fields=spins_nlp.rma_units_incremental_promo_any_sum,spins_nlp.product_type,spins_nlp.period_ending_year&pivots=spins_nlp.period_ending_year&fill_fields=spins_nlp.period_ending_year&f[spins_nlp.labeled_organic]=CONVENTIONAL&f[spins_nlp.geography_filter]=&f[spins_nlp.product_type]=FZ+FRUIT+-+BLUEBERRIES&f[spins_nlp.period_ending_date]=2+year+ago+for+2+year&f[spins_nlp.period_ending_month_name]=June%2CJuly%2CAugust&sorts=spins_nlp.period_ending_year,spins_nlp.rma_units_incremental_promo_any_sum+desc+0"
+    }
+]

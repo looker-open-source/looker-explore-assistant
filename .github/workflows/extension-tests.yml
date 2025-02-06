@@ -1,0 +1,29 @@
+name: Explore Assistant Extension CI
+
+on:
+  push:
+    branches:
+      - '**'  # This will run on pushes to any branch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x]
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+    - name: Change to project directory
+      run: cd explore-assistant-extension
+    - name: Install dependencies
+      working-directory: ./explore-assistant-extension
+      run: npm ci
+    - name: Run Unit tests
+      working-directory: ./explore-assistant-extension
+      run: npm test tests/unit_tests  

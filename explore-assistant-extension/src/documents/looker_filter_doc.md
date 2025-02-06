@@ -2,6 +2,9 @@
 
 Filter expressions are an advanced way to filter Looker queries, and this page describes how to write them. In the Explore section of Looker you can use them by adding a filter and choosing the matches (advanced) option. They are also used in LookML for elements that take a filter parameter.
 
+Please note the type of filter expression you can use depends on the type (ie. string, date and time, boolean, number) of field you are filtering on. Please ensure you are checking the field type when applying filter expressions. 
+Filters are not always necessary to get results, do not apply filters if they are not needed.
+
 ## String
 
 Matches in string filters depend on the case_sensitive setting in your model file, and on whether your dialect supports case-sensitivity. For example, if case_sensitive is enabled in your model, the expression FOO% will not match the word "food". If case_sensitive isn't enabled, or if your dialect doesn't support case-sensitivity, the expression FOO% will match the word "food".
@@ -42,8 +45,8 @@ These are all the possible combinations of date filters:
 | Combination                                         | Example                                            | Notes                                                        |
 |-----------------------------------------------------|----------------------------------------------------|--------------------------------------------------------------|
 | this {interval}                                     | this month                                         | You can use this week, this month, this quarter, or this year. Note that this day isn't supported. If you want to get data from the current day, you can use today.    |
-| {n} {interval}                                      | 3 days                                             | You can use a number combined with days, weeks, months, quarters or years. This will return the last number of days, weeks, months, quarters or years you specify in the combination.  |
-| {n} {interval} ago                                  | 3 days ago                                         | You can use a number combined with days, weeks, months, quarters or years ago. This will return the day you specify in the combination. 3 days ago will return the date 3 days prior to the current date.  |
+| {n} {interval}                                      | 3 days                                             | You can use a number combined with days, weeks, months, quarters or years. This will return the last number of days, weeks, months, quarters or years you specify in the combination. For example the last 6 months or last 30 days. This is a very common filter. |
+| {n} {interval} ago                                  | 3 days ago                                         | You can use a number combined with days, weeks, months, quarters or years ago. This will return the day you specify in the combination. 3 days ago will return the date 3 days prior to the current date. For example 3 days ago will not include the days between 3 days ago and today. Do not confuse this with the {n} interval filter.  |
 | {n} {interval} ago for {n} {interval}               | 3 months ago for 2 days                            | You can use a number combined with days, weeks, months, quarters or years ago for the duration of a number you and interval you specify. This will return date range you specify in the combination. 3 months ago for 2 days will return the date for a range of 2 days 3 months prior to the current date.    |
 | before {n} {interval} ago                           | before 3 days ago                                  | You can use this combination to specify a number combined with days, weeks, months, quarters or years in the desired range before ending the date range. Before 3 days ago will return all dates before 3 days of the current date.    |
 | before {time}                                       | before 2018-01-01 12:00:00                         | Before is not inclusive of the time you specify. The expression before 2018-01-01 will return data from all dates before 2018-01-01, but it won't return data from 2018-01-01. |
@@ -150,6 +153,7 @@ For all of the following examples, assume today is Friday, 2018/05/18 18:30:02. 
 | 2 months from now            | all of 2018/07                                            |
 | 6 months from now for 3 months | 2018/11 through 2019/01                                  |
 
+* note for relative dates, the last 3 days is much more common than 3 days ago. The last 2 years is much more common that 2 years ago. 
 
 #### Years
 

@@ -20,7 +20,7 @@ if [ -z "$EXPLORE_ID" ]; then
 fi
 
 TABLE_ID="explore_assistant_examples"       ##The ID of the BigQuery table where the data will be inserted. Set to explore_assistant_examples.
-JSON_FILE="examples.json"                   ##The path to the JSON file containing the data to be loaded. Set to examples.json.
+JSON_FILE="nabc_examples.json"                   ##The path to the JSON file containing the data to be loaded. Set to examples.json.
 
 python load_examples.py \
 --project_id "$PROJECT_ID" \

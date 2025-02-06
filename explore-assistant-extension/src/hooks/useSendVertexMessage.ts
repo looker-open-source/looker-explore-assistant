@@ -203,6 +203,7 @@ ${exploreRefinementExamples &&
     }
     let exampleText = ''
     if (exploreGenerationExamples && exploreGenerationExamples.length > 0) {
+      console.log("Line",exploreGenerationExamples)
       exampleText = exploreGenerationExamples.map((item) => `input: "${item.input}" ; output: ${JSON.stringify(parseLookerURL(item.output))}`).join('\n')
     }
     return `
@@ -265,7 +266,6 @@ ${exploreRefinementExamples &&
       # End Examples
       
   `}
-
 
   const isSummarizationPrompt = async (prompt: string) => {
     const contents = `

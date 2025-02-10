@@ -278,44 +278,8 @@ def create_flask_app():
 
     return app
 
-# Function for Google Cloud Function
-@functions_framework.http
-def cloud_function_entrypoint(request):
-    if request.method == "OPTIONS":
-        return "", 204, get_response_headers()
-
-    incoming_request = request.get_json()
-    print(incoming_request)
-    contents = incoming_request.get("contents")
-    parameters = incoming_request.get("parameters")
-    if contents is None:
-        return Response(json.dumps("Missing 'contents' parameter"), 400, headers=get_response_headers(), mimetype='application/json')
-
-    if not validate_bearer_token(request):
-        return Response(json.dumps({"error": "Invalid token"}), 403, headers=get_response_headers(), mimetype='application/json')
-
-    try:
-        response_text = generate_looker_query(contents, parameters)
-        data = [
-            {
-                "prompt": contents,
-                "parameters": json.dumps(parameters),
-                "response": response_text,
-                "recorded_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S.$f")
-            }
-        ]
-        record_prompt(data)
-        return Response(json.dumps(response_text), 200, headers=get_response_headers(), mimetype='application/json')
-    except Exception as e:
-        logging.error(f"Internal server error: {str(e)}")
-        return Response(json.dumps(str(e)), 500, headers=get_response_headers(), mimetype='application/json')
 
 # Determine the running environment and execute accordingly
 if __name__ == "__main__":
-    # Detect if running in a Google Cloud Function environment
-    if os.environ.get("FUNCTIONS_FRAMEWORK"):
-        # The Cloud Function entry point is defined by the decorator, so nothing is needed here
-        pass
-    else:
-        app = create_flask_app()
-        app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    app = create_flask_app()
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))

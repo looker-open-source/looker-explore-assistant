@@ -24,9 +24,17 @@ def send_request():
             "max_output_tokens": 400
         }
     }
+    
+    payload_login = {
+        "user_id": "1werw",
+        # "user_id": "1",
+        "name": "name",
+        "email": "email"
+    }
 
     # Send a POST request to the endpoint
-    response = requests.post(ENDPOINT_URL, json=payload, headers=headers)
+    # response = requests.post(ENDPOINT_URL, json=payload, headers=headers)
+    response = requests.post(ENDPOINT_URL+'login', json=payload_login, headers=headers)
 
     # Print the response status code and content
     print("Status Code:", response.status_code)

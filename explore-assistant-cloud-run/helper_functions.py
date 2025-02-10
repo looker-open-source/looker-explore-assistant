@@ -95,22 +95,6 @@ def get_response_headers():
     }
 
 
-def log_request(data: dict | str, caller: str):
-    # Check if the input data is a string
-    if isinstance(data, str):
-        # If it's a string, create a JSON object with the caller and message
-        log_data = {"caller": caller, "message": data}
-    else:
-        log_data = data
-        log_data.update({"caller": caller})    
-    with open("request.log", "a") as f:
-        f.write("\n\n\n\n" + "=" * 100 + "\n\n\n\n")
-        f.write(json.dumps(log_data,indent=4))
-        f.write("\n\n\n\n" + "=" * 100 + "\n\n\n\n")
-
-if IS_DEV_SERVER:
-    with open("request.log", 'w') as log_file:
-        log_file.write('')  # Truncate the file
 
 def verify_looker_user(user_id):
     looker_api_url = f"{LOOKER_API_URL}/user/{user_id}"
@@ -145,8 +129,8 @@ def create_new_user(user_id, name, email):
                 connection.commit()
                 return {"user_id": user_id, "status": "created"}
     except mysql.connector.Error as e:
-        # logging.error(f"Database error in create_new_user: {e}")
-        raise Exception(f"Failed to create user: {e}")
+        logging.error(f"Database error in create_new_user: {e}")
+        return {"error": "Failed to create user", "details": str(e)}
 
 def create_chat_thread(user_id, explore_key):
     try:
@@ -158,8 +142,8 @@ def create_chat_thread(user_id, explore_key):
                 chat_id = cursor.lastrowid
                 return chat_id
     except mysql.connector.Error as e:
-        # logging.error(f"Database error in create_chat_thread: {e}")
-        raise Exception(f"Database error in create_chat_thread: {e}")
+        logging.error(f"Database error in create_chat_thread: {e}")
+        return None
 
 def add_message(chat_id, user_id, content, is_user_message=1):
     try:

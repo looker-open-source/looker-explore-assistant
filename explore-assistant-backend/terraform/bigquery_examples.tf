@@ -42,7 +42,6 @@ resource "google_bigquery_job" "create_explore_assistant_examples_table" {
   }
 }
 
-
 resource "google_bigquery_job" "create_explore_assistant_refinement_examples_table" {
   job_id = "create_explore_assistant_refinement_examples_table-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   query {

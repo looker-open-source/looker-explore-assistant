@@ -1,4 +1,3 @@
-
 variable "cloud_run_service_name" {
   type = string
 }
@@ -9,6 +8,14 @@ variable "deployment_region" {
 
 variable "project_id" {
   type = string
+}
+
+variable "vertex_cf_auth_token" {
+  type = string
+}
+
+locals {
+  source_directory = "../../../explore-assistant-cloud-function"
 }
 
 resource "google_service_account" "explore-assistant-sa" {
@@ -32,19 +39,15 @@ resource "google_secret_manager_secret" "vertex_cf_auth_token" {
       }
     }
   }
-}
 
-locals {
-  auth_token_file_path = "${path.module}/../../../.vertex_cf_auth_token"
-  auth_token_file_exists = fileexists(local.auth_token_file_path)
-  auth_token_file_content = local.auth_token_file_exists ? file(local.auth_token_file_path) : ""
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "google_secret_manager_secret_version" "vertex_cf_auth_token_version" {
-  count       = local.auth_token_file_exists ? 1 : 0
   secret      = google_secret_manager_secret.vertex_cf_auth_token.name
-  secret_data = local.auth_token_file_content
-
+  secret_data = var.vertex_cf_auth_token
 }
 
 resource "google_secret_manager_secret_iam_binding" "vertex_cf_auth_token_accessor" {
@@ -58,18 +61,23 @@ resource "google_secret_manager_secret_iam_binding" "vertex_cf_auth_token_access
 resource "random_id" "default" {
   byte_length = 8
 }
-
+ 
 resource "google_storage_bucket" "default" {
   name                        = "${random_id.default.hex}-${var.project_id}-gcf-source" # Every bucket name must be globally unique
   location                    = "US"
   uniform_bucket_level_access = true
   depends_on                  = [random_id.default]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 data "archive_file" "default" {
   type        = "zip"
   output_path = "/tmp/function-source.zip"
   source_dir  = "../../explore-assistant-cloud-function/"
+  output_file_mode = "0666"
 }
 
 resource "google_storage_bucket_object" "object" {
@@ -83,6 +91,10 @@ resource "google_artifact_registry_repository" "default" {
   location      = var.deployment_region
   project       = var.project_id
   format        = "DOCKER"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "google_cloudfunctions2_function" "default" {
@@ -92,7 +104,7 @@ resource "google_cloudfunctions2_function" "default" {
 
   build_config {
     runtime           = "python310"
-    entry_point       = "cloud_function_entrypoint" # Set the entry point
+    entry_point       = "cloud_function_entrypoint" // Set the entry point
     docker_repository = google_artifact_registry_repository.default.id
     source {
       storage_source {
@@ -104,6 +116,7 @@ resource "google_cloudfunctions2_function" "default" {
     environment_variables = {
       FUNCTIONS_FRAMEWORK = 1
       SOURCE_HASH         = data.archive_file.default.output_sha
+      GOOGLE_FUNCTION_SOURCE = "main.py"  // Ensure this line is correct
     }
   }
 
@@ -129,6 +142,10 @@ resource "google_cloudfunctions2_function" "default" {
     all_traffic_on_latest_revision = true
     service_account_email          = google_service_account.explore-assistant-sa.email
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 ### IAM permissions for Cloud Functions Gen2 (requires run invoker as well) for public access
@@ -139,6 +156,10 @@ resource "google_cloudfunctions2_function_iam_member" "default" {
   cloud_function = google_cloudfunctions2_function.default.name
   role           = "roles/cloudfunctions.invoker"
   member         = "allUsers"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 data "google_iam_policy" "noauth" {
@@ -156,6 +177,10 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
   service  = google_cloudfunctions2_function.default.name
 
   policy_data = data.google_iam_policy.noauth.policy_data
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 output "function_uri" {

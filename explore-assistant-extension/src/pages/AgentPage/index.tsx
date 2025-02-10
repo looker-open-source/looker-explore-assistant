@@ -150,7 +150,8 @@ const AgentPage = () => {
       promptSummary,
       dimensions,
       measures,
-      exploreGenerationExamples,
+      exploreGenerationExamples
+      
     )
     console.log('New Explore URL: ', newExploreParams)
     dispatch(setIsQuerying(false))

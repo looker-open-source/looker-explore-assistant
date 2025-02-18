@@ -57,6 +57,12 @@ resource "google_cloud_run_service" "default" {
   project  = var.project_id
 
   template {
+    metadata {
+      annotations = {
+        "autoscaling.knative.dev/minScale" = "0"
+        "autoscaling.knative.dev/maxScale" = "10"
+      }
+    }
     spec {
       service_account_name = google_service_account.explore_assistant_sa.email
       containers {
@@ -83,12 +89,7 @@ resource "google_cloud_run_service" "default" {
     }
   }
 
-  metadata {
-    annotations = {
-      "autoscaling.knative.dev/minScale" = "0"
-      "autoscaling.knative.dev/maxScale" = "10"
-    }
-  }
+
 
   traffic {
     percent         = 100

@@ -1,5 +1,6 @@
 #!/bin/bash
-
+# force docker to build with amd64 architecture compatibility
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
 # Load environment variables from the .env file
 # Make sure .env is in the same directory as this script
 if [ -f .env ]; then

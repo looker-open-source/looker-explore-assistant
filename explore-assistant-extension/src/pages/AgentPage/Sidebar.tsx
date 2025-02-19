@@ -12,7 +12,7 @@ import {
   resetChat,
   setCurrentThread,
   setIsChatMode,
-  setSidePanelExploreUrl,
+  setSidePanelExploreParams,
   AssistantState,
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
@@ -55,7 +55,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
     dispatch(resetChat())
     dispatch(setCurrentThread(thread))
     dispatch(setIsChatMode(true))
-    dispatch(setSidePanelExploreUrl(thread.exploreUrl))
+    dispatch(setSidePanelExploreParams(thread.exploreParams))
     dispatch(openSidePanel())
   }
 

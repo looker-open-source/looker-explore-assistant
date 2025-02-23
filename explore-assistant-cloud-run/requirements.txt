@@ -4,3 +4,7 @@ Flask
 Flask-Cors
 debugpy
 python-dotenv
+mysql-connector-python
+requests
+python-dotenv
+google-cloud-aiplatform

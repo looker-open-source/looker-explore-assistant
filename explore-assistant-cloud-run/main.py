@@ -28,8 +28,6 @@ import mysql.connector
 from flask import Flask, request, Response
 from flask_cors import CORS
 from datetime import datetime, timezone
-from dotenv import load_dotenv; load_dotenv()
-
 
 from helper_functions import (
     CLOUD_SQL_HOST,
@@ -52,22 +50,6 @@ from helper_functions import (
     validate_bearer_token
 )
 logging.basicConfig(level=logging.INFO)
-
-
-# Initialize the Vertex AI
-project = os.environ.get("PROJECT")
-location = os.environ.get("REGION")
-vertex_cf_auth_token = os.environ.get("VERTEX_CF_AUTH_TOKEN")
-model_name = os.environ.get("MODEL_NAME", "gemini-1.0-pro-001")
-oauth_client_id = os.environ.get("OAUTH_CLIENT_ID")
-# checks env var before initiate server
-if (
-    not project or
-    not location or 
-    not oauth_client_id
-    ):
-    raise ValueError("one of environment variables is not set. Please check your delpoyment settings.")
-
 
 # Flask app for running as a web server
 def create_flask_app():

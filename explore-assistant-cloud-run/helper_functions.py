@@ -6,10 +6,14 @@ import mysql.connector
 import requests
 import vertexai
 from requests.auth import HTTPBasicAuth
+import json
 from google.cloud import bigquery
 from contextlib import contextmanager
 from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
+from dotenv import load_dotenv
 
+
+load_dotenv()
 # Configuration (Best practice: use a dedicated config management library)
 PROJECT = os.getenv("PROJECT_NAME")
 REGION = os.getenv("REGION_NAME")
@@ -25,6 +29,8 @@ BIGQUERY_TABLE = os.getenv("BIGQUERY_TABLE", "_prompts")
 MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.0-pro-001")
 IS_DEV_SERVER = os.getenv("IS_DEV_SERVER")
 OAUTH_CLIENT_ID = os.getenv("OAUTH_CLIENT_ID")
+VERTEX_CF_AUTH_TOKEN = os.environ.get("VERTEX_CF_AUTH_TOKEN")
+
 
 if (
     not PROJECT or
@@ -94,7 +100,18 @@ def get_response_headers():
         "Access-Control-Allow-Headers": "Content-Type, X-Signature, Authorization",
     }
 
-
+def log_request(data: dict | str, caller: str):
+    # Check if the input data is a string
+    if isinstance(data, str):
+        # If it's a string, create a JSON object with the caller and message
+        log_data = {"caller": caller, "message": data}
+    else:
+        log_data = data
+        log_data.update({"caller": caller})    
+    with open("request.log", "a") as f:
+        f.write("\n\n\n\n" + "=" * 100 + "\n\n\n\n")
+        f.write(json.dumps(log_data,indent=4))
+        f.write("\n\n\n\n" + "=" * 100 + "\n\n\n\n")
 
 def verify_looker_user(user_id):
     looker_api_url = f"{LOOKER_API_URL}/user/{user_id}"

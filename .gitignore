@@ -6,7 +6,7 @@ temp_db.json
 .terraform*
 terraform.tfstate*
 *.tfstate
-.venv
+.venv*
 node_modules
 
 .vertex_cf_auth_token
@@ -20,10 +20,7 @@ service_account.json
 
 __pycache__
 *.pyc
-<<<<<<< Updated upstream
 # terraform
 plan.dat
-=======
 
 misc
->>>>>>> Stashed changes

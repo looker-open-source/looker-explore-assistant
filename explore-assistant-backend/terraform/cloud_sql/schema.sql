@@ -1,11 +1,11 @@
-CREATE TABLE user (
+CREATE TABLE users (
     user_id VARCHAR(255) PRIMARY KEY,
     name VARCHAR(255),
     email VARCHAR(255)
     -- Add other user columns here (e.g., name, email, etc.)
 );
 
-CREATE TABLE chat (
+CREATE TABLE chats (
     chat_id INT AUTO_INCREMENT PRIMARY KEY,
     explore_key VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -13,7 +13,7 @@ CREATE TABLE chat (
     FOREIGN KEY (user_id) REFERENCES user(user_id)
 );
 
-CREATE TABLE message (
+CREATE TABLE messages (
     message_id INT AUTO_INCREMENT PRIMARY KEY,
     content TEXT,
     chat_id INT,
@@ -24,7 +24,7 @@ CREATE TABLE message (
     FOREIGN KEY (chat_id) REFERENCES chat(chat_id)
 );
 
-CREATE TABLE feedback (
+CREATE TABLE feedbacks (
     feedback_message_id INT AUTO_INCREMENT PRIMARY KEY,
     feedback_message TEXT,
     is_possitive BOOLEAN

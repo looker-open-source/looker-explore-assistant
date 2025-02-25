@@ -179,7 +179,7 @@ def add_feedback(user_id, message_id, feedback_text, is_positive):
     try:
         with mysql_connection() as connection:
             with connection.cursor() as cursor:
-                query = "INSERT INTO feedback (user_id, message_id, feedback_text, is_positive) VALUES (%s, %s, %s, %s)"
+                query = "INSERT INTO feedbacks (user_id, message_id, feedback_text, is_positive) VALUES (%s, %s, %s, %s)"
                 cursor.execute(query, (user_id, message_id, feedback_text, is_positive))
                 connection.commit()
                 feedback_id = cursor.lastrowid

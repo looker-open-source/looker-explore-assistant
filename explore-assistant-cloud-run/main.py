@@ -46,8 +46,7 @@ from helper_functions import (
     add_feedback,
     generate_response,
     record_prompt,
-    generate_looker_query,
-    validate_bearer_token
+    generate_looker_query
 )
 logging.basicConfig(level=logging.INFO)
 
@@ -119,7 +118,7 @@ def create_flask_app():
 
         user_data = get_user_from_db(user_id)
         if user_data:
-            return Response(json.dumps({"message": "User already exists", "user": user_data}), 200, headers=get_response_headers(), mimetype='application/json')
+            return validate_bearer_token(request) and Response(json.dumps({"message": "User already exists", "user": user_data}), 200, headers=get_response_headers(), mimetype='application/json')
 
         result = create_new_user(user_id, name, email)
         if "error" in result:  # Check for errors from create_new_user

@@ -99,13 +99,6 @@ def validate_bearer_token(request):
         logging.error(f"Token validation failed with unexpected error: {str(e)}")
         return False
 
-def get_response_headers():
-    return {
-        "Access-Control-Allow-Origin": "*",  # Be cautious in production!
-        "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, X-Signature, Authorization",
-    }
-
 def log_request(data: dict | str, caller: str):
     # Check if the input data is a string
     if isinstance(data, str):
@@ -131,73 +124,152 @@ def verify_looker_user(user_id):
         f"Looker user verification failed for user {user_id}: {response.status_code} {response.text}"
     )
     return False
+
+def retrieve_chat_history(chat_id):
+    try:
+        with mysql_connection() as connection:
+            with connection.cursor(dictionary=True) as cursor:
+                connection.start_transaction()
+
+                query = """
+                    SELECT m.message_id, m.content, m.is_user_message, m.created_at, f.feedback_text, f.is_positive
+                    FROM messages m
+                    LEFT JOIN feedback f ON m.feedback_id = f.feedback_id
+                    WHERE m.chat_id = %s
+                    ORDER BY m.created_at ASC
+                """
+                cursor.execute(query, (chat_id,))
+                chat_history_data = cursor.fetchall()
+
+                connection.commit()
+                return {"data": chat_history_data}
+
+    except mysql.connector.Error as e:
+        if connection:
+            connection.rollback()
+        logging.error(f"Database error in retrieve_chat_history: {e}")
+        raise DatabaseError("Failed to retrieve chat history", str(e))
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
 def get_user_from_db(user_id):
     try:
         with mysql_connection() as connection:
             with connection.cursor(dictionary=True) as cursor:
+                connection.start_transaction()
                 query = "SELECT user_id, name, email FROM users WHERE user_id = %s"
                 cursor.execute(query, (user_id,))
                 data = cursor.fetchone()
+
+                connection.commit()
                 return data
     except mysql.connector.Error as e:
-        logging.error(f"Database error in create_new_user: {e}")
-        raise DatabaseError("Failed get user", str(e))
+        if connection:
+            connection.rollback()
+        logging.error(f"Database error in get_user_from_db: {e}")
+        raise DatabaseError("Failed to get user", str(e))
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 def create_new_user(user_id, name, email):
     try:
         with mysql_connection() as connection:
-            with connection.cursor() as cursor:
+            with connection.cursor(dictionary=True) as cursor:
+                connection.start_transaction()
+    
                 query = "INSERT INTO users (user_id, name, email) VALUES (%s, %s, %s)"
                 cursor.execute(query, (user_id, name, email))
+
                 connection.commit()
-                data = cursor.fetchone()
-                return data
-                # return {"user_id": user_id, "status": "created"}
+                return {"user_id": user_id, "status": "created"}
+
     except mysql.connector.Error as e:
-        logging.error(f"Database error in create_new_user: {e}")
+        if connection:
+            connection.rollback()
         raise DatabaseError("Failed to create user", str(e))
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 def create_chat_thread(user_id, explore_key):
     try:
         with mysql_connection() as connection:
-            with connection.cursor() as cursor:
+            with connection.cursor(dictionary=True) as cursor:
+                connection.start_transaction()
                 query = "INSERT INTO chats (explore_key, user_id) VALUES (%s, %s)"
                 cursor.execute(query, (explore_key, user_id))
-                connection.commit()
                 chat_id = cursor.lastrowid
-                return chat_id
+
+                connection.commit()
+        return chat_id
+
     except mysql.connector.Error as e:
-        logging.error(f"Database error in create_chat_thread: {e}")
-        return None
+        if connection:
+            connection.rollback()
+        raise DatabaseError("Failed to create chat thread", str(e))
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 def add_message(chat_id, user_id, content, is_user_message=1):
     try:
         with mysql_connection() as connection:
-            with connection.cursor() as cursor:
+            with connection.cursor(dictionary=True) as cursor:
+                connection.start_transaction()        
                 query = "INSERT INTO messages (chat_id, user_id, content, is_user_message) VALUES (%s, %s, %s, %s)"
                 cursor.execute(query, (chat_id, user_id, content, is_user_message))
-                connection.commit()
                 message_id = cursor.lastrowid
+
+                connection.commit()
                 return message_id
+
     except mysql.connector.Error as e:
-        logging.error(f"Database error in add_message: {e}")
-        return None
+        if connection:
+            connection.rollback()
+        raise DatabaseError("Failed to add message", str(e))
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 def add_feedback(user_id, message_id, feedback_text, is_positive):
     try:
         with mysql_connection() as connection:
-            with connection.cursor() as cursor:
+            with connection.cursor(dictionary=True) as cursor:
+                connection.start_transaction()
+        
+                # Insert feedback
                 query = "INSERT INTO feedbacks (user_id, message_id, feedback_text, is_positive) VALUES (%s, %s, %s, %s)"
                 cursor.execute(query, (user_id, message_id, feedback_text, is_positive))
-                connection.commit()
                 feedback_id = cursor.lastrowid
+
+                # Update message with feedback_id
                 update_query = "UPDATE messages SET feedback_id = %s WHERE message_id = %s"
                 cursor.execute(update_query, (feedback_id, message_id))
+
                 connection.commit()
                 return True
+
     except mysql.connector.Error as e:
-        logging.error(f"Database error in add_feedback: {e}")
-        return False
+        if connection:
+            connection.rollback()
+        raise DatabaseError("Failed to add feedback", str(e))
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 def generate_looker_query(contents, parameters=None):
     default_parameters = {"temperature": 0.2, "max_output_tokens": 500, "top_p": 0.8, "top_k": 40}

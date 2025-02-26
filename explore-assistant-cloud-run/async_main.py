@@ -60,6 +60,11 @@ async def base(request: Request):
         record_prompt(data)
         
         return {"data": response_text}
+    except TimeoutError:
+        raise HTTPException(
+            status_code=500,
+            detail="Request timed out. Please try again."
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

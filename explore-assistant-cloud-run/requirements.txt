@@ -8,3 +8,8 @@ mysql-connector-python
 requests
 python-dotenv
 google-cloud-aiplatform
+fastapi
+pytest
+uvicorn
+httpx
+pytest-asyncio

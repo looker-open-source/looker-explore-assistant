@@ -144,7 +144,9 @@ def create_new_user(user_id, name, email):
                 query = "INSERT INTO users (user_id, name, email) VALUES (%s, %s, %s)"
                 cursor.execute(query, (user_id, name, email))
                 connection.commit()
-                return {"user_id": user_id, "status": "created"}
+                data = cursor.fetchone()
+                return {"data": data, "status": "created"}
+                # return {"user_id": user_id, "status": "created"}
     except mysql.connector.Error as e:
         logging.error(f"Database error in create_new_user: {e}")
         return {"error": "Failed to create user", "details": str(e)}

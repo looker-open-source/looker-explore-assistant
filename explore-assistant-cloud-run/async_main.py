@@ -8,7 +8,8 @@ from helper_functions import (
     verify_looker_user,
     get_user_from_db,
     create_new_user,
-    get_response_headers
+    get_response_headers,
+    DatabaseError
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -38,17 +39,19 @@ async def login(request: Request):
 
     if not verify_looker_user(user_id):
         raise HTTPException(status_code=403, detail="User is not a validated Looker user")
-
-    user_data = get_user_from_db(user_id)
-    if user_data:
-        return {"message": "User already exists", "data": user_data}
-
-    result = create_new_user(user_id, name, email)
-    if "error" in result:
-        raise HTTPException(status_code=500, detail=result)
     
-    data = result['data']
-    return {"message": "User created successfully", "data": data}
+    # catch any cloudSQL errors
+    try: 
+        user_data = get_user_from_db(user_id)
+        if user_data:
+            return {"message": "User already exists", "data": user_data}
+
+        result = create_new_user(user_id, name, email)
+        
+        data = result
+        return {"message": "User created successfully", "data": data}
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
 if __name__ == "__main__":
     import uvicorn

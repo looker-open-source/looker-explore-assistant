@@ -1,62 +1,108 @@
 import pytest
-import httpx
-import asyncio
+from unittest.mock import patch
+from fastapi.testclient import TestClient
 
-# List of mock data for testing
-mock_data_list = [
-    {
-        "user_id": "56",
-        "name": "ken",
-        "email": "kiet.lt@joonsolutions.com"
-    },
-    {
-        "user_id": "13",
-        "name": "beck",
-        "email": "bao.nq@joonsolutions.com"
-    },
-    {
-        "user_id": "19",
-        "name": "bach",
-        "email": "nguyen.dnb@joonsolutions.com"
-    }
-]
+# import the fastapi main code here
+from async_main import app
 
-@pytest.mark.asyncio
-async def test_login():
-    # Mock headers for the request, including a valid token
-    headers = {
-        "Authorization": "Bearer valid_token"
-    }
-    timeout = httpx.Timeout(None)
+client = TestClient(app)
 
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        # Create a list of tasks for each request
-        tasks = [
-            send_request(client, mock_data, headers)
-            for mock_data in mock_data_list
-        ]
-        # Run all tasks concurrently
-        await asyncio.gather(*tasks)
+@pytest.mark.parametrize(
+    # Define mock data and expected outputs
+    "user_id, name, email, token, expected_status, expected_message",
+    [
+        # Valid looker user & is new user in cloudSQL
+        (
+            "1", 
+            "Test User", 
+            "test@example.com", 
+            "valid_token",
+            200, 
+            "User created successfully"
+        ),
+        # Valid looker user & is existing user in cloudSQL
+        (
+            "2", 
+            "Test User", 
+            "test@example.com", 
+            "valid_token",
+            200, 
+            "User already exists"
+        ),
+        # Invalid Looker user
+        (
+            "invalid", 
+            "Test User", 
+            "test@example.com", 
+            "valid_token",
+            403, 
+            "User is not a validated Looker user"
+        ),
+        # Invalid token 
+        (
+            "1", 
+            "Test User", 
+            "test@example.com", 
+            "invalid_token",
+            403, 
+            "Invalid token"
+        ),
+    ]
+)
 
-async def send_request(client, mock_data, headers):
-    # Log the current mock data being tested
-    print(f"\nTesting with user_id: {mock_data['user_id']}")
+def test_login_endpoint(user_id, 
+                        name, 
+                        email, 
+                        token,
+                        expected_status, 
+                        expected_message
+                        ):
+    # Use patch to mock all the functions dependent on cloudSQL
+    # convention : patch('main_module.function_called') as mock_name
+    with \
+        patch('async_main.validate_bearer_token') as mock_validate_bearer_token, \
+        patch('async_main.verify_looker_user') as mock_verify_looker_user, \
+        patch('async_main.get_user_from_db') as mock_get_user_from_db, \
+        patch('async_main.create_new_user') as mock_create_new_user:
 
-    # Send a POST request to the /login endpoint
-    response = await client.post("http://localhost:8000/login", json=mock_data, headers=headers)
+        if token == "valid_token":
+            mock_validate_bearer_token.return_value = True
+        else:
+            mock_validate_bearer_token.return_value = False
 
-    # Assert that the response status code is 200 (OK)
-    assert response.status_code == 200
+        if user_id == "invalid":
+            mock_verify_looker_user.return_value = False
+        else: 
+            mock_verify_looker_user.return_value = True
 
-    # Assert that the response contains the expected data
-    response_data = response.json()
-    data = response_data["data"]
-    message = response_data["message"]
-    assert message in ("User created successfully", "User already exists")
-    
-    assert data["user_id"] == mock_data["user_id"]
-    print(f"\nSuccessfully tested user_id: {mock_data['user_id']}")
 
-# Run the test with pytest
-if __name__ == "__main__":
-    pytest.main()
+        if user_id == "1":
+            # simulate new user created successfully
+            mock_get_user_from_db.return_value = None
+            mock_create_new_user.return_value = {
+                "user_id": "1", "name": "Test User", "email": "test@example.com"
+                }
+        elif user_id == "2": 
+            # simuulate user already exist
+            mock_get_user_from_db.return_value = {
+                "user_id": "2", "name": "Test User", "email": "test@example.com"
+                }
+        
+
+        # Prepare the payload for the request
+        payload = {"user_id": user_id, "name": name, "email": email}
+        header =  {"Authorization": f"Bearer {token}"}
+
+        response = client.post("/login", 
+                               json=payload, 
+                               headers = header
+                               )
+
+        assert response.status_code == expected_status
+        if expected_status == 200:
+            assert response.json()["message"] == expected_message
+            assert "data" in response.json()
+            assert response.json()["data"] == {"user_id": user_id, "name": name, "email": email}
+        else:
+            # Exceptions raise the key "detail" instead of message
+            assert response.json()["detail"] == expected_message

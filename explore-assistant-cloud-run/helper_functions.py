@@ -47,6 +47,12 @@ logging.basicConfig(level=logging.INFO)
 vertexai.init(project=PROJECT, location=REGION)
 model = GenerativeModel(MODEL_NAME)
 
+
+class DatabaseError(Exception):
+    def __init__(self, message, details):
+        super().__init__(message)
+        self.details = details
+
 @contextmanager
 def mysql_connection():
     connection = None
@@ -131,11 +137,11 @@ def get_user_from_db(user_id):
             with connection.cursor(dictionary=True) as cursor:
                 query = "SELECT user_id, name, email FROM users WHERE user_id = %s"
                 cursor.execute(query, (user_id,))
-                user_data = cursor.fetchone()
-                return user_data
+                data = cursor.fetchone()
+                return data
     except mysql.connector.Error as e:
-        logging.error(f"Database error in get_user_from_db: {e}")
-        return None
+        logging.error(f"Database error in create_new_user: {e}")
+        raise DatabaseError("Failed get user", str(e))
 
 def create_new_user(user_id, name, email):
     try:
@@ -145,11 +151,11 @@ def create_new_user(user_id, name, email):
                 cursor.execute(query, (user_id, name, email))
                 connection.commit()
                 data = cursor.fetchone()
-                return {"data": data, "status": "created"}
+                return data
                 # return {"user_id": user_id, "status": "created"}
     except mysql.connector.Error as e:
         logging.error(f"Database error in create_new_user: {e}")
-        return {"error": "Failed to create user", "details": str(e)}
+        raise DatabaseError("Failed to create user", str(e))
 
 def create_chat_thread(user_id, explore_key):
     try:

@@ -18,7 +18,8 @@ from helper_functions import (
     generate_response,
     record_prompt,
     generate_looker_query,
-    DatabaseError
+    DatabaseError,
+    search_chat_history
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -202,6 +203,44 @@ async def give_feedback(request: Request):
             raise HTTPException(status_code=500, detail="Failed to submit feedback")
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
+
+@app.get("/chat/search")
+async def search_chats(request: Request):
+    """
+    Search through chat history for messages containing specific keywords.
+    Returns entire chats that contain matching messages.
+    """
+    # Get query parameters from request
+    params = request.query_params
+    user_id = params.get("user_id")
+    search_query = params.get("search_query")
+    limit = int(params.get("limit", 10))
+    offset = int(params.get("offset", 0))
+
+    if not validate_bearer_token(request):
+        raise HTTPException(status_code=403, detail="Invalid token")
+
+    try:
+        if not user_id or not search_query:
+            raise HTTPException(status_code=400, detail="Missing required parameters")
+
+        search_results = search_chat_history(
+            user_id=user_id,
+            search_query=search_query,
+            limit=limit,
+            offset=offset
+        )
+
+        return {
+            "message": "Search completed successfully" if search_results["total"] > 0 else "No results found",
+            "data": search_results
+        }
+
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to search chats", "details": str(e)}
+        )
 
 if __name__ == "__main__":
     import uvicorn

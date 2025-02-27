@@ -11,6 +11,7 @@ from google.cloud import bigquery
 from contextlib import contextmanager
 from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
 from dotenv import load_dotenv
+from typing import Dict, Any, List
 
 
 load_dotenv()
@@ -326,3 +327,100 @@ def record_prompt(data):
       logging.info(f"Loaded {load_job.output_rows} prompts into {table_ref}")
     except Exception as e:
       logging.error(f"BigQuery load job failed: {e}")
+
+def search_chat_history(user_id: str, search_query: str, limit: int = 10, offset: int = 0) -> Dict[str, Any]:
+    """
+    Search through chat history for messages containing the search keywords.
+    
+    Args:
+        user_id (str): The ID of the user whose chat history to search
+        search_query (str): Keywords to search for
+        limit (int, optional): Maximum number of results to return. Defaults to 10.
+        offset (int, optional): Number of results to skip. Defaults to 0.
+    
+    Returns:
+        Dict containing:
+            - total (int): Total number of matching chats
+            - matches (List[Dict]): List of matching chats with messages
+    """
+    try:
+        with mysql_connection() as connection:
+            with connection.cursor(dictionary=True) as cursor:
+                connection.start_transaction()
+
+                # First get total count of matching chats
+                count_query = """
+                    SELECT COUNT(DISTINCT c.chat_id) as total
+                    FROM chats c
+                    JOIN messages m ON c.chat_id = m.chat_id
+                    WHERE c.user_id = %s
+                    AND LOWER(m.content) LIKE LOWER(%s)
+                """
+                cursor.execute(count_query, (user_id, f"%{search_query}%"))
+                total_count = cursor.fetchone()['total']
+
+                # Get matching chats with their messages
+                search_query = """
+                    SELECT DISTINCT 
+                        c.chat_id,
+                        c.explore_key,
+                        c.created_at as chat_created_at,
+                        m.message_id,
+                        m.content,
+                        m.created_at as message_created_at,
+                        m.is_user_message
+                    FROM chats c
+                    JOIN messages m ON c.chat_id = m.chat_id
+                    WHERE c.user_id = %s
+                    AND c.chat_id IN (
+                        SELECT DISTINCT chat_id 
+                        FROM messages 
+                        WHERE LOWER(content) LIKE LOWER(%s)
+                    )
+                    ORDER BY c.created_at DESC, m.created_at ASC
+                    LIMIT %s OFFSET %s
+                """
+                cursor.execute(search_query, (user_id, f"%{search_query}%", limit, offset))
+                results = cursor.fetchall()
+
+                connection.commit()
+
+                # Format results by grouping messages by chat
+                matches = []
+                current_chat = None
+                
+                for row in results:
+                    if not current_chat or current_chat['chat_id'] != row['chat_id']:
+                        if current_chat:
+                            matches.append(current_chat)
+                        current_chat = {
+                            'chat_id': row['chat_id'],
+                            'explore_key': row['explore_key'],
+                            'created_at': row['chat_created_at'].isoformat(),
+                            'messages': []
+                        }
+                    
+                    # Add message to current chat
+                    current_chat['messages'].append({
+                        'message_id': row['message_id'],
+                        'content': row['content'],
+                        'timestamp': row['message_created_at'].isoformat(),
+                        'is_user': bool(row['is_user_message']),
+                        'matches_search': search_query.lower() in row['content'].lower()
+                    })
+
+                # Add the last chat if exists
+                if current_chat:
+                    matches.append(current_chat)
+
+                return {
+                    "total": total_count,
+                    "matches": matches
+                }
+
+    except mysql.connector.Error as e:
+        logging.error(f"Database error in search_chat_history: {e}")
+        raise DatabaseError("Failed to search chat history", str(e))
+    except Exception as e:
+        logging.error(f"Error in search_chat_history: {e}")
+        raise DatabaseError("Failed to search chat history", str(e))

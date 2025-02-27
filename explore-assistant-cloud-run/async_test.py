@@ -523,3 +523,145 @@ def test_timeout_handling():
         assert response.json() == {
             "detail": "Request timed out. Please try again."
         }
+
+@pytest.mark.parametrize(
+    "payload, token, expected_status, expected_response",
+    [
+        # Valid request with results
+        (
+            {
+                "user_id": "user1",
+                "search_query": "sales",
+                "limit": 10,
+                "offset": 0
+            },
+            "valid_token",
+            200,
+            {
+                "message": "Search completed successfully",
+                "data": {
+                    "total": 1,
+                    "matches": [
+                        {
+                            "chat_id": 123,
+                            "explore_key": "orders.explore",
+                            "created_at": "2024-01-20T14:30:00",
+                            "messages": [
+                                {
+                                    "message_id": 1,
+                                    "content": "Show me sales data",
+                                    "timestamp": "2024-01-20T14:30:00",
+                                    "is_user": True,
+                                    "matches_search": True
+                                },
+                                {
+                                    "message_id": 2,
+                                    "content": "Here's your sales data...",
+                                    "timestamp": "2024-01-20T14:31:00",
+                                    "is_user": False,
+                                    "matches_search": True
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ),
+        # No results found
+        (
+            {
+                "user_id": "user1",
+                "search_query": "nonexistent",
+                "limit": 10,
+                "offset": 0
+            },
+            "valid_token",
+            200,
+            {
+                "message": "No results found",
+                "data": {
+                    "total": 0,
+                    "matches": []
+                }
+            }
+        ),
+        # Missing required parameters
+        (
+            {
+                "user_id": "user1"
+            },
+            "valid_token",
+            400,
+            {
+                "detail": "Missing required parameters"
+            }
+        ),
+        # Invalid token
+        (
+            {
+                "user_id": "user1",
+                "search_query": "sales",
+                "limit": 10,
+                "offset": 0
+            },
+            "invalid_token",
+            403,
+            {
+                "detail": "Invalid token"
+            }
+        )
+    ]
+)
+def test_search_chats(payload, token, expected_status, expected_response):
+    """Test the chat search endpoint"""
+    with \
+        patch('async_main.validate_bearer_token') as mock_validate_bearer_token, \
+        patch('async_main.search_chat_history') as mock_search:
+
+        mock_validate_bearer_token.return_value = token == "valid_token"
+        
+        # Mock search results based on the payload
+        if token == "valid_token" and "search_query" in payload:
+            if payload["search_query"] == "sales":
+                mock_search.return_value = {
+                    "total": 1,
+                    "matches": [
+                        {
+                            "chat_id": 123,
+                            "explore_key": "orders.explore",
+                            "created_at": "2024-01-20T14:30:00",
+                            "messages": [
+                                {
+                                    "message_id": 1,
+                                    "content": "Show me sales data",
+                                    "timestamp": "2024-01-20T14:30:00",
+                                    "is_user": True,
+                                    "matches_search": True
+                                },
+                                {
+                                    "message_id": 2,
+                                    "content": "Here's your sales data...",
+                                    "timestamp": "2024-01-20T14:31:00",
+                                    "is_user": False,
+                                    "matches_search": True
+                                }
+                            ]
+                        }
+                    ]
+                }
+            else:
+                mock_search.return_value = {
+                    "total": 0,
+                    "matches": []
+                }
+
+        # Build query parameters
+        query_params = "&".join([f"{k}={v}" for k, v in payload.items()])
+        
+        response = client.get(
+            f"/chat/search?{query_params}",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+
+        assert response.status_code == expected_status
+        assert response.json() == expected_response

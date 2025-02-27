@@ -1,9 +1,12 @@
 import os
 import logging
-import json
 from datetime import datetime, timezone
-from fastapi import FastAPI, Request, HTTPException, Response
+from typing import Optional, Dict, Any
+from fastapi import FastAPI, Request, HTTPException, Response, Depends, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import json
 from helper_functions import (
     IS_DEV_SERVER,
     validate_bearer_token,
@@ -22,7 +25,21 @@ from helper_functions import (
     search_chat_history
 )
 
+# Configure logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Security scheme
+security = HTTPBearer()
+
+# OAuth validation dependency
+async def validate_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> bool:
+    if not validate_bearer_token(credentials.credentials):
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid token"
+        )
+    return True
 
 app = FastAPI()
 
@@ -35,15 +52,15 @@ app.add_middleware(
 )
 
 @app.post("/")
-async def base(request: Request):
+async def base(
+    request: Request,
+    authorized: bool = Depends(validate_token)
+):
     incoming_request = await request.json()
     log_request(incoming_request, 'incoming_request') if IS_DEV_SERVER else None
 
     if "contents" not in incoming_request:
         raise HTTPException(status_code=400, detail="Missing 'contents' parameter")
-
-    if not validate_bearer_token(request):
-        raise HTTPException(status_code=403, detail="Invalid token")
 
     try:
         contents = incoming_request["contents"]
@@ -56,21 +73,21 @@ async def base(request: Request):
             "prompt": contents,
             "parameters": json.dumps(parameters),
             "response": response_text,
-            "recorded_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S.$f")
+            "recorded_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S.%f")
         }]
         record_prompt(data)
         
         return {"data": response_text}
     except TimeoutError:
-        raise HTTPException(
-            status_code=500,
-            detail="Request timed out. Please try again."
-        )
+        raise HTTPException(status_code=504, detail="Request timed out")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/login")
-async def login(request: Request):
+async def login(
+    request: Request,
+    authorized: bool = Depends(validate_token)
+):
     incoming_request = await request.json()
     if not incoming_request or "user_id" not in incoming_request or "name" not in incoming_request or "email" not in incoming_request:
         raise HTTPException(status_code=400, detail="Missing required parameters")
@@ -79,33 +96,27 @@ async def login(request: Request):
     name = incoming_request["name"]
     email = incoming_request["email"]
 
-    if not validate_bearer_token(request):
-        raise HTTPException(status_code=403, detail="Invalid token")
-
     if not verify_looker_user(user_id):
         raise HTTPException(status_code=403, detail="User is not a validated Looker user")
     
-    # catch any cloudSQL errors
     try: 
         user_data = get_user_from_db(user_id)
         if user_data:
             return {"message": "User already exists", "data": user_data}
 
         result = create_new_user(user_id, name, email)
-        
-        data = result
-        return {"message": "User created successfully", "data": data}
+        return {"message": "User created successfully", "data": result}
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
 @app.post("/chat")
-async def create_chat(request: Request):
+async def create_chat(
+    request: Request,
+    authorized: bool = Depends(validate_token)
+):
     incoming_request = await request.json()
     if not incoming_request or "user_id" not in incoming_request or "explore_key" not in incoming_request:
         raise HTTPException(status_code=400, detail="Missing required parameters")
-
-    if not validate_bearer_token(request):
-        raise HTTPException(status_code=403, detail="Invalid token")
 
     try:
         user_id = incoming_request["user_id"]
@@ -123,12 +134,14 @@ async def create_chat(request: Request):
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
 @app.get("/chat/history")
-async def chat_history(request: Request, user_id: str, chat_id: str):
+async def chat_history(
+    request: Request,
+    user_id: str,
+    chat_id: str,
+    authorized: bool = Depends(validate_token)
+):
     if not user_id or not chat_id:
         raise HTTPException(status_code=400, detail="Missing 'user_id' or 'chat_id'")
-
-    if not validate_bearer_token(request):
-        raise HTTPException(status_code=403, detail="Invalid token")
 
     try:
         chat_history_data = retrieve_chat_history(chat_id)
@@ -139,14 +152,14 @@ async def chat_history(request: Request, user_id: str, chat_id: str):
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
 @app.post("/prompt")
-async def handle_prompt(request: Request):
+async def handle_prompt(
+    request: Request,
+    authorized: bool = Depends(validate_token)
+):
     incoming_request = await request.json()
     required_fields = ["contents", "prompt_type", "current_explore_key", "user_id"]
     if not all(field in incoming_request for field in required_fields):
         raise HTTPException(status_code=400, detail="Missing required parameters")
-
-    if not validate_bearer_token(request):
-        raise HTTPException(status_code=403, detail="Invalid token")
 
     try:
         contents = incoming_request["contents"]
@@ -156,20 +169,16 @@ async def handle_prompt(request: Request):
         user_id = incoming_request["user_id"]
         message = incoming_request.get("message", "")
 
-        # Generate response based on prompt type
         response_text = generate_looker_query(contents, parameters) if prompt_type == "looker" else generate_response(contents, parameters)
 
-        # Create chat thread and add messages
         chat_id = create_chat_thread(user_id, current_explore_key)
         if not chat_id:
             raise HTTPException(status_code=500, detail="Failed to create chat thread")
 
-        # Add user message
         user_message_id = add_message(chat_id, user_id, message, 1)
         if not user_message_id:
             raise HTTPException(status_code=500, detail="Failed to add user message")
 
-        # Add bot message
         bot_message_id = add_message(chat_id, user_id, response_text, 0)
         if not bot_message_id:
             raise HTTPException(status_code=500, detail="Failed to add bot message")
@@ -181,14 +190,14 @@ async def handle_prompt(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/feedback")
-async def give_feedback(request: Request):
+async def give_feedback(
+    request: Request,
+    authorized: bool = Depends(validate_token)
+):
     incoming_request = await request.json()
     required_fields = ["user_id", "message_id", "feedback_text", "is_positive"]
     if not all(field in incoming_request for field in required_fields):
         raise HTTPException(status_code=400, detail="Missing required parameters")
-
-    if not validate_bearer_token(request):
-        raise HTTPException(status_code=403, detail="Invalid token")
 
     try:
         user_id = incoming_request["user_id"]
@@ -205,20 +214,15 @@ async def give_feedback(request: Request):
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
 @app.get("/chat/search")
-async def search_chats(request: Request):
-    """
-    Search through chat history for messages containing specific keywords.
-    Returns entire chats that contain matching messages.
-    """
-    # Get query parameters from request
+async def search_chats(
+    request: Request,
+    authorized: bool = Depends(validate_token)
+):
     params = request.query_params
     user_id = params.get("user_id")
     search_query = params.get("search_query")
     limit = int(params.get("limit", 10))
     offset = int(params.get("offset", 0))
-
-    if not validate_bearer_token(request):
-        raise HTTPException(status_code=403, detail="Invalid token")
 
     try:
         if not user_id or not search_query:

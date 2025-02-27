@@ -518,10 +518,10 @@ def test_timeout_handling():
             headers={"Authorization": "Bearer valid_token"}
         )
         
-        # Check that we get a 500 status code and appropriate error message
-        assert response.status_code == 500
+        # Check that we get a 504 status code and appropriate error message
+        assert response.status_code == 504
         assert response.json() == {
-            "detail": "Request timed out. Please try again."
+            "detail": "Request timed out"
         }
 
 @pytest.mark.parametrize(

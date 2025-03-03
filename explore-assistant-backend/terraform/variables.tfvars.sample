@@ -7,4 +7,4 @@ cloud_run_service_name               = "explore-assistant-endpoint" # change to 
 image                                = "asia-southeast1-docker.pkg.dev/joon-sandbox/looker-explore-assistant/explore-assistant-api:latest" # change to your dev var
 use_cloud_run_backend                = true
 explore-assistant-cr-oauth-client-id = "136420034762-ltctaj3i2k7d7q13n7b6kgra45i7j4b6.apps.googleusercontent.com"
-explore-assistant-cr-sa-id           = "explore-assistant-cr-sa" # change to your dev var
+explore-assistant-cr-sa-id           = "explore-assistant-cr-sa" # change to your dev var   

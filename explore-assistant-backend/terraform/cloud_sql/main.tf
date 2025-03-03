@@ -26,6 +26,10 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.0"
     }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.0"
+    }
   }
 }
 
@@ -134,12 +138,39 @@ output "cloudsql_instance_info" {
     password  = google_sql_user.cloud_sql_user.password
     database  = google_sql_database.production.name
   }
-  sensitive  = true
+  sensitive = true
   depends_on = [google_sql_user.cloud_sql_user]
 }
 
+resource "local_file" "cloudsql_outputs" {
+  filename = "${path.module}/cloudsql_outputs.json"
+  content = jsonencode({
+    cloudsql_instance_info = {
+      value = {
+        public_ip = google_sql_database_instance.main.public_ip_address
+        username  = google_sql_user.cloud_sql_user.name
+        password  = google_sql_user.cloud_sql_user.password
+        database  = google_sql_database.production.name
+      }
+    }
+  })
+  file_permission = "0600"  # Restricted file permissions for security
+  depends_on      = [google_sql_user.cloud_sql_user]
+}
+
 resource "null_resource" "run_python" {
-  provisioner "local-exec" {
-    command = "python create_tables.py"
+  triggers = {
+    cloudsql_info_changes = local_file.cloudsql_outputs.content  # Trigger on content changes
   }
+
+  provisioner "local-exec" {
+    working_dir = path.module
+    command     = <<-EOT
+      python -m pip install -r requirements.txt
+      python create_tables.py
+    EOT
+    interpreter = ["bash", "-c"]
+  }
+
+  depends_on = [local_file.cloudsql_outputs]
 }

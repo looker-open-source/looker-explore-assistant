@@ -13,3 +13,5 @@ pytest
 uvicorn
 httpx
 pytest-asyncio
+sqlmodel==0.0.14
+pymysql==1.1.0

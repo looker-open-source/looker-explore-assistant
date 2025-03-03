@@ -73,6 +73,9 @@ resource "google_cloud_run_service" "default" {
             cpu    = "1000m"
           }
         }
+        ports {
+          container_port = 8080
+        }
         env {
           name  = "OAUTH_CLIENT_ID"
           value = var.explore-assistant-cr-oauth-client-id
@@ -86,6 +89,7 @@ resource "google_cloud_run_service" "default" {
           value = var.project_id
         }
       }
+      timeout_seconds = 300
     }
   }
 

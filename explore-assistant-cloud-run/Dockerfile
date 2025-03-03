@@ -15,6 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 
 COPY main.py /app
+COPY helper_functions.py /app
+COPY .env /app
 COPY test.py /app
 
 EXPOSE 8000

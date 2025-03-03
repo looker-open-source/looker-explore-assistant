@@ -1,16 +1,23 @@
 import os
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 from fastapi import FastAPI, Request, HTTPException, Response, Depends, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 import json
+from sqlmodel import Session
+from models import (
+    LoginRequest, ChatRequest, PromptRequest, FeedbackRequest,
+    BaseResponse, ErrorResponse, ChatHistoryResponse, SearchResponse
+)
+from database import get_session
 from helper_functions import (
     IS_DEV_SERVER,
     validate_bearer_token,
-    log_request,
     verify_looker_user,
     get_user_from_db,
     create_new_user,
@@ -43,6 +50,13 @@ async def validate_token(credentials: HTTPAuthorizationCredentials = Security(se
 
 app = FastAPI()
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=400,
+        content={"detail": "Missing required parameters"}
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -54,20 +68,15 @@ app.add_middleware(
 @app.post("/")
 async def base(
     request: Request,
-    authorized: bool = Depends(validate_token)
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
 ):
     incoming_request = await request.json()
-    log_request(incoming_request, 'incoming_request') if IS_DEV_SERVER else None
-
-    if "contents" not in incoming_request:
-        raise HTTPException(status_code=400, detail="Missing 'contents' parameter")
+    contents = incoming_request.get("contents")
+    parameters = incoming_request.get("parameters")
 
     try:
-        contents = incoming_request["contents"]
-        parameters = incoming_request.get("parameters")
-        
         response_text = generate_looker_query(contents, parameters)
-        log_request(response_text, 'vertex_reply__generate_looker_query') if IS_DEV_SERVER else None
 
         data = [{
             "prompt": contents,
@@ -77,7 +86,7 @@ async def base(
         }]
         record_prompt(data)
         
-        return {"data": response_text}
+        return BaseResponse(message="Query generated successfully", data={"response": response_text})
     except TimeoutError:
         raise HTTPException(status_code=504, detail="Request timed out")
     except Exception as e:
@@ -85,105 +94,81 @@ async def base(
 
 @app.post("/login")
 async def login(
-    request: Request,
-    authorized: bool = Depends(validate_token)
+    request: LoginRequest,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
 ):
-    incoming_request = await request.json()
-    if not incoming_request or "user_id" not in incoming_request or "name" not in incoming_request or "email" not in incoming_request:
-        raise HTTPException(status_code=400, detail="Missing required parameters")
-
-    user_id = incoming_request["user_id"]
-    name = incoming_request["name"]
-    email = incoming_request["email"]
-
-    if not verify_looker_user(user_id):
+    if not verify_looker_user(request.user_id):
         raise HTTPException(status_code=403, detail="User is not a validated Looker user")
     
     try: 
-        user_data = get_user_from_db(user_id)
+        user_data = get_user_from_db(request.user_id)
         if user_data:
-            return {"message": "User already exists", "data": user_data}
+            return BaseResponse(message="User already exists", data=user_data)
 
-        result = create_new_user(user_id, name, email)
-        return {"message": "User created successfully", "data": result}
+        result = create_new_user(request.user_id, request.name, request.email)
+        return BaseResponse(message="User created successfully", data=result)
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
 @app.post("/chat")
 async def create_chat(
-    request: Request,
-    authorized: bool = Depends(validate_token)
+    request: ChatRequest,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
 ):
-    incoming_request = await request.json()
-    if not incoming_request or "user_id" not in incoming_request or "explore_key" not in incoming_request:
-        raise HTTPException(status_code=400, detail="Missing required parameters")
-
     try:
-        user_id = incoming_request["user_id"]
-        explore_key = incoming_request["explore_key"]
-        
-        if not all([user_id, explore_key]):
-            return HTTPException(status_code=400, detail="Missing required parameters")
-
-        chat_id = create_chat_thread(user_id, explore_key)
+        chat_id = create_chat_thread(request.user_id, request.explore_key)
         if not chat_id:
             raise HTTPException(status_code=500, detail="Failed to create chat thread")
             
-        return {"message": "Chat created successfully", "data": {"chat_id": chat_id, "status": "created"}}
+        return BaseResponse(
+            message="Chat created successfully",
+            data={"chat_id": chat_id, "status": "created"}
+        )
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
 @app.get("/chat/history")
 async def chat_history(
-    request: Request,
     user_id: str,
     chat_id: str,
-    authorized: bool = Depends(validate_token)
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
 ):
-    if not user_id or not chat_id:
-        raise HTTPException(status_code=400, detail="Missing 'user_id' or 'chat_id'")
-
     try:
         chat_history_data = retrieve_chat_history(chat_id)
         if not chat_history_data or not chat_history_data.get("data"):
             raise HTTPException(status_code=404, detail="Chat history not found")
-        return chat_history_data
+        return ChatHistoryResponse(**chat_history_data)
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
 @app.post("/prompt")
 async def handle_prompt(
-    request: Request,
-    authorized: bool = Depends(validate_token)
+    request: PromptRequest,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
 ):
-    incoming_request = await request.json()
-    required_fields = ["contents", "prompt_type", "current_explore_key", "user_id"]
-    if not all(field in incoming_request for field in required_fields):
-        raise HTTPException(status_code=400, detail="Missing required parameters")
-
     try:
-        contents = incoming_request["contents"]
-        parameters = incoming_request.get("parameters")
-        prompt_type = incoming_request["prompt_type"]
-        current_explore_key = incoming_request["current_explore_key"]
-        user_id = incoming_request["user_id"]
-        message = incoming_request.get("message", "")
+        response_text = generate_looker_query(request.contents, request.parameters) if request.prompt_type == "looker" else generate_response(request.contents, request.parameters)
 
-        response_text = generate_looker_query(contents, parameters) if prompt_type == "looker" else generate_response(contents, parameters)
-
-        chat_id = create_chat_thread(user_id, current_explore_key)
+        chat_id = request.chat_id or create_chat_thread(request.user_id, request.current_explore_key)
         if not chat_id:
             raise HTTPException(status_code=500, detail="Failed to create chat thread")
 
-        user_message_id = add_message(chat_id, user_id, message, 1)
+        user_message_id = add_message(chat_id, request.user_id, request.message or request.contents, True)
         if not user_message_id:
             raise HTTPException(status_code=500, detail="Failed to add user message")
 
-        bot_message_id = add_message(chat_id, user_id, response_text, 0)
+        bot_message_id = add_message(chat_id, request.user_id, response_text, False)
         if not bot_message_id:
             raise HTTPException(status_code=500, detail="Failed to add bot message")
 
-        return {"message": "Prompt handled successfully", "data": {"response": response_text, "chat_id": chat_id}}
+        return BaseResponse(
+            message="Prompt handled successfully",
+            data={"response": response_text, "chat_id": chat_id}
+        )
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
     except Exception as e:
@@ -191,21 +176,12 @@ async def handle_prompt(
 
 @app.post("/feedback")
 async def give_feedback(
-    request: Request,
-    authorized: bool = Depends(validate_token)
+    request: FeedbackRequest,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
 ):
-    incoming_request = await request.json()
-    required_fields = ["user_id", "message_id", "feedback_text", "is_positive"]
-    if not all(field in incoming_request for field in required_fields):
-        raise HTTPException(status_code=400, detail="Missing required parameters")
-
     try:
-        user_id = incoming_request["user_id"]
-        message_id = incoming_request["message_id"]
-        feedback_text = incoming_request["feedback_text"]
-        is_positive = incoming_request["is_positive"]
-
-        result = add_feedback(user_id, message_id, feedback_text, is_positive)
+        result = add_feedback(request.user_id, request.message_id, request.feedback_text, request.is_positive)
         if result:
             return {"message": "Feedback submitted successfully"}
         else:
@@ -215,19 +191,14 @@ async def give_feedback(
 
 @app.get("/chat/search")
 async def search_chats(
-    request: Request,
-    authorized: bool = Depends(validate_token)
-):
-    params = request.query_params
-    user_id = params.get("user_id")
-    search_query = params.get("search_query")
-    limit = int(params.get("limit", 10))
-    offset = int(params.get("offset", 0))
-
+    user_id: str,
+    search_query: str,
+    limit: int = 10,
+    offset: int = 0,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+) -> SearchResponse:
     try:
-        if not user_id or not search_query:
-            raise HTTPException(status_code=400, detail="Missing required parameters")
-
         search_results = search_chat_history(
             user_id=user_id,
             search_query=search_query,
@@ -235,10 +206,11 @@ async def search_chats(
             offset=offset
         )
 
-        return {
-            "message": "Search completed successfully" if search_results["total"] > 0 else "No results found",
-            "data": search_results
-        }
+        message = "Search completed successfully" if search_results["total"] > 0 else "No results found"
+        return SearchResponse(
+            message=message,
+            data=search_results
+        )
 
     except DatabaseError as e:
         raise HTTPException(

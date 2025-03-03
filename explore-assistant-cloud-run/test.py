@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any, List
 from enum import Enum
 
 # import the fastapi main code here
-from async_main import app
+from main import app
 
 client = TestClient(app)
 
@@ -108,10 +108,10 @@ def test_login_endpoint(user_id, name, email, token, expected_status, expected_r
     login_request = LoginRequest(user_id=user_id, name=name, email=email)
     
     with \
-        patch('async_main.validate_bearer_token') as mock_validate_bearer_token, \
-        patch('async_main.verify_looker_user') as mock_verify_looker_user, \
-        patch('async_main.get_user_from_db') as mock_get_user_from_db, \
-        patch('async_main.create_new_user') as mock_create_new_user:
+        patch('main.validate_bearer_token') as mock_validate_bearer_token, \
+        patch('main.verify_looker_user') as mock_verify_looker_user, \
+        patch('main.get_user_from_db') as mock_get_user_from_db, \
+        patch('main.create_new_user') as mock_create_new_user:
 
         mock_validate_bearer_token.return_value = token == "valid_token"
         mock_verify_looker_user.return_value = user_id != "invalid"
@@ -174,8 +174,8 @@ def test_login_endpoint(user_id, name, email, token, expected_status, expected_r
 )
 def test_create_chat_endpoint(user_id, explore_key, token, expected_status, expected_message):
     with \
-        patch('async_main.validate_bearer_token') as mock_validate_bearer_token, \
-        patch('async_main.create_chat_thread') as mock_create_chat_thread:
+        patch('main.validate_bearer_token') as mock_validate_bearer_token, \
+        patch('main.create_chat_thread') as mock_create_chat_thread:
 
         mock_validate_bearer_token.return_value = token == "valid_token"
         
@@ -221,8 +221,8 @@ def test_create_chat_endpoint(user_id, explore_key, token, expected_status, expe
             "chat1",
             "valid_token",
             None,
-            422,
-            {"detail": [{"loc": ["query", "user_id"], "msg": "field required", "type": "missing"}]}
+            400,
+            {"detail": [{"loc": ["query", "user_id"], "msg": "field required", "type": "Missing required parameters"}]}
         ),
         # Missing chat_id
         (
@@ -230,8 +230,8 @@ def test_create_chat_endpoint(user_id, explore_key, token, expected_status, expe
             None,
             "valid_token",
             None,
-            422,
-            {"detail": [{"loc": ["query", "chat_id"], "msg": "field required", "type": "missing"}]}
+            400,
+            {"detail": [{"loc": ["query", "chat_id"], "msg": "field required", "type": "Missing required parameters"}]}
         ),
         # Invalid token
         (
@@ -255,8 +255,8 @@ def test_create_chat_endpoint(user_id, explore_key, token, expected_status, expe
 )
 def test_chat_history_endpoint(user_id, chat_id, token, mock_return, expected_status, expected_response):
     with \
-        patch('async_main.validate_bearer_token') as mock_validate_bearer_token, \
-        patch('async_main.retrieve_chat_history') as mock_retrieve_chat_history:
+        patch('main.validate_bearer_token') as mock_validate_bearer_token, \
+        patch('main.retrieve_chat_history') as mock_retrieve_chat_history:
 
         mock_validate_bearer_token.return_value = token == "valid_token"
         mock_retrieve_chat_history.return_value = mock_return
@@ -275,9 +275,9 @@ def test_chat_history_endpoint(user_id, chat_id, token, mock_return, expected_st
         )
 
         assert response.status_code == expected_status
-        if expected_status == 422:
-            # For 422 responses, we only check the status code as the exact error message might vary
-            assert response.json()["detail"][0]["type"] == expected_response["detail"][0]["type"]
+        if expected_status == 400:
+            # For validation errors, we check the error message
+            assert response.json()["detail"] == "Missing required parameters"
         else:
             assert response.json() == expected_response
 
@@ -364,7 +364,9 @@ def test_chat_history_endpoint(user_id, chat_id, token, mock_return, expected_st
             "valid_token",
             {},
             400,
-            ErrorResponse(detail="Missing required parameters").model_dump()
+            ErrorResponse(
+                detail="Missing required parameters"
+            ).model_dump()
         ),
         # Invalid token
         (
@@ -383,11 +385,11 @@ def test_chat_history_endpoint(user_id, chat_id, token, mock_return, expected_st
 )
 def test_prompt_endpoint(payload, token, mock_config, expected_status, expected_response):
     with \
-        patch('async_main.validate_bearer_token') as mock_validate_bearer_token, \
-        patch('async_main.generate_looker_query') as mock_generate_looker_query, \
-        patch('async_main.generate_response') as mock_generate_response, \
-        patch('async_main.create_chat_thread') as mock_create_chat_thread, \
-        patch('async_main.add_message') as mock_add_message:
+        patch('main.validate_bearer_token') as mock_validate_bearer_token, \
+        patch('main.generate_looker_query') as mock_generate_looker_query, \
+        patch('main.generate_response') as mock_generate_response, \
+        patch('main.create_chat_thread') as mock_create_chat_thread, \
+        patch('main.add_message') as mock_add_message:
 
         # Configure mock responses
         mock_validate_bearer_token.return_value = token == "valid_token"
@@ -483,8 +485,8 @@ def test_prompt_endpoint(payload, token, mock_config, expected_status, expected_
 )
 def test_feedback_endpoint(payload, token, expected_status, expected_response):
     with \
-        patch('async_main.validate_bearer_token') as mock_validate_bearer_token, \
-        patch('async_main.add_feedback') as mock_add_feedback:
+        patch('main.validate_bearer_token') as mock_validate_bearer_token, \
+        patch('main.add_feedback') as mock_add_feedback:
 
         mock_validate_bearer_token.return_value = token == "valid_token"
         
@@ -509,8 +511,8 @@ def test_feedback_endpoint(payload, token, expected_status, expected_response):
 def test_timeout_handling():
     """Test that timeouts are handled gracefully"""
     with \
-        patch('async_main.generate_looker_query', side_effect=TimeoutError), \
-        patch('async_main.validate_bearer_token', return_value=True):
+        patch('main.generate_looker_query', side_effect=TimeoutError), \
+        patch('main.validate_bearer_token', return_value=True):
         
         response = client.post(
             "/",
@@ -615,8 +617,8 @@ def test_timeout_handling():
 def test_search_chats(payload, token, expected_status, expected_response):
     """Test the chat search endpoint"""
     with \
-        patch('async_main.validate_bearer_token') as mock_validate_bearer_token, \
-        patch('async_main.search_chat_history') as mock_search:
+        patch('main.validate_bearer_token') as mock_validate_bearer_token, \
+        patch('main.search_chat_history') as mock_search:
 
         mock_validate_bearer_token.return_value = token == "valid_token"
         

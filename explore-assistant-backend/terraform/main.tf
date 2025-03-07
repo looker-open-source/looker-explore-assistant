@@ -84,6 +84,7 @@ module "cloud_run_backend" {
   count                                = var.use_cloud_run_backend ? 1 : 0
   source                               = "./cloud_run"
   project_id                           = var.project_id
+  project_number                       = var.project_number
   deployment_region                    = var.deployment_region
   image                                = var.image
   cloud_run_service_name               = var.cloud_run_service_name

@@ -8,6 +8,11 @@ variable "project_id" {
   description = "GCP Project ID"
 }
 
+variable "project_number" {
+  type        = number
+  description = "GCP Project Number"
+}
+
 variable "use_cloud_function_backend" {
   type    = bool
   default = false

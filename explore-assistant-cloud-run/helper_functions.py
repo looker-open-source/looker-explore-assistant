@@ -5,7 +5,7 @@ import logging
 import requests
 import vertexai
 from requests.auth import HTTPBasicAuth
-import json
+import time
 from google.cloud import bigquery
 from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
 from dotenv import load_dotenv
@@ -29,10 +29,9 @@ CLOUD_SQL_DATABASE = os.getenv("CLOUD_SQL_DATABASE")
 BIGQUERY_DATASET = os.getenv("BIGQUERY_DATASET", "beck_explore_assistant")
 BIGQUERY_TABLE = os.getenv("BIGQUERY_TABLE", "_prompts")
 MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.0-pro-001")
-IS_DEV_SERVER = os.getenv("IS_DEV_SERVER")
 OAUTH_CLIENT_ID = os.getenv("OAUTH_CLIENT_ID")
 VERTEX_CF_AUTH_TOKEN = os.environ.get("VERTEX_CF_AUTH_TOKEN")
-
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN")
 
 if (
     not PROJECT or
@@ -56,25 +55,27 @@ class DatabaseError(Exception):
         self.details = details
 
 def validate_bearer_token(token: str) -> bool:
-    if IS_DEV_SERVER:
+    if not token:
+        logging.error("Empty token provided")
+        return False
+    if token == ADMIN_TOKEN:
         return True
-    
     try:
         response = requests.get(f'https://oauth2.googleapis.com/tokeninfo?access_token={token}')
-        
+
         if response.status_code == 200:
             token_info = response.json()
             if token_info.get('azp') != OAUTH_CLIENT_ID:
                 logging.error(f"Token was issued for different client ID: {token_info.get('azp')}")
                 return False
+            if int(token_info['exp']) < int(time.time()):
+                logging.error("Token has expired")
+                return False
             return True
-            
-        logging.error(f"Token validation failed with status code: {response.status_code}")
-        return False
         
     except Exception as e:
         logging.error(f"Token validation failed with unexpected error: {str(e)}")
-        return False
+    return False
 
 def verify_looker_user(user_id: str) -> bool:
     looker_api_url = f"{LOOKER_API_URL}/user/{user_id}"

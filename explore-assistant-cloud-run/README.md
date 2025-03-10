@@ -48,7 +48,6 @@ CLOUD_SQL_DATABASE=your-db-name
 BIGQUERY_DATASET=your-bigquery-dataset
 BIGQUERY_TABLE=your-bigquery-table
 MODEL_NAME=gemini-1.0-pro-001
-IS_DEV_SERVER=true/false
 OAUTH_CLIENT_ID=your-oauth-client-id
 VERTEX_CF_AUTH_TOKEN=your-vertex-auth-token
 IMAGE_NAME=explore-assistant-api-ken  # For deployment

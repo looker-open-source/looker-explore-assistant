@@ -16,7 +16,6 @@ from models import (
 )
 from database import get_session
 from helper_functions import (
-    IS_DEV_SERVER,
     validate_bearer_token,
     verify_looker_user,
     get_user_from_db,

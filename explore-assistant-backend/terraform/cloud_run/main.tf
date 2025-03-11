@@ -14,11 +14,14 @@ variable "project_id" {
   type = string
 }
 
+variable "project_number" {
+  type = number
+}
+
 variable "image" {
   description = "The full path to image on your Google artifacts repo"
   type        = string
 }
-
 
 variable "explore-assistant-cr-oauth-client-id" {
   type        = string
@@ -50,50 +53,60 @@ resource "google_project_iam_member" "iam_permission_bq_data_editor" {
   role    = "roles/bigquery.dataEditor"
   member  = format("serviceAccount:%s", google_service_account.explore_assistant_sa.email)
 }
+resource "google_project_iam_member" "default" {
+  project = var.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  member  = format("serviceAccount:%s", google_service_account.explore_assistant_sa.email)
+}
 
-resource "google_cloud_run_service" "default" {
+resource "google_cloud_run_v2_service" "default" {
   name     = var.cloud_run_service_name
   location = var.deployment_region
   project  = var.project_id
 
   template {
-    metadata {
-      annotations = {
+    annotations = {
         "autoscaling.knative.dev/minScale" = "0"
         "autoscaling.knative.dev/maxScale" = "10"
       }
-    }
-    spec {
-      service_account_name = google_service_account.explore_assistant_sa.email
-      containers {
-        image = "${var.image}"
-        resources {
-          limits = {
-            memory = "4Gi"
-            cpu    = "1000m"
-          }
-        }
-        env {
-          name  = "OAUTH_CLIENT_ID"
-          value = var.explore-assistant-cr-oauth-client-id
-        }
-        env {
-          name  = "REGION_NAME"
-          value = var.deployment_region
-        }
-        env {
-          name  = "PROJECT_NAME"
-          value = var.project_id
+    containers {
+      image = "${var.image}"
+      resources {
+        limits = {
+          memory = "4Gi"
+          cpu    = "1000m"
         }
       }
+      env {
+        name = "admin_token"
+        value_source {
+          secret_key_ref {
+            secret  = "projects/${var.project_number}/secrets/looker-explore-assistant-admin-token"
+            version = "latest"
+          }
+        }
+      }
+      ports {
+        container_port = 8080
+      }
+      env {
+        name  = "OAUTH_CLIENT_ID"
+        value = var.explore-assistant-cr-oauth-client-id
+      }
+      env {
+        name  = "REGION_NAME"
+        value = var.deployment_region
+      }
+      env {
+        name  = "PROJECT_NAME"
+        value = var.project_id
+      }
     }
+    service_account = google_service_account.explore_assistant_sa.email
   }
-
-
-
   traffic {
     percent         = 100
-    latest_revision = true
+    type = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
   }
 }
 
@@ -108,17 +121,17 @@ data "google_iam_policy" "noauth" {
 }
 
 resource "google_cloud_run_service_iam_policy" "noauth" {
-  location = google_cloud_run_service.default.location
-  project  = google_cloud_run_service.default.project
-  service  = google_cloud_run_service.default.name
+  location = google_cloud_run_v2_service.default.location
+  project  = google_cloud_run_v2_service.default.project
+  service  = google_cloud_run_v2_service.default.name
 
   policy_data = data.google_iam_policy.noauth.policy_data
 }
 
 output "cloud_run_uri" {
-  value = google_cloud_run_service.default.status[0].url
+  value = google_cloud_run_v2_service.default.traffic_statuses[0].uri
 }
 
 output "cloud_run_data" {
-  value = google_cloud_run_service.default
+  value = google_cloud_run_v2_service.default
 }

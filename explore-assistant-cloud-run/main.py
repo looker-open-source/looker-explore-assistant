@@ -1,274 +1,223 @@
-
-# MIT License
-
-# Copyright (c) 2023 Looker Data Sciences, Inc.
-
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-
 import os
-import functions_framework
-import vertexai
 import logging
-import json
-
-from google.cloud import bigquery
 from datetime import datetime, timezone
-from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
-from flask import Flask, request, Response
-from flask_cors import CORS
-import requests
+from typing import Optional, Dict, Any, Union
+from fastapi import FastAPI, Request, HTTPException, Response, Depends, Security
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+import json
+from sqlmodel import Session
+from models import (
+    LoginRequest, ChatRequest, PromptRequest, FeedbackRequest,
+    BaseResponse, ErrorResponse, ChatHistoryResponse, SearchResponse
+)
+from database import get_session
+from helper_functions import (
+    validate_bearer_token,
+    verify_looker_user,
+    get_user_from_db,
+    create_new_user,
+    create_chat_thread,
+    retrieve_chat_history,
+    add_message,
+    add_feedback,
+    generate_response,
+    record_prompt,
+    generate_looker_query,
+    DatabaseError,
+    search_chat_history
+)
 
-
+# Configure logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
+# Security scheme
+security = HTTPBearer()
 
-# Initialize the Vertex AI
-project = os.environ.get("PROJECT_NAME")
-location = os.environ.get("REGION_NAME")
-model_name = os.environ.get("MODEL_NAME", "gemini-1.0-pro-001")
-oauth_client_id = os.environ.get("OAUTH_CLIENT_ID")
-is_dev_server = os.environ.get("IS_DEV_SERVER")
-# checks env var before initiate server
-if (
-    not project or
-    not location or 
-    not oauth_client_id
-    ):
-    raise ValueError("one of environment variables is not set. Please check your delpoyment settings.")
-
-vertexai.init(project=project, location=location)
-
-def get_response_headers(request):
-    headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    }
-    return headers
-
-
-
-def validate_bearer_token(request):
-    
-    if is_dev_server:
-        # bypass for local development server
-        return True
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        logging.error("Missing or malformed Authorization header")
-        return False
-
-    token = auth_header.split(' ')[1]
-    try:
-        # Validate access token using Google's tokeninfo endpoint
-        response = requests.get(f'https://oauth2.googleapis.com/tokeninfo?access_token={token}')
-
-        if response.status_code == 200:
-            token_info = response.json()
-            # Verify the token was issued for our client ID
-            expected_client_id = oauth_client_id
-            if token_info.get('azp') != expected_client_id:
-                logging.error(f"Token was issued for different client ID: {token_info.get('azp')}")
-                return False
-
-            logging.info(f"Token verification successful. Info: {token_info}")
-            return True
-
-        logging.error(f"Token validation failed with status code: {response.status_code}")
-        logging.error(f"Response content: {response.text}")
-        return False
-
-    except Exception as e:
-        logging.error(f"Token validation failed with unexpected error: {str(e)}")
-        return False
-
-def generate_looker_query(contents, parameters=None, model_name="gemini-1.5-flash"):
-
-   # Define default parameters
-    default_parameters = {
-        "temperature": 0.2,
-        "max_output_tokens": 500,
-        "top_p": 0.8,
-        "top_k": 40
-    }
-
-    # Override default parameters with any provided in the request
-    if parameters:
-        default_parameters.update(parameters)
-
-    # instantiate gemini model for prediction
-    model = GenerativeModel(model_name)
-
-    # make prediction to generate Looker Explore URL
-    response = model.generate_content(
-        contents=contents,
-        generation_config=GenerationConfig(
-            temperature=default_parameters["temperature"],
-            top_p=default_parameters["top_p"],
-            top_k=default_parameters["top_k"],
-            max_output_tokens=default_parameters["max_output_tokens"],
-            candidate_count=1
+# OAuth validation dependency
+async def validate_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> bool:
+    if not validate_bearer_token(credentials.credentials):
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid token"
         )
+    return True
+
+app = FastAPI()
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=400,
+        content={"detail": "Missing required parameters"}
     )
 
-    # grab token character count metadata and log
-    metadata = response.__dict__['_raw_response'].usage_metadata
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    # Complete a structured log entry.
-    entry = dict(
-        severity="INFO",
-        # message={"request": contents, "response": response.text,
-        #          "input_characters": metadata.prompt_token_count, "output_characters": metadata.candidates_token_count},
-        # Log viewer accesses 'component' as jsonPayload.component'.
-        component="explore-assistant-metadata",
-    )
-    logging.info(entry)
-    return response.text
-
-def log_request(data: dict | str, caller: str):
-    # Check if the input data is a string
-    if isinstance(data, str):
-        # If it's a string, create a JSON object with the caller and message
-        log_data = {"caller": caller, "message": data}
-    else:
-        log_data = data
-        log_data.update({"caller": caller})    
-    with open("request.log", "a") as f:
-        f.write("\n\n\n\n" + "=" * 100 + "\n\n\n\n")
-        f.write(json.dumps(log_data,indent=4))
-        f.write("\n\n\n\n" + "=" * 100 + "\n\n\n\n")
-
-if is_dev_server:
-    with open("request.log", 'w') as log_file:
-        log_file.write('')  # Truncate the file
-
-# Flask app for running as a web server
-def create_flask_app():
-    app = Flask(__name__)
-    CORS(app)
-
-    @app.route("/", methods=["POST", "OPTIONS"])
-    def base():
-        # debug : log down all the calls
-        if request.method == "OPTIONS":
-            logging.info("Received OPTIONS request")
-            return handle_options_request(request)
-
-        incoming_request = request.get_json()
-        log_request(incoming_request, 'incoming_request') if is_dev_server else None
-
-        logging.info(f"Received POST request with payload: {incoming_request}")
-        logging.info(f"Request headers: {dict(request.headers)}")
-
-        contents = incoming_request.get("contents")
-        parameters = incoming_request.get("parameters")
-        if contents is None:
-            logging.warning("Missing 'contents' parameter in request")
-            return "Missing 'contents' parameter", 400, get_response_headers(request)
-
-        if not validate_bearer_token(request):
-            logging.warning("Invalid bearer token detected")
-            return "Invalid token", 401, get_response_headers(request)
-
-        try:
-            logging.info(f"Generating Looker query for contents: {contents}")
-            response_text = generate_looker_query(contents, parameters)
-            log_request(response_text,'vertex_reply__generate_looker_query') if is_dev_server else None
-
-            data = [
-                {
-                    "prompt": contents,
-                    "parameters": json.dumps(parameters),
-                    "response": response_text,
-                    "recorded_at": datetime.now(timezone.utc).strftime("%Y/%m/%d %H:%M:%S.%f")
-                }
-            ]
-            record_prompt(data)
-            return response_text, 200, get_response_headers(request)
-        except Exception as e:
-            logging.error(f"Internal server error: {str(e)}")
-            return str(e), 500, get_response_headers(request)
-
-
-    @app.errorhandler(500)
-    def internal_server_error(error):
-        return "Internal server error", 500, get_response_headers(request)
-
-    return app
-
-
-def record_prompt(data):
-    client = bigquery.Client()
-    job_config = bigquery.LoadJobConfig(
-            write_disposition=bigquery.WriteDisposition.WRITE_APPEND
-        )
-    destination = "joon-sandbox.beck_explore_assistant._prompts"
-    load_job = client.load_table_from_json(
-        json_rows=data,
-        job_config=job_config,
-        destination=destination)
-    print(f"Load job sent.")
-    load_job.result()  # Waits for the job to complete.
-    print(f"Loaded {load_job.output_rows} prompt into {destination} BQ table")
-
-
-# Function for Google Cloud Function
-@functions_framework.http
-def cloud_function_entrypoint(request):
-    if request.method == "OPTIONS":
-        return handle_options_request(request)
-
-    incoming_request = request.get_json()
-    print(incoming_request)
+@app.post("/")
+async def base(
+    request: Request,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+):
+    incoming_request = await request.json()
     contents = incoming_request.get("contents")
     parameters = incoming_request.get("parameters")
-    if contents is None:
-        return "Missing 'contents' parameter", 400, get_response_headers(request)
-
 
     try:
         response_text = generate_looker_query(contents, parameters)
-        data = [
-            {
-                "prompt": contents,
-                "parameters": json.dumps(parameters),
-                "response": response_text,
-                "recorded_at": datetime.now(timezone.utc).strftime("%Y/%m/%d %H:%M:%S.%f")
-            }
-        ]
+
+        data = [{
+            "prompt": contents,
+            "parameters": json.dumps(parameters),
+            "response": response_text,
+            "recorded_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S.%f")
+        }]
         record_prompt(data)
-        return response_text, 200, get_response_headers(request)
+        
+        return BaseResponse(message="Query generated successfully", data={"response": response_text})
+    except TimeoutError:
+        raise HTTPException(status_code=504, detail="Request timed out")
     except Exception as e:
-        logging.error(f"Internal server error: {str(e)}")
-        return str(e), 500, get_response_headers(request)
+        raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/login")
+async def login(
+    request: LoginRequest,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+):
+    if not verify_looker_user(request.user_id):
+        raise HTTPException(status_code=403, detail="User is not a validated Looker user")
+    
+    try: 
+        user_data = get_user_from_db(request.user_id)
+        if user_data:
+            return BaseResponse(message="User already exists", data=user_data)
 
-def handle_options_request(request):
-    return "", 204, get_response_headers(request)
+        result = create_new_user(request.user_id, request.name, request.email)
+        return BaseResponse(message="User created successfully", data=result)
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
+@app.post("/chat")
+async def create_chat(
+    request: ChatRequest,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+):
+    try:
+        chat_id = create_chat_thread(request.user_id, request.explore_key)
+        if not chat_id:
+            raise HTTPException(status_code=500, detail="Failed to create chat thread")
+            
+        return BaseResponse(
+            message="Chat created successfully",
+            data={"chat_id": chat_id, "status": "created"}
+        )
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
-# Determine the running environment and execute accordingly
+@app.get("/chat/history")
+async def chat_history(
+    user_id: str,
+    chat_id: str,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+):
+    try:
+        chat_history_data = retrieve_chat_history(chat_id)
+        if not chat_history_data or not chat_history_data.get("data"):
+            raise HTTPException(status_code=404, detail="Chat history not found")
+        return ChatHistoryResponse(**chat_history_data)
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
+
+@app.post("/prompt")
+async def handle_prompt(
+    request: PromptRequest,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+):
+    try:
+        response_text = generate_looker_query(request.contents, request.parameters) if request.prompt_type == "looker" else generate_response(request.contents, request.parameters)
+
+        chat_id = request.chat_id or create_chat_thread(request.user_id, request.current_explore_key)
+        if not chat_id:
+            raise HTTPException(status_code=500, detail="Failed to create chat thread")
+
+        user_message_id = add_message(chat_id, request.user_id, request.message or request.contents, True)
+        if not user_message_id:
+            raise HTTPException(status_code=500, detail="Failed to add user message")
+
+        bot_message_id = add_message(chat_id, request.user_id, response_text, False)
+        if not bot_message_id:
+            raise HTTPException(status_code=500, detail="Failed to add bot message")
+
+        return BaseResponse(
+            message="Prompt handled successfully",
+            data={"response": response_text, "chat_id": chat_id}
+        )
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/feedback")
+async def give_feedback(
+    request: FeedbackRequest,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+):
+    try:
+        result = add_feedback(request.user_id, request.message_id, request.feedback_text, request.is_positive)
+        if result:
+            return {"message": "Feedback submitted successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to submit feedback")
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
+
+@app.get("/chat/search")
+async def search_chats(
+    user_id: str,
+    search_query: str,
+    limit: int = 10,
+    offset: int = 0,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+) -> SearchResponse:
+    try:
+        search_results = search_chat_history(
+            user_id=user_id,
+            search_query=search_query,
+            limit=limit,
+            offset=offset
+        )
+
+        message = "Search completed successfully" if search_results["total"] > 0 else "No results found"
+        return SearchResponse(
+            message=message,
+            data=search_results
+        )
+
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to search chats", "details": str(e)}
+        )
+
 if __name__ == "__main__":
-    # Detect if running in a Google Cloud Function environment
-    if os.environ.get("FUNCTIONS_FRAMEWORK"):
-        # The Cloud Function entry point is defined by the decorator, so nothing is needed here
-        pass
-    else:
-        app = create_flask_app()
-        app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    import uvicorn
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

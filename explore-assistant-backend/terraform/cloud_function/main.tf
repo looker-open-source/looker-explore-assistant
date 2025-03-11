@@ -111,7 +111,7 @@ resource "google_cloudfunctions2_function" "default" {
     max_instance_count               = 10
     min_instance_count               = 1
     available_memory                 = "4Gi"
-    timeout_seconds                  = 60
+    timeout_seconds                  = null
     available_cpu                    = "4"
     max_instance_request_concurrency = 20
     environment_variables = {

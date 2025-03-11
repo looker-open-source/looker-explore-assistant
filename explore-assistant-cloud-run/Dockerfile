@@ -13,9 +13,13 @@ COPY requirements.txt /app
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-
-COPY main.py /app
-COPY test.py /app
+# Copy all application files
+COPY main.py /app/
+COPY models.py /app/
+COPY helper_functions.py /app/
+COPY database.py /app/
+COPY test.py /app/
+COPY .env /app/
 
 EXPOSE 8000
 # Set the entrypoint to run the Flask app

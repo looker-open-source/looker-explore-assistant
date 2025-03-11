@@ -4,3 +4,14 @@ Flask
 Flask-Cors
 debugpy
 python-dotenv
+mysql-connector-python
+requests
+python-dotenv
+google-cloud-aiplatform
+fastapi
+pytest
+uvicorn
+httpx
+pytest-asyncio
+sqlmodel==0.0.14
+pymysql==1.1.0

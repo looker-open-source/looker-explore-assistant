@@ -4,43 +4,43 @@ from sqlmodel import Field, SQLModel, Relationship
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
-    
+
     user_id: str = Field(primary_key=True)
     name: str
     email: str
-    
-    # Relationships
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     chats: List["Chat"] = Relationship(back_populates="user")
 
 class Chat(SQLModel, table=True):
     __tablename__ = "chats"
-    
+
     chat_id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: str = Field(foreign_key="users.user_id")
     explore_key: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    user_id: str = Field(foreign_key="users.user_id")
     
-    # Relationships
     user: User = Relationship(back_populates="chats")
     messages: List["Message"] = Relationship(back_populates="chat")
 
 class Message(SQLModel, table=True):
     __tablename__ = "messages"
-    
+
     message_id: Optional[int] = Field(default=None, primary_key=True)
-    content: str
     chat_id: int = Field(foreign_key="chats.chat_id")
-    is_user_message: bool
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    is_possitive_feedback: Optional[bool] = None
-    feedback_message_id: Optional[int] = None
+    content: str
+    is_user: bool
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
     
-    # Relationships
     chat: Chat = Relationship(back_populates="messages")
+    feedback: Optional["Feedback"] = Relationship(back_populates="message")
 
 class Feedback(SQLModel, table=True):
     __tablename__ = "feedbacks"
+
+    feedback_id: Optional[int] = Field(default=None, primary_key=True)
+    message_id: int = Field(foreign_key="messages.message_id")
+    feedback_text: str
+    is_positive: bool
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
     
-    feedback_message_id: Optional[int] = Field(default=None, primary_key=True)
-    feedback_message: str
-    is_possitive: bool 
+    message: Message = Relationship(back_populates="feedback")

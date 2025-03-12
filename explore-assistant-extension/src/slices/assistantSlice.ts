@@ -326,6 +326,8 @@ export interface SemanticModel {
 }
 
 export interface AssistantState {
+  userLoggedInStatus: boolean
+  userId: string
   isQuerying: boolean
   isChatMode: boolean
   currentExploreThread: ExploreThread | null
@@ -369,6 +371,8 @@ export const newThreadState = () => {
 }
 
 export const initialState: AssistantState = {
+  userLoggedInStatus: false,
+  userId: null,
   isQuerying: false,
   isChatMode: false,
   currentExploreThread: null,
@@ -404,6 +408,12 @@ export const assistantSlice = createSlice({
   name: 'assistant',
   initialState,
   reducers: {
+    setuserLoggedInStatus: (state, action: PayloadAction<boolean>) => {
+      state.userLoggedInStatus = action.payload;
+    },
+    setUserId: (state, action: PayloadAction<string | null>) => {
+      state.userId = action.payload;
+    },
     resetExploreAssistant: () => {
       return initialState
     },
@@ -551,6 +561,9 @@ export const assistantSlice = createSlice({
 })
 
 export const {
+  setuserLoggedInStatus,
+  setUserId,
+
   setIsQuerying,
   setIsChatMode,
   resetChatMode,

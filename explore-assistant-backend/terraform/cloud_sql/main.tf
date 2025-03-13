@@ -15,6 +15,10 @@ variable "user_password" {
   type = string
 }
 
+variable "cloudSQL_server_name" {
+  type = string
+}
+
 terraform {
   required_version = "~> 1.7"
   required_providers {
@@ -39,7 +43,7 @@ resource "google_sql_database_instance" "main" {
   encryption_key_name  = null
   instance_type        = "CLOUD_SQL_INSTANCE"
   master_instance_name = null
-  name                 = "bach-test-instance" #input your instance name
+  name                 = var.cloudSQL_server_name #input your instance name
   project              = var.project_id
   region               = var.deployment_region
   root_password        = var.root_password # sensitive
@@ -138,7 +142,7 @@ output "cloudsql_instance_info" {
     password  = google_sql_user.cloud_sql_user.password
     database  = google_sql_database.production.name
   }
-  sensitive = true
+  sensitive  = true
   depends_on = [google_sql_user.cloud_sql_user]
 }
 
@@ -154,20 +158,22 @@ resource "local_file" "cloudsql_outputs" {
       }
     }
   })
-  file_permission = "0600"  # Restricted file permissions for security
+  file_permission = "0600" # Restricted file permissions for security
   depends_on      = [google_sql_user.cloud_sql_user]
 }
 
 resource "null_resource" "run_python" {
   triggers = {
-    cloudsql_info_changes = local_file.cloudsql_outputs.content  # Trigger on content changes
+    cloudsql_info_changes = local_file.cloudsql_outputs.content # Trigger on content changes
   }
 
   provisioner "local-exec" {
     working_dir = path.module
     command     = <<-EOT
-      python -m pip install -r requirements.txt
-      python create_tables.py
+    python -m venv .venv && \
+    source .venv/bin/activate && \
+    python -m pip install -r requirements.txt && \
+    python create_tables.py
     EOT
     interpreter = ["bash", "-c"]
   }

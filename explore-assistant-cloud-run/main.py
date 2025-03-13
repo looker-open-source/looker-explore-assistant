@@ -52,8 +52,10 @@ app = FastAPI()
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
-        status_code=400,
-        content={"detail": "Missing required parameters"}
+        status_code=422,
+        content={
+            "detail": str(exc)
+        }
     )
 
 app.add_middleware(
@@ -150,17 +152,28 @@ async def handle_prompt(
     db: Session = Depends(get_session)
 ):
     try:
-        response_text = generate_looker_query(request.contents, request.parameters) if request.prompt_type == "looker" else generate_response(request.contents, request.parameters)
-
-        chat_id = request.chat_id or create_chat_thread(request.user_id, request.current_explore_key)
+        if request.prompt_type == "looker":
+            response_text = generate_looker_query(request.contents, 
+                                                  request.parameters)
+        else:
+            response_text = generate_response(request.contents, 
+                                              request.parameters)
+            
+        chat_id = request.chat_id or create_chat_thread(request.user_id, 
+                                                        request.current_explore_key)
         if not chat_id:
             raise HTTPException(status_code=500, detail="Failed to create chat thread")
 
-        user_message_id = add_message(chat_id, request.user_id, request.message or request.contents, True)
+        user_message_id = add_message(chat_id, 
+                                      request.user_id,
+                                      request.message or request.contents,
+                                      True)
         if not user_message_id:
             raise HTTPException(status_code=500, detail="Failed to add user message")
 
-        bot_message_id = add_message(chat_id, request.user_id, response_text, False)
+        bot_message_id = add_message(chat_id,
+                                     request.user_id,
+                                     response_text,False)
         if not bot_message_id:
             raise HTTPException(status_code=500, detail="Failed to add bot message")
 
@@ -220,4 +233,4 @@ async def search_chats(
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info", reload=True)

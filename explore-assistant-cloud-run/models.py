@@ -4,11 +4,7 @@ from enum import Enum
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 
-class PromptType(str, Enum):
-    LOOKER = "looker"
-    GENERAL = "general"
 
-# Database Models
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
@@ -64,7 +60,7 @@ class ChatRequest(BaseModel):
 
 class PromptRequest(BaseModel):
     contents: str = Field(..., description="The prompt contents")
-    prompt_type: PromptType = Field(..., description="Type of prompt (looker or general)")
+    prompt_type: str = Field(..., description="Type of prompt")
     current_explore_key: str = Field(..., description="Current explore key")
     user_id: str = Field(..., description="User ID")
     parameters: Optional[Dict[str, Any]] = Field(None, description="Optional parameters for the prompt")

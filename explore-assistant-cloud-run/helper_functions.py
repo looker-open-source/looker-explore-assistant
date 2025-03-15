@@ -148,14 +148,14 @@ def retrieve_chat_history(chat_id: int) -> Dict:
     except Exception as e:
         raise DatabaseError("Failed to retrieve chat history", str(e))
 
-def add_message(chat_id: int, user_id: str, content: str, is_user_message: bool = True) -> int:
+def add_message(chat_id: int, user_id: str, content: str, is_user: bool = True) -> int:
     try:
         with Session(engine) as session:
             message = Message(
                 chat_id=chat_id,
                 user_id=user_id,
                 content=content,
-                is_user_message=is_user_message
+                is_user=is_user
             )
             session.add(message)
             session.commit()

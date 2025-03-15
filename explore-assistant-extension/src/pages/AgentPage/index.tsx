@@ -21,6 +21,7 @@ import {
   setSidePanelExploreUrl,
   updateCurrentThread,
   updateLastHistoryEntry,
+  newThreadState
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
@@ -53,16 +54,86 @@ const toCamelCase = (input: string): string => {
 
 const AgentPage = () => {
   const { core40SDK } = useContext(ExtensionContext);
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(null);
+  const [me, setMe] = useState(null);
+
+
   useEffect(() => {
-    const fetchUsername = async () => {
-      const me = await core40SDK.ok(core40SDK.me());
-      setUsername(me.display_name || me.first_name || '');
+    const fetchUserInfo = async () => {
+      try {
+        const me = await core40SDK.ok(core40SDK.me());
+        setMe(me);
+        const username = me.display_name
+        setUsername(username);
+
+      } catch (error) {
+        console.error('Error fetching user info:', error);
+      }
     };
-    fetchUsername();
-  }, []);
+    fetchUserInfo();
+  }, [core40SDK]);
+
+  
+  useEffect(() => {
+    if (me) {
+      loginUser();
+    }
+  }, [dispatch,me,username]);
 
 
+
+  const loginUser = async () => {
+    // this function is called each time the extension is reloaded.
+    // the function logs the user info into the endpoint to 
+    // assign / store all actions on the extension to the user id.
+    try {
+      if (!me || !username) return; // Ensure 'me' is available before proceeding
+      const body = JSON.stringify({
+        user_id: me.id,
+        name: username,
+        email: me.email,
+      });
+
+      // console.log('Making request to login endpoint:');
+      // console.log('Endpoint:', `${VERTEX_AI_ENDPOINT}/login`);
+      // console.log('Body:', JSON.parse(body));
+
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`
+        },
+        body: body,
+      });
+
+      
+      // console.log('Login successful:', responseData);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Request failed: ${errorData.detail}`);
+      }
+        const responseData = await response.text();
+        if (response.status === 200) {
+          console.log('User already exists or successfully created:', responseData);
+          dispatch(setUserId(me.id));
+          dispatch(setuserLoggedInStatus(true));
+        } else {
+          console.log('Unexpected response:', responseData);
+        }
+      } catch (error) {
+        dispatch(setuserLoggedInStatus(false));
+        console.error(
+          'Error logging user id to the database',
+          error
+        );
+        showBoundary({
+          message:
+            'Error logging user id to the database',
+            error,
+        });
+      }
+    };
 
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
@@ -82,6 +153,24 @@ const AgentPage = () => {
     isSemanticModelLoaded,
   } = useSelector((state: RootState) => state.assistant as AssistantState)
 
+
+  useEffect(() => {
+    if (!currentExploreThread) {
+      if (!me) { return; }
+  
+      dispatch(newThreadState(me))
+        .unwrap()
+        .catch((error) => {
+          console.error('Caught error in useEffect:', error);
+          showBoundary({
+            message: 'Error creating new thread',
+            error,
+          });
+        });
+    }
+  }, [me, dispatch, currentExploreThread]);
+
+
   const explores = Object.keys(examples.exploreSamples).map((key) => {
     const exploreParts = key.split(':')
     return {
@@ -92,7 +181,9 @@ const AgentPage = () => {
   })
 
   const submitMessage = useCallback(async () => {
-    if (query === '') {
+    // console.log(currentExploreThread)
+    if (query === '' || !currentExploreThread) {
+    // if (query === '') {
       return
     }
 
@@ -110,6 +201,8 @@ const AgentPage = () => {
       }),
     )
 
+    console.log('thread:', currentExploreThread)
+    console.log('Prompt List: ', promptList)
     const exploreKey = currentExploreThread?.exploreKey || currentExplore.exploreKey
 
     // set the explore if it is not set
@@ -136,6 +229,8 @@ const AgentPage = () => {
         type: 'text',
       }),
     )
+    console.log('thread:', currentExploreThread)
+
     const [promptSummary, isSummary] = await Promise.all([
       summarizePrompts(promptList),
       isSummarizationPrompt(query),

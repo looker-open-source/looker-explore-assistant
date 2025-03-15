@@ -1,5 +1,9 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { v4 as uuidv4 } from 'uuid'
+import { createAsyncThunk } from '@reduxjs/toolkit';
+import { RootState } from '../store';
+import process from 'process';
+
 
 // TODO JOON : ENDPOINT /chat/history :  migrate chat history from in cache to cloud run endpoint.
 
@@ -234,6 +238,46 @@ import { v4 as uuidv4 } from 'uuid'
 // export default StartChatComponent;
 
 
+// Thunk to fetch UUID from /chat endpoint
+export const fetchThreadId = createAsyncThunk(
+  'assistant/fetchThreadId',
+  async (params: { userId: string; exploreKey: string, me: Object }, { getState }) => {
+    if (!params.me) {
+      return;
+    }
+    const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || '';
+    const state = getState() as RootState;
+    const access_token = state.auth?.access_token;
+    const body = JSON.stringify({
+      user_id: params.userId,
+      explore_key: params.exploreKey
+    })
+    try {
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`,
+        },
+        body: body,
+      });
+
+      if (!response.ok || response.status !== 200) {
+        const error = await response.text();
+        throw new Error(`Server responded with ${response.status}: ${error}`);
+      }
+
+      const data = await response.json();
+      return data.data.chat_id; // Assuming the response contains a threadId
+    } catch (error) {
+      console.error('Error in fetchThreadId:', error);
+      throw error;
+    }
+  }
+);
+
+
+
 
 export interface Setting {
   name: string
@@ -326,6 +370,9 @@ export interface SemanticModel {
 }
 
 export interface AssistantState {
+  me: any
+  userLoggedInStatus: boolean
+  userId: string
   isQuerying: boolean
   isChatMode: boolean
   currentExploreThread: ExploreThread | null
@@ -353,25 +400,48 @@ export interface AssistantState {
   isSemanticModelLoaded: boolean
 }
 
-export const newThreadState = () => {
-  const thread: ExploreThread = {
-    uuid: uuidv4(),
-    exploreKey: '',
-    exploreId: '',
-    modelName: '',
-    messages: [],
-    exploreUrl: '',
-    summarizedPrompt: '',
-    promptList: [],
-    createdAt: Date.now()
+export const newThreadState = createAsyncThunk(
+  'assistant/newThreadState',
+  async (me: Object | null, { dispatch, getState }) => {
+    if (!me) {
+      return;
+    }
+    const state = getState() as RootState;
+    const userId = me.id;
+    const exploreKey = state.assistant.currentExplore.exploreKey;
+
+    try {
+      if (!me || !userId) {
+        return;
+      }
+      const threadId = await dispatch(fetchThreadId({ userId, exploreKey, me })).unwrap();
+      const thread: ExploreThread = {
+        uuid: threadId,
+        userId: userId,
+        exploreKey: exploreKey,
+        exploreId: '',
+        modelName: '',
+        messages: [],
+        exploreUrl: '',
+        summarizedPrompt: '',
+        promptList: [],
+        createdAt: Date.now(),
+      };
+      return thread;
+    } catch (error) {
+      console.error('Error fetching thread ID:', error);
+      // Handle error, possibly return a default thread structure
+    }
   }
-  return thread
-}
+);
 
 export const initialState: AssistantState = {
+  me: null,
+  userLoggedInStatus: false,
+  userId: null,
   isQuerying: false,
   isChatMode: false,
-  currentExploreThread: null,
+  currentExploreThread: null as ExploreThread | null,
   currentExplore: {
     exploreKey: '',
     modelName: '',
@@ -464,7 +534,8 @@ export const assistantSlice = createSlice({
     },
     setExploreUrl: (state, action: PayloadAction<string>) => {
       if (state.currentExploreThread === null) {
-        state.currentExploreThread = newThreadState()
+        // state.currentExploreThread = newThreadState()
+        return;
       }
       state.currentExploreThread.exploreUrl = action.payload
     },
@@ -473,7 +544,8 @@ export const assistantSlice = createSlice({
       action: PayloadAction<Partial<ExploreThread>>,
     ) => {
       if (state.currentExploreThread === null) {
-        state.currentExploreThread = newThreadState()
+        // state.currentExploreThread = newThreadState()
+        return;
       }
       state.currentExploreThread = {
         ...state.currentExploreThread,
@@ -497,7 +569,8 @@ export const assistantSlice = createSlice({
     },
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
       if (state.currentExploreThread === null) {
-        state.currentExploreThread = newThreadState()
+        // state.currentExploreThread = newThreadState()
+        return;
       }
       if (action.payload.uuid === undefined) {
         action.payload.uuid = uuidv4()
@@ -522,7 +595,8 @@ export const assistantSlice = createSlice({
     ) => {
       const { uuid, summary } = action.payload
       if (state.currentExploreThread === null) {
-        state.currentExploreThread = newThreadState()
+        // state.currentExploreThread = newThreadState()
+        return;
       }
       const message = state.currentExploreThread.messages.find(
         (message) => message.uuid === uuid,
@@ -547,6 +621,15 @@ export const assistantSlice = createSlice({
     setCurrenExplore: (state, action: PayloadAction<AssistantState['currentExplore']>) => {
       state.currentExplore = action.payload
     }
+  },
+  extraReducers: (builder) => {
+    builder.addCase(newThreadState.fulfilled, (state, action) => {
+      // Update the currentExploreThread with the new thread
+      state.currentExploreThread = action.payload;
+    });
+    builder.addCase(fetchThreadId.fulfilled, (state, action) => {
+      // Handle the fulfilled state if needed
+    });
   },
 })
 

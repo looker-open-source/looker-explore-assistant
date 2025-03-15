@@ -19,6 +19,7 @@ import {
   setIsQuerying,
   setQuery,
   setSidePanelExploreUrl,
+  setuserLoggedInStatus,
   updateCurrentThread,
   updateLastHistoryEntry,
   newThreadState
@@ -37,8 +38,11 @@ import {
 } from '@mui/material'
 import { getRelativeTimeString } from '../../utils/time'
 import { AuthProvider, isTokenExpired } from '../../components/Auth/AuthProvider';
+import { useErrorBoundary } from 'react-error-boundary'
+import { current } from '@reduxjs/toolkit'
+import { user } from '@looker/sdk'
 
-
+const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT
 const toCamelCase = (input: string): string => {
   // Remove underscores, make following letter uppercase
   let result = input.replace(
@@ -53,32 +57,12 @@ const toCamelCase = (input: string): string => {
 }
 
 const AgentPage = () => {
-  const { core40SDK } = useContext(ExtensionContext);
-  const [username, setUsername] = useState(null);
-  const [me, setMe] = useState(null);
-
-
-  useEffect(() => {
-    const fetchUserInfo = async () => {
-      try {
-        const me = await core40SDK.ok(core40SDK.me());
-        setMe(me);
-        const username = me.display_name
-        setUsername(username);
-
-      } catch (error) {
-        console.error('Error fetching user info:', error);
-      }
-    };
-    fetchUserInfo();
-  }, [core40SDK]);
-
+  const { showBoundary } = useErrorBoundary()
+  
   
   useEffect(() => {
-    if (me) {
-      loginUser();
-    }
-  }, [dispatch,me,username]);
+    loginUser();
+  }, []);
 
 
 
@@ -87,10 +71,9 @@ const AgentPage = () => {
     // the function logs the user info into the endpoint to 
     // assign / store all actions on the extension to the user id.
     try {
-      if (!me || !username) return; // Ensure 'me' is available before proceeding
       const body = JSON.stringify({
         user_id: me.id,
-        name: username,
+        name: me.display_name,
         email: me.email,
       });
 
@@ -116,7 +99,6 @@ const AgentPage = () => {
         const responseData = await response.text();
         if (response.status === 200) {
           console.log('User already exists or successfully created:', responseData);
-          dispatch(setUserId(me.id));
           dispatch(setuserLoggedInStatus(true));
         } else {
           console.log('Unexpected response:', responseData);
@@ -151,24 +133,12 @@ const AgentPage = () => {
     semanticModels,
     isBigQueryMetadataLoaded,
     isSemanticModelLoaded,
+    userLoggedInStatus,
+    me
   } = useSelector((state: RootState) => state.assistant as AssistantState)
 
 
-  useEffect(() => {
-    if (!currentExploreThread) {
-      if (!me) { return; }
-  
-      dispatch(newThreadState(me))
-        .unwrap()
-        .catch((error) => {
-          console.error('Caught error in useEffect:', error);
-          showBoundary({
-            message: 'Error creating new thread',
-            error,
-          });
-        });
-    }
-  }, [me, dispatch, currentExploreThread]);
+
 
 
   const explores = Object.keys(examples.exploreSamples).map((key) => {
@@ -180,12 +150,39 @@ const AgentPage = () => {
     }
   })
 
+
+  useEffect(() => {
+    // this will get triggered on the loading screen. IF browser cache dont have currentExploreThread
+    // rationale is id generation are now handled by the backend.
+    // thus it is prerequisite to load this first
+    if (!currentExploreThread) {
+        // Dispatch newThreadState to create a new thread
+        dispatch(newThreadState(me))
+        .unwrap()
+        .catch((error) => {
+          console.error('Caught error in useEffect:', error);
+          showBoundary({
+            message: 'Error creating new thread',
+            error,
+          });
+        })
+    }
+  }, [isDataLoaded, query]);
+
   const submitMessage = useCallback(async () => {
-    // console.log(currentExploreThread)
-    if (query === '' || !currentExploreThread) {
-    // if (query === '') {
+
+
+  // Ensure currentExploreThread is available after dispatch
+  if (!currentExploreThread) {
+    // console.error('Failed to create or retrieve currentExploreThread.');
+    return;
+  }
+
+
+    if (query === '') {
       return
     }
+  
 
     dispatch(setIsQuerying(true))
 
@@ -360,7 +357,7 @@ const AgentPage = () => {
         <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
           <h1 className="text-5xl font-bold">
             <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-              Hello {username ? `, ${username}` : '.'}.
+              Hello {me ? `, ${me.display_name}` : '.'}.
             </span>
           </h1>
           <h1 className="text-3xl text-gray-400">
@@ -450,7 +447,7 @@ const AgentPage = () => {
                       <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
                         <h1 className="text-5xl font-bold">
                           <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-                            Hello {username ? `, ${username}` : '.'}.
+                            Hello {me ? `, ${me.display_name}` : '.'}.
                           </span>
                         </h1>
                         <h1 className="text-3xl text-gray-400">
@@ -510,7 +507,7 @@ const AgentPage = () => {
               <div className="flex flex-col space-y-4 mx-auto max-w-3xl p-4">
                 <h1 className="text-5xl font-bold">
                   <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-                    Hello {username ? `, ${username}` : '.'}.
+                    Hello {me ? `, ${me.display_name}` : '.'}.
                   </span>
                 </h1>
                 <h1 className="text-5xl text-gray-400">

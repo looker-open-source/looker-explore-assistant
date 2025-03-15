@@ -1,9 +1,8 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit'
 import { v4 as uuidv4 } from 'uuid'
-import { createAsyncThunk } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import process from 'process';
-
+import { me } from '@looker/sdk';
 
 // TODO JOON : ENDPOINT /chat/history :  migrate chat history from in cache to cloud run endpoint.
 
@@ -241,7 +240,7 @@ import process from 'process';
 // Thunk to fetch UUID from /chat endpoint
 export const fetchThreadId = createAsyncThunk(
   'assistant/fetchThreadId',
-  async (params: { userId: string; exploreKey: string, me: Object }, { getState }) => {
+  async (params: { exploreKey: string, me: Object }, { getState }) => {
     if (!params.me) {
       return;
     }
@@ -249,7 +248,7 @@ export const fetchThreadId = createAsyncThunk(
     const state = getState() as RootState;
     const access_token = state.auth?.access_token;
     const body = JSON.stringify({
-      user_id: params.userId,
+      user_id: params.me.id,
       explore_key: params.exploreKey
     })
     try {
@@ -372,7 +371,6 @@ export interface SemanticModel {
 export interface AssistantState {
   me: any
   userLoggedInStatus: boolean
-  userId: string
   isQuerying: boolean
   isChatMode: boolean
   currentExploreThread: ExploreThread | null
@@ -407,17 +405,16 @@ export const newThreadState = createAsyncThunk(
       return;
     }
     const state = getState() as RootState;
-    const userId = me.id;
     const exploreKey = state.assistant.currentExplore.exploreKey;
 
     try {
-      if (!me || !userId) {
+      if (!me) {
         return;
       }
-      const threadId = await dispatch(fetchThreadId({ userId, exploreKey, me })).unwrap();
+      const threadId = await dispatch(fetchThreadId({ exploreKey, me })).unwrap();
       const thread: ExploreThread = {
         uuid: threadId,
-        userId: userId,
+        userId: me.id,
         exploreKey: exploreKey,
         exploreId: '',
         modelName: '',
@@ -438,7 +435,6 @@ export const newThreadState = createAsyncThunk(
 export const initialState: AssistantState = {
   me: null,
   userLoggedInStatus: false,
-  userId: null,
   isQuerying: false,
   isChatMode: false,
   currentExploreThread: null as ExploreThread | null,
@@ -474,6 +470,12 @@ export const assistantSlice = createSlice({
   name: 'assistant',
   initialState,
   reducers: {
+    setMeSdk: (state, action: PayloadAction<any>) => {
+      state.me = action.payload;
+    },
+    setuserLoggedInStatus: (state, action: PayloadAction<boolean>) => {
+      state.userLoggedInStatus = action.payload;
+    },
     resetExploreAssistant: () => {
       return initialState
     },
@@ -558,9 +560,10 @@ export const assistantSlice = createSlice({
     setQuery: (state, action: PayloadAction<string>) => {
       state.query = action.payload
     },
-    resetChat: (state) => {
-      state.currentExploreThread = newThreadState()
-      state.currentExploreThread.uuid = uuidv4()
+    resetChat: (state, action: PayloadAction<ExploreThread>) => {
+      // state.currentExploreThread = newThreadState()
+      state.currentExploreThread = action.payload;
+      // state.currentExploreThread.uuid = uuidv4()
       state.currentExploreThread.exploreKey = state.currentExplore.exploreKey; // Assign the value here
       state.query = ''
       state.isChatMode = false
@@ -634,6 +637,9 @@ export const assistantSlice = createSlice({
 })
 
 export const {
+  setuserLoggedInStatus,
+  setMeSdk,
+
   setIsQuerying,
   setIsChatMode,
   resetChatMode,

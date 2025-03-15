@@ -5,6 +5,7 @@ import {
   resetChat,
   setIsChatMode,
   setQuery,
+  newThreadState
 } from '../slices/assistantSlice'
 import { RootState } from '../store'
 
@@ -14,14 +15,20 @@ const SamplePrompts = () => {
   const {
     currentExplore: { modelName, exploreId },
     examples: { exploreSamples },
+    me
   } = useSelector((state: RootState) => state.assistant as AssistantState)
 
   const samples = exploreSamples[`${modelName}:${exploreId}`]
 
   const handleSubmit = (prompt: string) => {
-    dispatch(resetChat())
-    dispatch(setQuery(prompt))
-    dispatch(setIsChatMode(true))
+      dispatch(newThreadState(me))
+        .unwrap()
+        .then((newThread) => {
+          dispatch(resetChat(newThread))
+          dispatch(setQuery(prompt))
+          dispatch(setIsChatMode(true))
+        }
+      )
   }
 
   if(!samples) return <></>

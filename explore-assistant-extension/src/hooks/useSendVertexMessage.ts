@@ -19,6 +19,15 @@ const unquoteResponse = (response: string | null | undefined) => {
     .trim()
 }
 
+const parseJSONResponse = (response: string | null | undefined) => {
+// patch for calls coming from the new BE in this format  : 
+// '{"message":"Query generated successfully","data":{"response":"Count of Users by first purchase date"}}'
+  if (!response || response === '') {
+    return ''
+  }
+  return JSON.parse(response).data.response
+}
+
 interface ModelParameters {
   max_output_tokens?: number
 }
@@ -173,7 +182,9 @@ const useSendVertexMessage = () => {
       throw new Error(`Server responded with ${responseData.status}: ${error}`)
     }
   
-    const response = await responseData.text()
+    const responseString = await responseData.text()
+    const response = parseJSONResponse(responseString)
+    // const response = await responseData.text()
     return response.trim()
   }
 

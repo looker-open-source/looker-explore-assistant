@@ -5,7 +5,8 @@ import {
   resetChat,
   setIsChatMode,
   setQuery,
-  newThreadState
+  newThreadState,
+  resetChatNoNewThread
 } from '../slices/assistantSlice'
 import { RootState } from '../store'
 
@@ -21,14 +22,9 @@ const SamplePrompts = () => {
   const samples = exploreSamples[`${modelName}:${exploreId}`]
 
   const handleSubmit = (prompt: string) => {
-      dispatch(newThreadState(me))
-        .unwrap()
-        .then((newThread) => {
-          dispatch(resetChat(newThread))
+          dispatch(resetChatNoNewThread())
           dispatch(setQuery(prompt))
           dispatch(setIsChatMode(true))
-        }
-      )
   }
 
   if(!samples) return <></>

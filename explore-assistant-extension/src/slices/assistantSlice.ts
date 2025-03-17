@@ -570,6 +570,14 @@ export const assistantSlice = createSlice({
       state.isQuerying = false
       state.sidePanel = initialState.sidePanel
     },
+    resetChatNoNewThread: (state) => {
+      // patch for calls that don't create a new thread
+      state.currentExploreThread.exploreKey = state.currentExplore.exploreKey; // Assign the value here
+      state.query = ''
+      state.isChatMode = false
+      state.isQuerying = false
+      state.sidePanel = initialState.sidePanel
+    },
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
       if (state.currentExploreThread === null) {
         // state.currentExploreThread = newThreadState()
@@ -652,6 +660,7 @@ export const {
   setExploreUrl,
   setQuery,
   resetChat,
+  resetChatNoNewThread,
   addMessage,
   setExploreGenerationExamples,
   setExploreRefinementExamples,

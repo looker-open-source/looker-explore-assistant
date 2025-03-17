@@ -15,7 +15,8 @@ import {
   setIsChatMode,
   setSidePanelExploreUrl,
   AssistantState,
-  newThreadState
+  newThreadState,
+  resetChatNoNewThread
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
 import SettingsModal from './Settings'
@@ -72,16 +73,11 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   }
 
   const handleHistoryClick = (thread: ExploreThread) => {
-    dispatch(newThreadState(me))
-        .unwrap()
-        .then((newThread) => {
-          dispatch(resetChat(newThread))
+          dispatch(resetChatNoNewThread())
           dispatch(setCurrentThread(thread))
           dispatch(setIsChatMode(true))
           dispatch(setSidePanelExploreUrl(thread.exploreUrl))
           dispatch(openSidePanel())
-        }
-      )
   }
 
   const handleClearHistory = () => {

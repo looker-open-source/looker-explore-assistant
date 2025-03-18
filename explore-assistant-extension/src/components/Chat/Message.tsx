@@ -72,18 +72,20 @@ interface MessageProps {
   children?: React.ReactNode
   createdAt?: number
   message?: string
+  messageId?: number
+  userId?: string
 }
 
-const Message = ({ message, actor, children }: MessageProps) => {
+const Message = ({ message, actor, children, messageId, userId }: MessageProps) => {
   const [isThumbUpClicked, setIsThumbUpClicked] = useState(false)
   const [isThumbDownClicked, setIsThumbDownClicked] = useState(false)
   const [showButtons, setShowButtons] = useState(false)
   const [feedbackVisible, setFeedbackVisible] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
 
   const handleThumbUpClick = () => {
-
     setIsThumbUpClicked(!isThumbUpClicked)
     setIsThumbDownClicked(false)
     setFeedbackVisible(!isThumbUpClicked) // Show feedback form
@@ -107,9 +109,36 @@ const Message = ({ message, actor, children }: MessageProps) => {
     }, 100) // Adjust the delay as needed
   }
 
-  const handleSubmitFeedback = () => {
-    setFeedbackVisible(false) // Hide feedback form
-    // Optionally handle the feedback submission logic here
+  const handleSubmitFeedback = async () => {
+    if (!messageId || !userId || !feedbackText) return
+
+    setIsSubmitting(true)
+    try {
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          message_id: messageId,
+          feedback_text: feedbackText,
+          is_positive: isThumbUpClicked,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to submit feedback')
+      }
+
+      setFeedbackVisible(false)
+      setFeedbackText('')
+    } catch (error) {
+      console.error('Error submitting feedback:', error)
+      // You might want to show an error message to the user here
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleCancelFeedback = () => {
@@ -141,11 +170,17 @@ const Message = ({ message, actor, children }: MessageProps) => {
         </div>
         {actor !== 'user' && (
           <div className={`flex space-x-2 mt-2 ${showButtons || isThumbUpClicked || isThumbDownClicked ? 'visible' : 'hidden'}`}>
-            <button onClick={handleThumbUpClick}>
-              <ThumbUp color={isThumbUpClicked ? 'primary' : 'default'} />
+            <button 
+              onClick={handleThumbUpClick}
+              className="hover:bg-gray-100 p-1 rounded-full"
+            >
+              <ThumbUp color={isThumbUpClicked ? 'primary' : 'inherit'} />
             </button>
-            <button onClick={handleThumbDownClick}>
-              <ThumbDown color={isThumbDownClicked ? 'primary' : 'default'} />
+            <button 
+              onClick={handleThumbDownClick}
+              className="hover:bg-gray-100 p-1 rounded-full"
+            >
+              <ThumbDown color={isThumbDownClicked ? 'primary' : 'inherit'} />
             </button>
           </div>
         )}
@@ -154,15 +189,23 @@ const Message = ({ message, actor, children }: MessageProps) => {
             <textarea
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
-              placeholder="Enter your feedback"
+              placeholder="Please provide your feedback..."
               className="feedback-textarea"
             />
-            <div className="flex justify-between mt-2">
-              <button onClick={handleSubmitFeedback} className="submit-btn">
-                Submit
-              </button>
-              <button onClick={handleCancelFeedback} className="cancel-btn">
+            <div className="flex justify-end space-x-2">
+              <button 
+                onClick={handleCancelFeedback} 
+                className="cancel-btn"
+                disabled={isSubmitting}
+              >
                 Cancel
+              </button>
+              <button 
+                onClick={handleSubmitFeedback} 
+                className="submit-btn"
+                disabled={isSubmitting || !feedbackText.trim()}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>
             </div>
           </div>

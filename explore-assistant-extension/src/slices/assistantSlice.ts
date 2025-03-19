@@ -2,7 +2,6 @@ import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit'
 import { v4 as uuidv4 } from 'uuid'
 import { RootState } from '../store';
 import process from 'process';
-import { me } from '@looker/sdk';
 
 // TODO JOON : ENDPOINT /chat/history :  migrate chat history from in cache to cloud run endpoint.
 
@@ -431,6 +430,22 @@ export const newThreadState = createAsyncThunk(
     }
   }
 );
+
+export const newTempThreadState = () => {
+  // handle initial home page state
+  const thread: ExploreThread = {
+    uuid: 'temp',
+    exploreKey: '',
+    exploreId: '',
+    modelName: '',
+    messages: [],
+    exploreUrl: '',
+    summarizedPrompt: '',
+    promptList: [],
+    createdAt: Date.now()
+  }
+  return thread
+};
 
 export const initialState: AssistantState = {
   me: null,

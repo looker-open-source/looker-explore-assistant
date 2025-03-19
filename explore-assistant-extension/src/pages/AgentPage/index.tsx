@@ -22,7 +22,9 @@ import {
   setuserLoggedInStatus,
   updateCurrentThread,
   updateLastHistoryEntry,
-  newThreadState
+  newThreadState,
+  newTempThreadState,
+  setCurrentThread
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
@@ -152,31 +154,21 @@ const AgentPage = () => {
 
 
   useEffect(() => {
+    // creates a temp in-mem thread on home page.
     // this will get triggered on the loading screen. IF browser cache dont have currentExploreThread
     // rationale is id generation are now handled by the backend.
     // thus it is prerequisite to load this first
     if (!currentExploreThread) {
         // Dispatch newThreadState to create a new thread
-        dispatch(newThreadState(me))
-        .unwrap()
-        .catch((error) => {
-          console.error('Caught error in useEffect:', error);
-          showBoundary({
-            message: 'Error creating new thread',
-            error,
-          });
-        })
+      const thread = newTempThreadState()
+      dispatch(setCurrentThread(thread))
+      
     }
   }, [isDataLoaded, query]);
 
   const submitMessage = useCallback(async () => {
 
 
-  // Ensure currentExploreThread is available after dispatch
-  if (!currentExploreThread) {
-    // console.error('Failed to create or retrieve currentExploreThread.');
-    return;
-  }
 
 
     if (query === '') {

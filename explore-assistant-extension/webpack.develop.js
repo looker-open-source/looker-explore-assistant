@@ -24,15 +24,18 @@ SOFTWARE.
 
 */
 
-const commonConfig = require('./webpack.config')
+const { SourceMapDevToolPlugin } = require('webpack');
+const commonConfig = require('./webpack.config');
 
 module.exports = {
   ...commonConfig,
+  mode: 'development',
+  devtool: 'source-map', // Ensure source maps are generated
   output: {
     ...commonConfig.output,
     publicPath: 'https://localhost:8080/',
+    sourceMapFilename: '[file].map'
   },
-  mode: 'development',
   module: {
     rules: [
       ...commonConfig.module.rules,
@@ -57,5 +60,10 @@ module.exports = {
         'X-Requested-With, content-type, Authorization',
     },
   },
-  plugins: [...commonConfig.plugins],
-}
+  plugins: [
+    ...commonConfig.plugins,
+    new SourceMapDevToolPlugin({
+      filename: '[file].map' // Ensure source maps are written
+    })
+  ]
+};

@@ -1,5 +1,8 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit'
 import { v4 as uuidv4 } from 'uuid'
+import { RootState } from '../store';
+import process from 'process';
+import { me } from '@looker/sdk';
 
 // TODO JOON : ENDPOINT /chat/history :  migrate chat history from in cache to cloud run endpoint.
 
@@ -326,6 +329,8 @@ export interface SemanticModel {
 }
 
 export interface AssistantState {
+  me: any
+  userLoggedInStatus: boolean
   isQuerying: boolean
   isChatMode: boolean
   currentExploreThread: ExploreThread | null
@@ -369,6 +374,8 @@ export const newThreadState = () => {
 }
 
 export const initialState: AssistantState = {
+  me: null,
+  userLoggedInStatus: false,
   isQuerying: false,
   isChatMode: false,
   currentExploreThread: null,
@@ -404,6 +411,12 @@ export const assistantSlice = createSlice({
   name: 'assistant',
   initialState,
   reducers: {
+    setMeSdk: (state, action: PayloadAction<any>) => {
+      state.me = action.payload;
+    },
+    setuserLoggedInStatus: (state, action: PayloadAction<boolean>) => {
+      state.userLoggedInStatus = action.payload;
+    },
     resetExploreAssistant: () => {
       return initialState
     },
@@ -551,6 +564,9 @@ export const assistantSlice = createSlice({
 })
 
 export const {
+  setuserLoggedInStatus,
+  setMeSdk,
+
   setIsQuerying,
   setIsChatMode,
   resetChatMode,

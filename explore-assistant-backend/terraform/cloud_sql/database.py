@@ -1,6 +1,15 @@
 import json
 from sqlmodel import SQLModel, create_engine, Session
 from urllib.parse import quote_plus
+import sys
+import os
+
+# Add the root directory to the Python path
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
+sys.path.insert(0, root_dir)
+
+# Import models from cloud-run directory
+sys.path.insert(0, os.path.join(root_dir, 'explore-assistant-cloud-run'))
 
 def get_cloudsql_config():
     with open("cloudsql_outputs.json", "r") as f:
@@ -20,7 +29,6 @@ def get_database_url():
 engine = create_engine(get_database_url(), echo=True)
 
 def create_db_and_tables():
-    from models import SQLModel  # Import here to avoid circular imports
     SQLModel.metadata.create_all(engine)
 
 def get_session():

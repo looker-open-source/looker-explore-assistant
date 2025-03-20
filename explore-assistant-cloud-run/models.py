@@ -4,11 +4,7 @@ from enum import Enum
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 
-class PromptType(str, Enum):
-    LOOKER = "looker"
-    GENERAL = "general"
 
-# Database Models
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
@@ -44,8 +40,9 @@ class Message(SQLModel, table=True):
 class Feedback(SQLModel, table=True):
     __tablename__ = "feedbacks"
 
+    user_id: str = Field(foreign_key="users.user_id")
     feedback_id: Optional[int] = Field(default=None, primary_key=True)
-    message_id: int = Field(foreign_key="messages.message_id")
+    message_id: str = Field(foreign_key="messages.message_id")
     feedback_text: str
     is_positive: bool
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -64,7 +61,7 @@ class ChatRequest(BaseModel):
 
 class PromptRequest(BaseModel):
     contents: str = Field(..., description="The prompt contents")
-    prompt_type: PromptType = Field(..., description="Type of prompt (looker or general)")
+    prompt_type: str = Field(..., description="Type of prompt")
     current_explore_key: str = Field(..., description="Current explore key")
     user_id: str = Field(..., description="User ID")
     parameters: Optional[Dict[str, Any]] = Field(None, description="Optional parameters for the prompt")
@@ -73,7 +70,7 @@ class PromptRequest(BaseModel):
 
 class FeedbackRequest(BaseModel):
     user_id: str = Field(..., description="User ID")
-    message_id: int = Field(..., description="Message ID")
+    message_id: str = Field(..., description="Message ID")
     feedback_text: str = Field(..., description="Feedback text")
     is_positive: bool = Field(..., description="Whether the feedback is positive")
 

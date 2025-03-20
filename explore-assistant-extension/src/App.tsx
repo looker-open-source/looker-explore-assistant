@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useContext } from 'react'
 import { hot } from 'react-hot-loader/root'
 import { Route, Switch, Redirect, useLocation} from 'react-router-dom'
 import { useLookerFields } from './hooks/useLookerFields'
@@ -9,6 +9,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import AuthLoadingScreen from './components/Auth/AuthLoadingScreen'
 import { setAuthenticated, setToken, setExpiry } from './slices/authSlice'
 import { isTokenExpired } from './components/Auth/AuthProvider'
+import { ExtensionContext } from '@looker/extension-sdk-react'
+import { setMeSdk } from './slices/assistantSlice'
+
 
 
 // OAuth Callback handler component
@@ -54,6 +57,24 @@ const ExploreApp = () => {
   const dispatch = useDispatch()
   const { isAuthenticated, access_token, expires_in } = useSelector((state: RootState) => state.auth)
 
+  const { core40SDK } = useContext(ExtensionContext);
+  const [me, setMe] = useState(null);
+
+
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const me = await core40SDK.ok(core40SDK.me());
+        setMe(me); // need this to enforce me loaded before rendering the AgentPage
+        dispatch(setMeSdk(me));
+
+      } catch (error) {
+        console.error('Error fetching user info:', error);
+      }
+    };
+    fetchUserInfo();
+  }, []);
+
 
   // Load dimensions, measures, and examples into the state
   useLookerFields();
@@ -81,7 +102,7 @@ const ExploreApp = () => {
   return (
     <Switch>
       <Route path="/index" exact>
-        <AgentPage />
+        {me ? <AgentPage /> : <></>} 
       </Route>
       <Route path="/oauth/callback" exact>
         <OAuthCallbackPage />

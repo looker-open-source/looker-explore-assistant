@@ -36,12 +36,13 @@ const MessageThread = () => {
               exploreId={currentExploreThread.exploreId}
               queryArgs={message.exploreUrl}
               prompt={message.summarizedPrompt}
+              uuid={message.uuid}
             />
           )
         } 
         // Render a SummaryMessage component for messages of type 'summarize'
         else if (message.type === 'summarize') {
-          return <SummaryMessage key={message.uuid} message={message} />
+          return <SummaryMessage key={message.uuid} message={message} uuid={message.uuid} />
         } 
         // Render a regular Message component for other message types
         else {
@@ -51,6 +52,7 @@ const MessageThread = () => {
               message={message.message}
               actor={message.actor}
               createdAt={message.createdAt}
+              uuid={message.uuid}
             />
           )
         }

@@ -1,9 +1,10 @@
-import React, { useState } from 'react'
-
+import React, { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux';
 import MarkdownText from './MarkdownText'
 import clsx from 'clsx'
 import { ThumbUp, ThumbDown } from '@material-ui/icons'
 import './Message.css'
+import process from 'process'
 
 export const getRelativeTimeString = (dateStr: string | Date) => {
   const date = new Date(dateStr)
@@ -72,17 +73,23 @@ interface MessageProps {
   children?: React.ReactNode
   createdAt?: number
   message?: string
-  messageId?: number
-  userId?: string
+  uuid: string
 }
 
-const Message = ({ message, actor, children, messageId, userId }: MessageProps) => {
+const Message = ({ message, actor, children, uuid }: MessageProps) => {
   const [isThumbUpClicked, setIsThumbUpClicked] = useState(false)
   const [isThumbDownClicked, setIsThumbDownClicked] = useState(false)
   const [showButtons, setShowButtons] = useState(false)
   const [feedbackVisible, setFeedbackVisible] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedMessage, setSelectedMessage] = useState(null)
+  const { me, currentExploreThread } = useSelector((state: RootState) => state.assistant as AssistantState)
+  const { access_token } = useSelector((state: RootState) => state.auth)
+  const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
+  const userId = me.id
+
+
 
 
   const handleThumbUpClick = () => {
@@ -91,7 +98,7 @@ const Message = ({ message, actor, children, messageId, userId }: MessageProps) 
     setFeedbackVisible(!isThumbUpClicked) // Show feedback form
     // You can also implement logic to track thumb up votes here, e.g., update state or send a feedback event
   }
-
+  
   const handleThumbDownClick = () => {
     setIsThumbDownClicked(!isThumbDownClicked)
     setIsThumbUpClicked(false)
@@ -109,19 +116,20 @@ const Message = ({ message, actor, children, messageId, userId }: MessageProps) 
     }, 100) // Adjust the delay as needed
   }
 
-  const handleSubmitFeedback = async () => {
-    if (!messageId || !userId || !feedbackText) return
+  const handleSubmitFeedback = useCallback(async () => {
+    if (!uuid || !userId || !feedbackText) return
 
     setIsSubmitting(true)
     try {
-      const response = await fetch('/api/feedback', {
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`,
         },
         body: JSON.stringify({
           user_id: userId,
-          message_id: messageId,
+          message_id: uuid,
           feedback_text: feedbackText,
           is_positive: isThumbUpClicked,
         }),
@@ -139,7 +147,7 @@ const Message = ({ message, actor, children, messageId, userId }: MessageProps) 
     } finally {
       setIsSubmitting(false)
     }
-  }
+  }, [feedbackText,uuid])
 
   const handleCancelFeedback = () => {
     setFeedbackVisible(false) // Hide feedback form

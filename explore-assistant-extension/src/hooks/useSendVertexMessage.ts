@@ -82,7 +82,7 @@ const useSendVertexMessage = () => {
   const VERTEX_BIGQUERY_MODEL_ID = process.env.VERTEX_BIGQUERY_MODEL_ID || ''
 
   const { core40SDK } = useContext(ExtensionContext)
-  const { settings, examples, currentExplore, currentExploreThread} =
+  const { settings, examples, currentExplore, currentExploreThread, userId} =
     useSelector((state: RootState) => state.assistant as AssistantState)
 
   const { access_token } = useSelector((state: RootState) => state.auth)
@@ -145,7 +145,7 @@ const useSendVertexMessage = () => {
       current_explore_key: currentExploreKey,
       raw_prompt: raw_prompt,
       prompt_type: prompt_type,
-      user_id: me.id,
+      user_id: userId,
       contents: contents,
       parameters: parameters,
     })
@@ -173,8 +173,9 @@ const useSendVertexMessage = () => {
       throw new Error(`Server responded with ${responseData.status}: ${error}`)
     }
   
-    const response = await responseData.text()
-    return response.trim()
+    const responseJson = await responseData.json()
+    // endpoint now respond in this schema : '{"message":"Query generated successfully","data":{"response":"refining question"}}'
+    return responseJson.data.response.trim() 
   }
 
   // this function is the entrypoint whenever user sends a chat. 

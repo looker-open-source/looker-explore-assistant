@@ -19,6 +19,8 @@ import {
   setIsQuerying,
   setQuery,
   setSidePanelExploreUrl,
+  setUserId,
+  setuserLoggedInStatus,
   updateCurrentThread,
   updateLastHistoryEntry,
 } from '../../slices/assistantSlice'
@@ -36,7 +38,10 @@ import {
 } from '@mui/material'
 import { getRelativeTimeString } from '../../utils/time'
 import { AuthProvider, isTokenExpired } from '../../components/Auth/AuthProvider';
+import { useErrorBoundary } from 'react-error-boundary'
 
+
+const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || '';
 
 const toCamelCase = (input: string): string => {
   // Remove underscores, make following letter uppercase
@@ -52,17 +57,80 @@ const toCamelCase = (input: string): string => {
 }
 
 const AgentPage = () => {
+  const { showBoundary } = useErrorBoundary()
   const { core40SDK } = useContext(ExtensionContext);
   const [username, setUsername] = useState('');
+  const [me, setMe] = useState(null); // State to store user information
+
+
   useEffect(() => {
     const fetchUsername = async () => {
-      const me = await core40SDK.ok(core40SDK.me());
-      setUsername(me.display_name || me.first_name || '');
+      const userInfo = await core40SDK.ok(core40SDK.me());
+      setMe(userInfo); // Store user information in state
+      const username = userInfo.display_name || userInfo.first_name || '';
+      setUsername(username);
     };
     fetchUsername();
   }, []);
+  
+  useEffect(() => {
+    if (me) {
+      loginUser();
+    }
+  }, [me]);
 
+  const loginUser = async () => {
+    // this function is called each time the extension is reloaded.
+    // the function logs the user info into the endpoint to 
+    // assign / store all actions on the extension to the user id.
+    try {
+      if (!me) return; // Ensure 'me' is available before proceeding
+      const body = JSON.stringify({
+        user_id: me.id,
+        name: username,
+        email: me.email,
+      });
 
+      // console.log('Making request to login endpoint:');
+      // console.log('Endpoint:', `${VERTEX_AI_ENDPOINT}/login`);
+      // console.log('Body:', JSON.parse(body));
+
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`
+        },
+        body: body,
+      });
+
+      
+      // console.log('Login successful:', responseData);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Request failed: ${errorData.detail}`);
+      }
+        const responseData = await response.text();
+        if (response.status === 200) {
+          console.log('User already exists or successfully created:', responseData);
+          dispatch(setUserId(me.id));
+          dispatch(setuserLoggedInStatus(true));
+        } else {
+          console.log('Unexpected response:', responseData);
+        }
+      } catch (error) {
+        dispatch(setuserLoggedInStatus(false));
+        console.error(
+          'Error logging user id to the database',
+          error
+        );
+        showBoundary({
+          message:
+            'Error logging user id to the database',
+            error,
+        });
+      }
+    };
 
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
@@ -80,6 +148,8 @@ const AgentPage = () => {
     semanticModels,
     isBigQueryMetadataLoaded,
     isSemanticModelLoaded,
+    userId,
+    userLoggedInStatus
   } = useSelector((state: RootState) => state.assistant as AssistantState)
 
   const explores = Object.keys(examples.exploreSamples).map((key) => {
@@ -207,7 +277,7 @@ const AgentPage = () => {
   }, [query, semanticModels, examples, currentExplore, currentExploreThread])
 
   const isDataLoaded = isBigQueryMetadataLoaded && isSemanticModelLoaded
-
+  
   useEffect(() => {
     if (!query || query === '') {
       return
@@ -250,13 +320,14 @@ const AgentPage = () => {
   const { access_token, expires_in } = useSelector((state: RootState) => state.auth);
 
   
-  const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded
+  const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded && userLoggedInStatus
   
   console.log('Agent ready state:', {
     isBigQueryMetadataLoaded,
     isSemanticModelLoaded,
     hasAccessToken: !!access_token,
-    tokenExpired: isTokenExpired(access_token, expires_in)
+    tokenExpired: isTokenExpired(access_token, expires_in),
+    userLoggedInStatus: userLoggedInStatus,
 });
 
   if (!isAgentReady) {

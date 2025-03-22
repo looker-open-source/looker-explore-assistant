@@ -15,6 +15,8 @@ import {
   setIsChatMode,
   setSidePanelExploreUrl,
   AssistantState,
+  newThreadState,
+  resetChatNoNewThread
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
 import SettingsModal from './Settings'
@@ -28,7 +30,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const dispatch = useDispatch()
   const [isExpanded, setIsExpanded] = React.useState(expanded)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
-  const { isChatMode, isQuerying, history, currentExplore, currentExploreThread} = useSelector(
+  const { isChatMode, isQuerying, history, currentExplore, currentExploreThread, me} = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
 
@@ -50,27 +52,32 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
     console.log("In handleNewChat:")
     console.log(currentExplore)
     if (canReset) {
-      dispatch(resetChat())
-
-      dispatch(
-          updateCurrentThread({
-            exploreId: currentExplore.exploreId,
-            modelName: currentExplore.modelName,
-            exploreKey: currentExplore.exploreKey,
-          }), () => {
-            console.log(currentExploreThread); // This will be logged after update finishes
-          }
+      dispatch(newThreadState(me))
+        .unwrap()
+        .then((newThread) => {
+          dispatch(resetChat(newThread))
+          dispatch(
+              updateCurrentThread({
+                exploreId: currentExplore.exploreId,
+                modelName: currentExplore.modelName,
+                exploreKey: currentExplore.exploreKey,
+              }), () => {
+                console.log(currentExploreThread); // This will be logged after update finishes
+              }
+          )
+        }
       )
+
     }
 
   }
 
   const handleHistoryClick = (thread: ExploreThread) => {
-    dispatch(resetChat())
-    dispatch(setCurrentThread(thread))
-    dispatch(setIsChatMode(true))
-    dispatch(setSidePanelExploreUrl(thread.exploreUrl))
-    dispatch(openSidePanel())
+          dispatch(resetChatNoNewThread())
+          dispatch(setCurrentThread(thread))
+          dispatch(setIsChatMode(true))
+          dispatch(setSidePanelExploreUrl(thread.exploreUrl))
+          dispatch(openSidePanel())
   }
 
   const handleClearHistory = () => {

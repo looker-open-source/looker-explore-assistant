@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import { setIsChatMode, setQuery } from '../../slices/assistantSlice'
 import clsx from 'clsx'
+import useDropTempThread from '../../hooks/useDropTempThread'
 
 const PromptInput = () => {
 
@@ -12,25 +13,23 @@ const PromptInput = () => {
   const inputRef = useRef(null)
 
   const { isQuerying, currentExplore, currentExploreThread } = useSelector((state: RootState) => state.assistant)
-  console.log('In PromptInput')
-  console.log(currentExplore)
-  console.log(currentExploreThread)
 
+  
   const handleInputChange = (e: any) => {
     setInputText(e.target.value)
   }
-
-  const handleSubmit = useCallback(() => {
-    console.log('PromptInput submit:', {
-      inputText,
-      isQuerying,
-      currentExplore,
-      currentExploreThread
-  });
+  // make sure threadId is valid BE thread instead of temp
+  const dropTempThread = useDropTempThread(); 
+  
+  const handleSubmit = useCallback( async () => {
+    console.log('In PromptInput')
+    console.log(currentExplore)
+    console.log(currentExploreThread)
   
 
     const prompt = inputText.trim()
     if (prompt && !isQuerying) {
+      await dropTempThread()
       dispatch(setIsChatMode(true))
       dispatch(setQuery(prompt))
     }

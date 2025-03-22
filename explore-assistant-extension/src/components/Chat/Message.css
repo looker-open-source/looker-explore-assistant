@@ -1,10 +1,11 @@
 .submit-btn {
   padding: 8px 16px;
-  background-color: #4c7aaf; /* Green */
+  background-color: #4c7aaf;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 14px;
   transition: background-color 0.3s;
 }
 
@@ -14,33 +15,39 @@
 
 .cancel-btn {
   padding: 8px 16px;
-  background-color: #848484; /* Red */
-  color: rgb(255, 255, 255);
+  background-color: #6c757d;
+  color: white;
+  margin-top: 5px;
+  margin-bottom: 10px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 14px;
   transition: background-color 0.3s;
 }
 
 .cancel-btn:hover {
-  background-color: #d32f2f;
+  background-color: #545b62;
 }
 
 .feedback-form {
   margin-top: 10px;
-  background-color: #f2f2f2;
   padding: 15px;
+  background-color: #f2f2f2;
   border-radius: 5px;
+  border: 1px solid #dee2e6;
 }
 
 .feedback-textarea {
   width: 100%;
+  min-height: 80px;
   padding: 10px;
+  border: 1px solid #ced4da;
   margin-top: 5px;
   margin-bottom: 10px;
   border-radius: 4px;
-  border: 1px solid #ccc;
   resize: vertical;
+  border: 1px solid #ccc;
 }
 
 .feedback-tooltip {

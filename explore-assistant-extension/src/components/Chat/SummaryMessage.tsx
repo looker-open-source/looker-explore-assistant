@@ -12,9 +12,10 @@ import {
 
 interface SummaryMessageProps {
   message: SummarizeMesage
+  uuid: string
 }
 
-const SummaryMessage = ({ message }: SummaryMessageProps) => {
+const SummaryMessage = ({ message, uuid }: SummaryMessageProps) => {
   const queryArgs = message.exploreUrl
 
   const dispatch = useDispatch()
@@ -53,7 +54,7 @@ const SummaryMessage = ({ message }: SummaryMessageProps) => {
   }, [message])
 
   return (
-    <Message actor="system" createdAt={Date.now()}>
+    <Message actor="system" createdAt={Date.now()} uuid={uuid} >
       <Section my={'u2'}>
         <Chip disabled>Summary</Chip>
         {loading ? (

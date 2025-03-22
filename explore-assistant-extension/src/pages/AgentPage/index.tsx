@@ -64,9 +64,67 @@ const AgentPage = () => {
   
   useEffect(() => {
     loginUser();
+
   }, []);
+  
+  useEffect(() => {
+    if (me) {
+      loginUser();
+    }
+  }, [me]);
 
+  const loginUser = async () => {
+    // this function is called each time the extension is reloaded.
+    // the function logs the user info into the endpoint to 
+    // assign / store all actions on the extension to the user id.
+    try {
+      if (!me) return; // Ensure 'me' is available before proceeding
+      const body = JSON.stringify({
+        user_id: me.id,
+        name: username,
+        email: me.email,
+      });
 
+      // console.log('Making request to login endpoint:');
+      // console.log('Endpoint:', `${VERTEX_AI_ENDPOINT}/login`);
+      // console.log('Body:', JSON.parse(body));
+
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`
+        },
+        body: body,
+      });
+
+      
+      // console.log('Login successful:', responseData);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Request failed: ${errorData.detail}`);
+      }
+        const responseData = await response.text();
+        if (response.status === 200) {
+          console.log('User already exists or successfully created:', responseData);
+          dispatch(setUserId(me.id));
+          dispatch(setuserLoggedInStatus(true));
+        } else {
+          console.log('Unexpected response:', responseData);
+        }
+      } catch (error) {
+        dispatch(setuserLoggedInStatus(false));
+        console.error(
+          'Error logging user id to the database',
+          error
+        );
+        showBoundary({
+          message:
+            'Error logging user id to the database',
+            error,
+        });
+      }
+    };
 
   const loginUser = async () => {
     // this function is called each time the extension is reloaded.
@@ -137,6 +195,7 @@ const AgentPage = () => {
     isSemanticModelLoaded,
     userLoggedInStatus,
     me
+
   } = useSelector((state: RootState) => state.assistant as AssistantState)
 
 
@@ -291,7 +350,7 @@ const AgentPage = () => {
   }, [query, semanticModels, examples, currentExplore, currentExploreThread])
 
   const isDataLoaded = isBigQueryMetadataLoaded && isSemanticModelLoaded
-
+  
   useEffect(() => {
     if (!query || query === '') {
       return
@@ -334,13 +393,14 @@ const AgentPage = () => {
   const { access_token, expires_in } = useSelector((state: RootState) => state.auth);
 
   
-  const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded
+  const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded && userLoggedInStatus
   
   console.log('Agent ready state:', {
     isBigQueryMetadataLoaded,
     isSemanticModelLoaded,
     hasAccessToken: !!access_token,
-    tokenExpired: isTokenExpired(access_token, expires_in)
+    tokenExpired: isTokenExpired(access_token, expires_in),
+    userLoggedInStatus: userLoggedInStatus,
 });
 
   if (!isAgentReady) {

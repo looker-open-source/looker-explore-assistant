@@ -80,6 +80,18 @@ resource "google_bigquery_dataset" "dataset" {
   depends_on    = [time_sleep.wait_after_apis_activate]
 }
 
+module "cloud_sql" {
+  count                = var.use_cloud_run_backend ? 1 : 0
+  source               = "./cloud_sql"
+  deployment_region    = var.deployment_region
+  project_id           = var.project_id
+  root_password        = var.root_password
+  user_password        = var.user_password
+  cloudSQL_server_name = var.cloudSQL_server_name
+
+  depends_on = [time_sleep.wait_after_apis_activate]
+}
+
 module "cloud_run_backend" {
   count                                = var.use_cloud_run_backend ? 1 : 0
   source                               = "./cloud_run"
@@ -91,7 +103,7 @@ module "cloud_run_backend" {
   explore-assistant-cr-oauth-client-id = var.explore-assistant-cr-oauth-client-id
   explore-assistant-cr-sa-id           = var.explore-assistant-cr-sa-id
 
-  depends_on = [time_sleep.wait_after_apis_activate]
+  depends_on = [module.cloud_sql,time_sleep.wait_after_apis_activate]
 }
 
 module "bigquery_backend" {

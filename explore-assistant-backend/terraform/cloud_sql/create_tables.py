@@ -8,6 +8,9 @@ root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
 # Import models from cloud-run directory
 sys.path.insert(0, os.path.join(root_dir, 'explore-assistant-cloud-run'))
 
+# this will now import the foreign models table from cloud run folder
+import models
+
 def main():
     print("Creating database and tables...")
     print(f"Using database URL: {get_database_url()}")

@@ -1,10 +1,13 @@
 deployment_region                    = "asia-southeast1"
 project_id                           = "joon-sandbox"
-dataset_id_name                      = "explore_assistant"  # change to your dev var
+dataset_id_name                      = "explore_assistant" # change to your dev var
 use_bigquery_backend                 = false
 use_cloud_function_backend           = false
-cloud_run_service_name               = "explore-assistant-endpoint" # change to your dev var
+cloud_run_service_name               = "explore-assistant-endpoint"                                                                        # change to your dev var
 image                                = "asia-southeast1-docker.pkg.dev/joon-sandbox/looker-explore-assistant/explore-assistant-api:latest" # change to your dev var
 use_cloud_run_backend                = true
 explore-assistant-cr-oauth-client-id = "136420034762-ltctaj3i2k7d7q13n7b6kgra45i7j4b6.apps.googleusercontent.com"
 explore-assistant-cr-sa-id           = "explore-assistant-cr-sa" # change to your dev var   
+root_password                        = "Your root user password"
+user_password                        = "Your mysql user password"
+cloudSQL_server_name                 = "Your cloudSQL server name"

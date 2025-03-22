@@ -39,6 +39,26 @@ variable "deployment_region" {
 }
 
 #
+# CLOUD SQL VARIABLES
+#
+
+variable "root_password" {
+  type        = string
+  description = "value for root password"
+}
+
+variable "user_password" {
+  type        = string
+  description = "value for the cloud SQL user password used by cloud run"
+}
+
+variable "cloudSQL_server_name" {
+  type        = string
+  description = "value for the cloud SQL server name"
+}
+
+
+#
 # CLOUD RUN VARIABLES
 #
 

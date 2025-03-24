@@ -1,9 +1,10 @@
-import React, { useState } from 'react'
-
+import React, { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux';
 import MarkdownText from './MarkdownText'
 import clsx from 'clsx'
 import { ThumbUp, ThumbDown } from '@material-ui/icons'
 import './Message.css'
+import process from 'process'
 
 export const getRelativeTimeString = (dateStr: string | Date) => {
   const date = new Date(dateStr)
@@ -72,24 +73,32 @@ interface MessageProps {
   children?: React.ReactNode
   createdAt?: number
   message?: string
+  uuid: string
 }
 
-const Message = ({ message, actor, children }: MessageProps) => {
+const Message = ({ message, actor, children, uuid }: MessageProps) => {
   const [isThumbUpClicked, setIsThumbUpClicked] = useState(false)
   const [isThumbDownClicked, setIsThumbDownClicked] = useState(false)
   const [showButtons, setShowButtons] = useState(false)
   const [feedbackVisible, setFeedbackVisible] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedMessage, setSelectedMessage] = useState(null)
+  const { me, currentExploreThread } = useSelector((state: RootState) => state.assistant as AssistantState)
+  const { access_token } = useSelector((state: RootState) => state.auth)
+  const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
+  const userId = me.id
+
+
 
 
   const handleThumbUpClick = () => {
-
     setIsThumbUpClicked(!isThumbUpClicked)
     setIsThumbDownClicked(false)
     setFeedbackVisible(!isThumbUpClicked) // Show feedback form
     // You can also implement logic to track thumb up votes here, e.g., update state or send a feedback event
   }
-
+  
   const handleThumbDownClick = () => {
     setIsThumbDownClicked(!isThumbDownClicked)
     setIsThumbUpClicked(false)
@@ -107,10 +116,38 @@ const Message = ({ message, actor, children }: MessageProps) => {
     }, 100) // Adjust the delay as needed
   }
 
-  const handleSubmitFeedback = () => {
-    setFeedbackVisible(false) // Hide feedback form
-    // Optionally handle the feedback submission logic here
-  }
+  const handleSubmitFeedback = useCallback(async () => {
+    if (!uuid || !userId || !feedbackText) return
+
+    setIsSubmitting(true)
+    try {
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`,
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          message_id: uuid,
+          feedback_text: feedbackText,
+          is_positive: isThumbUpClicked,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to submit feedback')
+      }
+
+      setFeedbackVisible(false)
+      setFeedbackText('')
+    } catch (error) {
+      console.error('Error submitting feedback:', error)
+      // You might want to show an error message to the user here
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [feedbackText,uuid])
 
   const handleCancelFeedback = () => {
     setFeedbackVisible(false) // Hide feedback form
@@ -141,11 +178,17 @@ const Message = ({ message, actor, children }: MessageProps) => {
         </div>
         {actor !== 'user' && (
           <div className={`flex space-x-2 mt-2 ${showButtons || isThumbUpClicked || isThumbDownClicked ? 'visible' : 'hidden'}`}>
-            <button onClick={handleThumbUpClick}>
-              <ThumbUp color={isThumbUpClicked ? 'primary' : 'default'} />
+            <button 
+              onClick={handleThumbUpClick}
+              className="hover:bg-gray-100 p-1 rounded-full"
+            >
+              <ThumbUp color={isThumbUpClicked ? 'primary' : 'inherit'} />
             </button>
-            <button onClick={handleThumbDownClick}>
-              <ThumbDown color={isThumbDownClicked ? 'primary' : 'default'} />
+            <button 
+              onClick={handleThumbDownClick}
+              className="hover:bg-gray-100 p-1 rounded-full"
+            >
+              <ThumbDown color={isThumbDownClicked ? 'primary' : 'inherit'} />
             </button>
           </div>
         )}
@@ -154,15 +197,23 @@ const Message = ({ message, actor, children }: MessageProps) => {
             <textarea
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
-              placeholder="Enter your feedback"
+              placeholder="Please provide your feedback..."
               className="feedback-textarea"
             />
-            <div className="flex justify-between mt-2">
-              <button onClick={handleSubmitFeedback} className="submit-btn">
-                Submit
-              </button>
-              <button onClick={handleCancelFeedback} className="cancel-btn">
+            <div className="flex justify-end space-x-2">
+              <button 
+                onClick={handleCancelFeedback} 
+                className="cancel-btn"
+                disabled={isSubmitting}
+              >
                 Cancel
+              </button>
+              <button 
+                onClick={handleSubmitFeedback} 
+                className="submit-btn"
+                disabled={isSubmitting || !feedbackText.trim()}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>
             </div>
           </div>

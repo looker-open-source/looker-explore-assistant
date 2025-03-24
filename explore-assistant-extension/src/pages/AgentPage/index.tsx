@@ -19,8 +19,12 @@ import {
   setIsQuerying,
   setQuery,
   setSidePanelExploreUrl,
+  setuserLoggedInStatus,
   updateCurrentThread,
   updateLastHistoryEntry,
+  newThreadState,
+  newTempThreadState,
+  setCurrentThread
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
@@ -36,8 +40,11 @@ import {
 } from '@mui/material'
 import { getRelativeTimeString } from '../../utils/time'
 import { AuthProvider, isTokenExpired } from '../../components/Auth/AuthProvider';
+import { useErrorBoundary } from 'react-error-boundary'
+import { current } from '@reduxjs/toolkit'
+import { user } from '@looker/sdk'
 
-
+const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT
 const toCamelCase = (input: string): string => {
   // Remove underscores, make following letter uppercase
   let result = input.replace(
@@ -52,17 +59,123 @@ const toCamelCase = (input: string): string => {
 }
 
 const AgentPage = () => {
-  const { core40SDK } = useContext(ExtensionContext);
-  const [username, setUsername] = useState('');
+  const { showBoundary } = useErrorBoundary()
+  
+  
   useEffect(() => {
-    const fetchUsername = async () => {
-      const me = await core40SDK.ok(core40SDK.me());
-      setUsername(me.display_name || me.first_name || '');
-    };
-    fetchUsername();
+    loginUser();
+
   }, []);
+  
+  useEffect(() => {
+    if (me) {
+      loginUser();
+    }
+  }, [me]);
 
+  const loginUser = async () => {
+    // this function is called each time the extension is reloaded.
+    // the function logs the user info into the endpoint to 
+    // assign / store all actions on the extension to the user id.
+    try {
+      if (!me) return; // Ensure 'me' is available before proceeding
+      const body = JSON.stringify({
+        user_id: me.id,
+        name: username,
+        email: me.email,
+      });
 
+      // console.log('Making request to login endpoint:');
+      // console.log('Endpoint:', `${VERTEX_AI_ENDPOINT}/login`);
+      // console.log('Body:', JSON.parse(body));
+
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`
+        },
+        body: body,
+      });
+
+      
+      // console.log('Login successful:', responseData);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Request failed: ${errorData.detail}`);
+      }
+        const responseData = await response.text();
+        if (response.status === 200) {
+          console.log('User already exists or successfully created:', responseData);
+          dispatch(setUserId(me.id));
+          dispatch(setuserLoggedInStatus(true));
+        } else {
+          console.log('Unexpected response:', responseData);
+        }
+      } catch (error) {
+        dispatch(setuserLoggedInStatus(false));
+        console.error(
+          'Error logging user id to the database',
+          error
+        );
+        showBoundary({
+          message:
+            'Error logging user id to the database',
+            error,
+        });
+      }
+    };
+
+  const loginUser = async () => {
+    // this function is called each time the extension is reloaded.
+    // the function logs the user info into the endpoint to 
+    // assign / store all actions on the extension to the user id.
+    try {
+      const body = JSON.stringify({
+        user_id: me.id,
+        name: me.display_name,
+        email: me.email,
+      });
+
+      // console.log('Making request to login endpoint:');
+      // console.log('Endpoint:', `${VERTEX_AI_ENDPOINT}/login`);
+      // console.log('Body:', JSON.parse(body));
+
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`
+        },
+        body: body,
+      });
+
+      
+      // console.log('Login successful:', responseData);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Request failed: ${errorData.detail}`);
+      }
+        const responseData = await response.text();
+        if (response.status === 200) {
+          console.log('User already exists or successfully created:', responseData);
+          dispatch(setuserLoggedInStatus(true));
+        } else {
+          console.log('Unexpected response:', responseData);
+        }
+      } catch (error) {
+        dispatch(setuserLoggedInStatus(false));
+        console.error(
+          'Error logging user id to the database',
+          error
+        );
+        showBoundary({
+          message:
+            'Error logging user id to the database',
+            error,
+        });
+      }
+    };
 
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
@@ -80,7 +193,14 @@ const AgentPage = () => {
     semanticModels,
     isBigQueryMetadataLoaded,
     isSemanticModelLoaded,
+    userLoggedInStatus,
+    me
+
   } = useSelector((state: RootState) => state.assistant as AssistantState)
+
+
+
+
 
   const explores = Object.keys(examples.exploreSamples).map((key) => {
     const exploreParts = key.split(':')
@@ -91,10 +211,29 @@ const AgentPage = () => {
     }
   })
 
+
+  useEffect(() => {
+    // creates a temp in-mem thread on home page.
+    // this will get triggered on the loading screen. IF browser cache dont have currentExploreThread
+    // rationale is id generation are now handled by the backend.
+    // thus it is prerequisite to load this first
+    if (!currentExploreThread) {
+        // Dispatch newThreadState to create a new thread
+      const thread = newTempThreadState()
+      dispatch(setCurrentThread(thread))
+      
+    }
+  }, [isDataLoaded, query]);
+
   const submitMessage = useCallback(async () => {
+
+
+
+
     if (query === '') {
       return
     }
+  
 
     dispatch(setIsQuerying(true))
 
@@ -110,6 +249,8 @@ const AgentPage = () => {
       }),
     )
 
+    console.log('thread:', currentExploreThread)
+    console.log('Prompt List: ', promptList)
     const exploreKey = currentExploreThread?.exploreKey || currentExplore.exploreKey
 
     // set the explore if it is not set
@@ -136,6 +277,8 @@ const AgentPage = () => {
         type: 'text',
       }),
     )
+    console.log('thread:', currentExploreThread)
+
     const [promptSummary, isSummary] = await Promise.all([
       summarizePrompts(promptList),
       isSummarizationPrompt(query),
@@ -207,7 +350,7 @@ const AgentPage = () => {
   }, [query, semanticModels, examples, currentExplore, currentExploreThread])
 
   const isDataLoaded = isBigQueryMetadataLoaded && isSemanticModelLoaded
-
+  
   useEffect(() => {
     if (!query || query === '') {
       return
@@ -250,13 +393,14 @@ const AgentPage = () => {
   const { access_token, expires_in } = useSelector((state: RootState) => state.auth);
 
   
-  const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded
+  const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded && userLoggedInStatus
   
   console.log('Agent ready state:', {
     isBigQueryMetadataLoaded,
     isSemanticModelLoaded,
     hasAccessToken: !!access_token,
-    tokenExpired: isTokenExpired(access_token, expires_in)
+    tokenExpired: isTokenExpired(access_token, expires_in),
+    userLoggedInStatus: userLoggedInStatus,
 });
 
   if (!isAgentReady) {
@@ -265,7 +409,7 @@ const AgentPage = () => {
         <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
           <h1 className="text-5xl font-bold">
             <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-              Hello {username ? `, ${username}` : '.'}.
+              Hello {me ? `, ${me.display_name}` : '.'}.
             </span>
           </h1>
           <h1 className="text-3xl text-gray-400">
@@ -355,7 +499,7 @@ const AgentPage = () => {
                       <div className="flex flex-col space-y-4 mx-auto max-w-2xl p-4">
                         <h1 className="text-5xl font-bold">
                           <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-                            Hello {username ? `, ${username}` : '.'}.
+                            Hello {me ? `, ${me.display_name}` : '.'}.
                           </span>
                         </h1>
                         <h1 className="text-3xl text-gray-400">
@@ -415,7 +559,7 @@ const AgentPage = () => {
               <div className="flex flex-col space-y-4 mx-auto max-w-3xl p-4">
                 <h1 className="text-5xl font-bold">
                   <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
-                    Hello {username ? `, ${username}` : '.'}.
+                    Hello {me ? `, ${me.display_name}` : '.'}.
                   </span>
                 </h1>
                 <h1 className="text-5xl text-gray-400">

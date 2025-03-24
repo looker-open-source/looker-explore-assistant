@@ -15,9 +15,10 @@ interface ExploreMessageProps {
   modelName: string
   prompt: string
   queryArgs: string
+  uuid: string
 }
 
-const ExploreMessage = ({ modelName, exploreId, prompt, queryArgs }: ExploreMessageProps) => {
+const ExploreMessage = ({ modelName, exploreId, prompt, queryArgs, uuid }: ExploreMessageProps) => {
   const dispatch = useDispatch()
   const { extensionSDK } = useContext(ExtensionContext)
   const exploreHref = `/explore/${modelName}/${exploreId}?${queryArgs}`
@@ -32,7 +33,7 @@ const ExploreMessage = ({ modelName, exploreId, prompt, queryArgs }: ExploreMess
 
   return (
     <>
-      <Message actor="system" createdAt={Date.now()}>
+      <Message actor="system" createdAt={Date.now()} uuid={uuid} >
         <div>
           <div className="mb-2">Here is the explore we generated.</div>
           <div

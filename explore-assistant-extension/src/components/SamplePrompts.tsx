@@ -5,8 +5,11 @@ import {
   resetChat,
   setIsChatMode,
   setQuery,
+  newThreadState,
+  resetChatNoNewThread
 } from '../slices/assistantSlice'
 import { RootState } from '../store'
+import useDropTempThread from '../hooks/useDropTempThread'
 
 
 const SamplePrompts = () => {
@@ -14,12 +17,17 @@ const SamplePrompts = () => {
   const {
     currentExplore: { modelName, exploreId },
     examples: { exploreSamples },
+    me
   } = useSelector((state: RootState) => state.assistant as AssistantState)
 
   const samples = exploreSamples[`${modelName}:${exploreId}`]
+  // make sure current thread is a valid BE generated thread
+  const dropTempThread = useDropTempThread(); 
 
-  const handleSubmit = (prompt: string) => {
-    dispatch(resetChat())
+
+  const handleSubmit = async (prompt: string) => {
+    await dropTempThread()
+    dispatch(resetChatNoNewThread())
     dispatch(setQuery(prompt))
     dispatch(setIsChatMode(true))
   }

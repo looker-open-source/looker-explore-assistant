@@ -150,12 +150,12 @@ const useSendVertexMessage = () => {
 
     const me = await core40SDK.ok(core40SDK.me())
     const body = JSON.stringify({
-      current_thread_id: currentThreadID,
-      current_explore_key: currentExploreKey,
-      raw_prompt: raw_prompt,
-      prompt_type: prompt_type,
-      user_id: me.id,
       contents: contents,
+      prompt_type: prompt_type,
+      current_explore_key: currentExploreKey,
+      user_id: me.id,
+      current_thread_id: currentThreadID,
+      raw_prompt: raw_prompt,
       parameters: parameters,
     })
 
@@ -168,7 +168,7 @@ const useSendVertexMessage = () => {
   // })
   console.log('Body:', JSON.parse(body))
 
-    const responseData = await fetch(VERTEX_AI_ENDPOINT, {
+    const responseData = await fetch(`${VERTEX_AI_ENDPOINT}/prompt`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

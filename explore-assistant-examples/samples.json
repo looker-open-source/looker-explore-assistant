@@ -1,14 +1,14 @@
 [
     {
-      "category": "Cohorting",
-      "prompt": "Count of Users by first purchase date"
+      "category": "Performance",
+      "prompt": "What parent companies sell the most Fresh Blueberries by units?"
     },
     {
-      "category": "Audience Building",
-      "prompt":"Users who have purchased more than 100 dollars worth of Calvin Klein products and have purchased in the last 30 days"
+      "category": "Volume Trends",
+      "prompt":"What is the trend in sales volume for blueberries over the last year?"
     },
     {
-      "category": "Period Comparison",
-      "prompt": "Total revenue by category this year compared to last year in a line chart with year pivoted"
+      "category": "Seasonality",
+      "prompt": "Do blueberry sales volumes peak during specific seasons?"
     }
 ]

@@ -126,7 +126,8 @@ const useSendVertexMessage = () => {
     }
   }
 
-  const vertextCloudFunction = async (
+  const vertextCloudFunction = useCallback (
+    async (
     // TODO JOON : update this to call new endpoint /prompt instead of root /
     // currently vertextCloudFunction will send the following requests to our cloud run : 
     // generateExploreUrl,
@@ -187,7 +188,8 @@ const useSendVertexMessage = () => {
     // const response = await responseData.text()
     return response.trim()
 
-  }
+    }, [currentExploreThread]
+  )
 
   // this function is the entrypoint whenever user sends a chat. 
   // the result summarized prompt from vertex will be passed onto next 2 functions :
@@ -221,11 +223,12 @@ ${exploreRefinementExamples && exploreRefinementExamples
       Only return the summary of the prompt with no extra explanatation or text
 
     `
-      const response = await sendMessage(contents, '', 'summarizePrompts',{})
+      const lastPrompt = promptList[promptList.length - 1];
+      const response = await sendMessage(contents, lastPrompt, 'summarizePrompts',{})
 
       return response
     },
-    [exploreRefinementExamples],
+    [exploreRefinementExamples, currentExploreThread],
   )
 
   const isSummarizationPrompt = async (prompt: string) => {

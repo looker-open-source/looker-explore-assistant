@@ -8,6 +8,7 @@ import process from 'process'
 import { useErrorBoundary } from 'react-error-boundary'
 import { AssistantState } from '../slices/assistantSlice'
 import { isTokenExpired } from '../components/Auth/AuthProvider'
+import useSendMessageId from './useSendMessageId'
 
 const unquoteResponse = (response: string | null | undefined) => {
   if(!response) {
@@ -19,16 +20,16 @@ const unquoteResponse = (response: string | null | undefined) => {
     .trim()
 }
 
-const parseJSONResponse = (response: string | null | undefined) => {
+const parseJSONResponse = (response: string | null | undefined, key: string) => {
 // patch for calls coming from the new BE in this format  : 
 // '{"message":"Query generated successfully","data":{"response":"Count of Users by first purchase date"}}'
   if (!response || response === '') {
     return ''
   }
-  return JSON.parse(response).data.response
+  return JSON.parse(response).data[key]
 }
 
-interface ModelParameters {
+export interface ModelParameters {
   max_output_tokens?: number
 }
 
@@ -91,13 +92,14 @@ const useSendVertexMessage = () => {
   const VERTEX_BIGQUERY_MODEL_ID = process.env.VERTEX_BIGQUERY_MODEL_ID || ''
 
   const { core40SDK } = useContext(ExtensionContext)
-  const { settings, examples, currentExplore, currentExploreThread, userId} =
+  const { settings, examples, currentExplore, currentExploreThread, userId, me} =
     useSelector((state: RootState) => state.assistant as AssistantState)
 
   const { access_token } = useSelector((state: RootState) => state.auth)
 
   const currentExploreKey = currentExplore.exploreKey
   const exploreRefinementExamples = examples.exploreRefinementExamples[currentExploreKey]
+  const { getMessageId } = useSendMessageId();
 
   const vertextBigQuery = async (
     contents: string,
@@ -128,15 +130,6 @@ const useSendVertexMessage = () => {
 
   const vertextCloudFunction = useCallback (
     async (
-    // TODO JOON : update this to call new endpoint /prompt instead of root /
-    // currently vertextCloudFunction will send the following requests to our cloud run : 
-    // generateExploreUrl,
-    // summarizePrompts,
-    // isSummarizationPrompt,
-    // summarizeExplore
-
-
-
     contents: string,
     raw_prompt: string,
     prompt_type: string,
@@ -147,10 +140,13 @@ const useSendVertexMessage = () => {
     const currentThreadID = currentExploreThread?.uuid
     const currentExploreKey = currentExploreThread?.exploreKey
     console.log(currentThreadID)
-    console.log(currentExploreKey)
+      console.log(currentExploreKey)
+      
 
-    const me = await core40SDK.ok(core40SDK.me())
+    const messageId = await getMessageId(contents, prompt_type, raw_prompt, parameters, false);
+
     const body = JSON.stringify({
+      message_id: messageId,
       contents: contents,
       prompt_type: prompt_type,
       current_explore_key: currentExploreKey,
@@ -158,6 +154,7 @@ const useSendVertexMessage = () => {
       current_thread_id: currentThreadID,
       raw_prompt: raw_prompt,
       parameters: parameters,
+      is_user: false
     })
 
 
@@ -184,7 +181,7 @@ const useSendVertexMessage = () => {
     }
   
     const responseString = await responseData.text()
-    const response = parseJSONResponse(responseString)
+    const response = parseJSONResponse(responseString, 'response')
     // const response = await responseData.text()
     return response.trim()
 

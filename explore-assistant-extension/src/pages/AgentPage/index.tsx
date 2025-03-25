@@ -42,7 +42,8 @@ import { getRelativeTimeString } from '../../utils/time'
 import { AuthProvider, isTokenExpired } from '../../components/Auth/AuthProvider';
 import { useErrorBoundary } from 'react-error-boundary'
 import { current } from '@reduxjs/toolkit'
-import { user } from '@looker/sdk'
+import useSendMessageId from '../../hooks/useSendMessageId'
+
 
 const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT
 const toCamelCase = (input: string): string => {
@@ -173,11 +174,9 @@ const AgentPage = () => {
     }
   }, [isDataLoaded, query]);
 
+  const { getMessageId } = useSendMessageId();
+
   const submitMessage = useCallback(async () => {
-
-
-
-
     if (query === '') {
       return
     }
@@ -215,10 +214,11 @@ const AgentPage = () => {
     // console.log('Prompt List: ', promptList)
     // console.log(currentExploreThread)
     // console.log(currentExplore)
+    const userMessageId = await getMessageId(query, 'chatMessage', query, {}, true)
 
     dispatch(
       addMessage({
-        uuid: uuidv4(),
+        uuid: userMessageId,
         message: query,
         actor: 'user',
         createdAt: Date.now(),
@@ -267,9 +267,10 @@ const AgentPage = () => {
     )
 
     if (isSummary) {
+      const summaryMessageId = await getMessageId(newExploreUrl, 'chatMessage', query, {}, false)
       dispatch(
         addMessage({
-          uuid: uuidv4(),
+          uuid: summaryMessageId,
           exploreUrl: newExploreUrl,
           actor: 'system',
           createdAt: Date.now(),
@@ -278,12 +279,13 @@ const AgentPage = () => {
         }),
       )
     } else {
+      const exploreMessageId = await getMessageId(newExploreUrl, 'chatMessage', query, {}, false)
       dispatch(setSidePanelExploreUrl(newExploreUrl))
       dispatch(openSidePanel())
 
       dispatch(
         addMessage({
-          uuid: uuidv4(),
+          uuid: exploreMessageId,
           exploreUrl: newExploreUrl,
           summarizedPrompt: promptSummary,
           actor: 'system',

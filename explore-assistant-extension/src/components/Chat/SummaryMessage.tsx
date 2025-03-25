@@ -9,6 +9,7 @@ import {
   updateLastHistoryEntry,
   updateSummaryMessage,
 } from '../../slices/assistantSlice'
+import useSendMessageId from '../../hooks/useSendMessageId'
 
 interface SummaryMessageProps {
   message: SummarizeMesage
@@ -23,6 +24,7 @@ const SummaryMessage = ({ message, uuid }: SummaryMessageProps) => {
   const [summary, setSummary] = React.useState<string>('')
 
   const { summarizeExplore } = useSendVertexMessage()
+  const { updateMessage } = useSendMessageId()
 
   useEffect(() => {
     if (message.summary) {
@@ -42,6 +44,11 @@ const SummaryMessage = ({ message, uuid }: SummaryMessageProps) => {
         dispatch(
           updateSummaryMessage({ uuid: message.uuid, summary: response }),
         )
+        const updatedMessageId = await updateMessage(
+          message.uuid,
+          {
+          contents: response,
+        });
 
         // update the history with the current contents of the thread
         dispatch(updateLastHistoryEntry())

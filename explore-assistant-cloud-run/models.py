@@ -29,19 +29,20 @@ class Chat(SQLModel, table=True):
 class Message(SQLModel, table=True):
     __tablename__ = "messages"
 
-    # TODO : temp put this here to handle default message_id key cause currenlty FE is sending message_id as string.
-    # once PR to FE sending int message_id/  relies on BE to generate message id , remove this __init__ and change message_id to int in Message, Feedback and FeedbackRequest
-    message_id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    message_id: Optional[int] = Field(default=None, primary_key=True)
 
     
     chat_id: int = Field(foreign_key="chats.chat_id")
-    content: str
+    contents: str
+    prompt_type: Optional[str] = None
+    current_explore_key: str
+    raw_prompt: Optional[str]
     is_user: bool
+    user_id: str = Field(foreign_key="users.user_id")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     
     chat: "Chat" = Relationship(back_populates="messages")
     feedback: Optional["Feedback"] = Relationship(back_populates="message")
-    user_id: str = Field(foreign_key="users.user_id")
 
 
 class Feedback(SQLModel, table=True):
@@ -49,7 +50,7 @@ class Feedback(SQLModel, table=True):
 
     user_id: str = Field(foreign_key="users.user_id")
     feedback_id: Optional[int] = Field(default=None, primary_key=True)
-    message_id: str = Field(foreign_key="messages.message_id")
+    message_id: int = Field(foreign_key="messages.message_id")
     feedback_text: str
     is_positive: bool
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -74,10 +75,12 @@ class PromptRequest(BaseModel):
     prompt_type: str = Field(..., description="Type of prompt")
     raw_prompt: Optional[str] = Field("", description="Optional message")
     user_id: str = Field(..., description="User ID")
+    message_id: Optional[int] = Field(None, description="the message ID sent from FE by either user or system.")
+    is_user: bool = Field(..., description="flag indicating the message originates from user or system")
 
 class FeedbackRequest(BaseModel):
     user_id: str = Field(..., description="User ID")
-    message_id: str = Field(..., description="Message ID")
+    message_id: int = Field(..., description="Message ID")
     feedback_text: str = Field(..., description="Feedback text")
     is_positive: bool = Field(..., description="Whether the feedback is positive")
 

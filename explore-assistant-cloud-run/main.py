@@ -78,6 +78,7 @@ async def base(
 
     try:
         response_text = generate_looker_query(contents, parameters)
+        logger.info(f"endpoint root - LLM response : {response_text}")
 
         data = [{
             "prompt": contents,
@@ -152,30 +153,28 @@ async def handle_prompt(
     db: Session = Depends(get_session)
 ):
     try:
-        if request.prompt_type == "looker":
-            response_text = generate_looker_query(request.contents, 
-                                                  request.parameters)
-        else:
-            response_text = generate_response(request.contents, 
+
+        response_text = generate_response(request.contents, 
                                               request.parameters)
+        logger.info(f"LLM Response: {response_text}")
             
-        chat_id = request.chat_id or create_chat_thread(request.user_id, 
-                                                        request.current_explore_key)
+        chat_id = request.current_thread_id
+
         if not chat_id:
             raise HTTPException(status_code=500, detail="Failed to create chat thread")
 
         user_message_id = add_message(chat_id, 
                                       request.user_id,
-                                      request.message or request.contents,
+                                      request.contents or request.raw_prompt,
                                       True)
         if not user_message_id:
             raise HTTPException(status_code=500, detail="Failed to add user message")
 
-        bot_message_id = add_message(chat_id,
-                                     request.user_id,
-                                     response_text,False)
-        if not bot_message_id:
-            raise HTTPException(status_code=500, detail="Failed to add bot message")
+        # bot_message_id = add_message(chat_id,
+        #                              request.user_id,
+        #                              response_text,False)
+        # if not bot_message_id:
+        #     raise HTTPException(status_code=500, detail="Failed to add bot message")
 
         return BaseResponse(
             message="Prompt handled successfully",

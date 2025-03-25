@@ -148,7 +148,7 @@ def retrieve_chat_history(chat_id: int) -> Dict:
     except Exception as e:
         raise DatabaseError("Failed to retrieve chat history", str(e))
 
-def add_message(chat_id: int, user_id: str, content: str, is_user: bool = True) -> int:
+def add_message(chat_id: int, user_id: str, content: str, is_user: bool = True) -> str:
     try:
         with Session(engine) as session:
             message = Message(
@@ -210,7 +210,7 @@ def generate_looker_query(contents, parameters=None):
     return response.text
 
 def generate_response(contents, parameters=None):
-    default_parameters = {"temperature": 0.3, "max_output_tokens": 600, "top_p": 0.9, "top_k": 50}
+    default_parameters = {"temperature": 0.2, "max_output_tokens": 500, "top_p": 0.8, "top_k": 40}
     if parameters:
         default_parameters.update(parameters)
 
@@ -223,8 +223,12 @@ def generate_response(contents, parameters=None):
 
     entry = {
         "severity": "INFO",
-        "message": {"request": contents, "response": response.text,
-                    "input_characters": metadata.prompt_token_count, "output_characters": metadata.candidates_token_count},
+        "message": {
+            "request": contents, 
+            "response": response.text,
+            "input_characters": metadata.prompt_token_count, 
+            "output_characters": metadata.candidates_token_count
+            },
         "component": "prompt-response-metadata",
     }
     logging.info(entry)

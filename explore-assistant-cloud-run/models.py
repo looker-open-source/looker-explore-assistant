@@ -38,6 +38,7 @@ class Message(SQLModel, table=True):
     current_explore_key: str
     raw_prompt: Optional[str]
     is_user: bool
+    llm_response: Optional[str] = None
     user_id: str = Field(foreign_key="users.user_id")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     

@@ -187,6 +187,20 @@ async def handle_prompt(
                 request.contents,
                 request.parameters
                 )
+            
+            # update the logged message record with LLM response
+            updated_message = update_message(
+                message_id=request.message_id,
+                chat_id=request.current_thread_id,
+                contents=request.contents,
+                prompt_type=request.prompt_type,
+                current_explore_key=request.current_explore_key,
+                raw_prompt=request.raw_prompt,
+                user_id=request.user_id,
+                is_user=request.is_user,
+                llm_response=response_text
+            )
+
             logger.info(f"LLM Response: {response_text}")
             
             return BaseResponse(

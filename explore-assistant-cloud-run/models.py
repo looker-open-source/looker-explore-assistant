@@ -67,15 +67,16 @@ class ThreadRequest(BaseModel):
     explore_key: str = Field(..., description="Explore key")
 
 class MessageRequest(BaseModel):
-    contents: str = Field(..., description="The messages contents")
+    contents: str = Field(..., description="The message contents")
+    message_type: str = Field(..., description="Type of message")
     current_explore_key: str = Field(..., description="Current explore key")
     current_thread_id: Optional[int] = Field(None, description="Optional thread ID for existing conversations")
     parameters: Optional[Dict[str, Any]] = Field(None, description="Optional parameters for the message")
-    message_type: str = Field(..., description="Type of message")
     raw_message: Optional[str] = Field("", description="Optional message")
     user_id: str = Field(..., description="User ID")
     message_id: Optional[int] = Field(None, description="the message ID sent from FE by either user or system.")
     is_user: bool = Field(..., description="flag indicating the message originates from user or system")
+    thread_id: Optional[int] = Field(None, description="Optional thread ID for existing conversations")
 
 class FeedbackRequest(BaseModel):
     user_id: str = Field(..., description="User ID")

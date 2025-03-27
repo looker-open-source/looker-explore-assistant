@@ -11,7 +11,7 @@ from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
 from dotenv import load_dotenv
 from typing import Dict, Any, List, Optional
 from sqlmodel import Session, select
-from models import User, Chat, Message, Feedback
+from models import User, Thread, Message, Feedback
 from database import engine
 
 
@@ -108,24 +108,24 @@ def create_new_user(user_id: str, name: str, email: str) -> Dict:
 def create_chat_thread(user_id: str, explore_key: str) -> int | None:
     try:
         with Session(engine) as session:
-            chat = Chat(user_id=user_id, explore_key=explore_key)
-            session.add(chat)
+            thread = Thread(user_id=user_id, explore_key=explore_key)
+            session.add(thread)
             session.commit()
-            session.refresh(chat)
-            return chat.chat_id
+            session.refresh(thread)
+            return thread.thread_id
     except Exception as e:
-        raise DatabaseError("Failed to create chat thread", str(e))
+        raise DatabaseError("Failed to create thread", str(e))
 
-def retrieve_chat_history(chat_id: int) -> Dict:
+def retrieve_thread_history(thread_id: int) -> Dict:
     try:
         with Session(engine) as session:
             messages = session.exec(
                 select(Message)
-                .where(Message.chat_id == chat_id)
+                .where(Message.thread_id == thread_id)
                 .order_by(Message.created_at)
             ).all()
             
-            chat_history = []
+            thread_history = []
             for msg in messages:
                 message_data = {
                     "message_id": msg.message_id,
@@ -142,11 +142,11 @@ def retrieve_chat_history(chat_id: int) -> Dict:
                         "is_positive": msg.feedback.is_positive
                     })
                     
-                chat_history.append(message_data)
+                thread_history.append(message_data)
                 
-            return {"data": chat_history}
+            return {"data": thread_history}
     except Exception as e:
-        raise DatabaseError("Failed to retrieve chat history", str(e))
+        raise DatabaseError("Failed to retrieve thread history", str(e))
 
 def add_message(**kwargs) -> int | None:
     try:
@@ -240,66 +240,66 @@ def generate_response(contents, parameters=None):
     logging.info(entry)
     return response.text
 
-def record_prompt(data):
+def record_message(data):
     client = bigquery.Client()
     job_config = bigquery.LoadJobConfig(write_disposition=bigquery.WriteDisposition.WRITE_APPEND)
     table_ref = f"{PROJECT}.{BIGQUERY_DATASET}.{BIGQUERY_TABLE}"
     try:
       load_job = client.load_table_from_json(data, table_ref, job_config=job_config)
       load_job.result()  # Wait for the job to complete
-      logging.info(f"Loaded {load_job.output_rows} prompts into {table_ref}")
+      logging.info(f"Loaded {load_job.output_rows} messages into {table_ref}")
     except Exception as e:
       logging.error(f"BigQuery load job failed: {e}")
 
-def search_chat_history(user_id: str, search_query: str, limit: int = 10, offset: int = 0) -> Dict[str, Any]:
+def search_thread_history(user_id: str, search_query: str, limit: int = 10, offset: int = 0) -> Dict[str, Any]:
     """
-    Search through chat history for messages containing the search keywords.
+    Search through thread history for messages containing the search keywords.
     
     Args:
-        user_id (str): The ID of the user whose chat history to search
+        user_id (str): The ID of the user whose thread history to search
         search_query (str): Keywords to search for
         limit (int, optional): Maximum number of results to return. Defaults to 10.
         offset (int, optional): Number of results to skip. Defaults to 0.
     
     Returns:
         Dict containing:
-            - total (int): Total number of matching chats
-            - matches (List[Dict]): List of matching chats with messages
+            - total (int): Total number of matching threads
+            - matches (List[Dict]): List of matching threads with messages
     """
     try:
         with Session(engine) as session:
             # Get total count
             total_count = session.exec(
-                select([Chat])
+                select([Thread])
                 .join(Message)
-                .where(Chat.user_id == user_id)
+                .where(Thread.user_id == user_id)
                 .where(Message.content.contains(search_query))
                 .distinct()
             ).count()
             
-            # Get matching chats with messages
-            chats = session.exec(
-                select(Chat)
+            # Get matching threads with messages
+            threads = session.exec(
+                select(Thread)
                 .join(Message)
-                .where(Chat.user_id == user_id)
+                .where(Thread.user_id == user_id)
                 .where(Message.content.contains(search_query))
                 .distinct()
-                .order_by(Chat.created_at.desc())
+                .order_by(Thread.created_at.desc())
                 .offset(offset)
                 .limit(limit)
             ).all()
             
             matches = []
-            for chat in chats:
-                chat_data = {
-                    'chat_id': chat.chat_id,
-                    'explore_key': chat.explore_key,
-                    'created_at': chat.created_at.isoformat(),
+            for thread in threads:
+                thread_data = {
+                    'thread_id': thread.thread_id,
+                    'explore_key': thread.explore_key,
+                    'created_at': thread.created_at.isoformat(),
                     'messages': []
                 }
                 
-                for message in chat.messages:
-                    chat_data['messages'].append({
+                for message in thread.messages:
+                    thread_data['messages'].append({
                         'message_id': message.message_id,
                         'content': message.content,
                         'timestamp': message.created_at.isoformat(),
@@ -307,7 +307,7 @@ def search_chat_history(user_id: str, search_query: str, limit: int = 10, offset
                         'matches_search': search_query.lower() in message.content.lower()
                     })
                     
-                matches.append(chat_data)
+                matches.append(thread_data)
                 
             return {
                 "total": total_count,
@@ -315,5 +315,5 @@ def search_chat_history(user_id: str, search_query: str, limit: int = 10, offset
             }
 
     except Exception as e:
-        logging.error(f"Database error in search_chat_history: {e}")
-        raise DatabaseError("Failed to search chat history", str(e))
+        logging.error(f"Database error in search_thread_history: {e}")
+        raise DatabaseError("Failed to search thread history", str(e))

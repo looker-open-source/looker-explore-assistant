@@ -13,36 +13,34 @@ class User(SQLModel, table=True):
     name: str
     email: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    chats: List["Chat"] = Relationship(back_populates="user")
+    threads: List["Thread"] = Relationship(back_populates="user")
 
-class Chat(SQLModel, table=True):
-    __tablename__ = "chats"
+class Thread(SQLModel, table=True):
+    __tablename__ = "threads"
 
-    chat_id: Optional[int] = Field(default=None, primary_key=True)
+    thread_id: Optional[int] = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="users.user_id")
     explore_key: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
-    user: User = Relationship(back_populates="chats")
-    messages: List["Message"] = Relationship(back_populates="chat")
+    user: User = Relationship(back_populates="threads")
+    messages: List["Message"] = Relationship(back_populates="thread")
 
 class Message(SQLModel, table=True):
     __tablename__ = "messages"
 
     message_id: Optional[int] = Field(default=None, primary_key=True)
-
-    
-    chat_id: int = Field(foreign_key="chats.chat_id")
     contents: str
-    prompt_type: Optional[str] = None
+    message_type: Optional[str] = None
     current_explore_key: str
-    raw_prompt: Optional[str]
+    raw_message: Optional[str]
+    thread_id: int = Field(foreign_key="threads.thread_id")
+    content: str
     is_user: bool
     llm_response: Optional[str] = None
     user_id: str = Field(foreign_key="users.user_id")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    
-    chat: "Chat" = Relationship(back_populates="messages")
+    thread: "Thread" = Relationship(back_populates="messages")
     feedback: Optional["Feedback"] = Relationship(back_populates="message")
 
 
@@ -64,17 +62,17 @@ class LoginRequest(BaseModel):
     name: str = Field(..., description="User name")
     email: str = Field(..., description="User email")
 
-class ChatRequest(BaseModel):
+class ThreadRequest(BaseModel):
     user_id: str = Field(..., description="User ID")
     explore_key: str = Field(..., description="Explore key")
 
-class PromptRequest(BaseModel):
-    contents: str = Field(..., description="The prompt contents")
+class MessageRequest(BaseModel):
+    contents: str = Field(..., description="The messages contents")
     current_explore_key: str = Field(..., description="Current explore key")
-    current_thread_id: Optional[int] = Field(None, description="Optional chat ID for existing conversations")
-    parameters: Optional[Dict[str, Any]] = Field(None, description="Optional parameters for the prompt")
-    prompt_type: str = Field(..., description="Type of prompt")
-    raw_prompt: Optional[str] = Field("", description="Optional message")
+    current_thread_id: Optional[int] = Field(None, description="Optional thread ID for existing conversations")
+    parameters: Optional[Dict[str, Any]] = Field(None, description="Optional parameters for the message")
+    message_type: str = Field(..., description="Type of message")
+    raw_message: Optional[str] = Field("", description="Optional message")
     user_id: str = Field(..., description="User ID")
     message_id: Optional[int] = Field(None, description="the message ID sent from FE by either user or system.")
     is_user: bool = Field(..., description="flag indicating the message originates from user or system")
@@ -94,7 +92,7 @@ class ErrorResponse(BaseModel):
     """Base model for error responses"""
     detail: str
 
-class ChatHistoryResponse(BaseModel):
+class ThreadHistoryResponse(BaseModel):
     data: List[Dict[str, Any]]
 
 class SearchResponse(BaseModel):

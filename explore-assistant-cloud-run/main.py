@@ -11,8 +11,8 @@ from fastapi.responses import JSONResponse
 import json
 from sqlmodel import Session
 from models import (
-    LoginRequest, ChatRequest, PromptRequest, FeedbackRequest,
-    BaseResponse, ErrorResponse, ChatHistoryResponse, SearchResponse
+    LoginRequest, ThreadRequest, MessageRequest, FeedbackRequest,
+    BaseResponse, ThreadHistoryResponse, SearchResponse
 )
 from database import get_session
 from helper_functions import (
@@ -21,15 +21,15 @@ from helper_functions import (
     get_user_from_db,
     create_new_user,
     create_chat_thread,
-    retrieve_chat_history,
+    retrieve_thread_history,
     add_message,
     add_feedback,
     generate_response,
-    record_prompt,
+    record_message,
     generate_looker_query,
     DatabaseError,
-    search_chat_history,
-    update_message
+    update_message,
+    search_thread_history
 )
 
 # Configure logging
@@ -82,12 +82,12 @@ async def base(
         logger.info(f"endpoint root - LLM response : {response_text}")
 
         data = [{
-            "prompt": contents,
+            "message": contents,
             "parameters": json.dumps(parameters),
             "response": response_text,
             "recorded_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S.%f")
         }]
-        record_prompt(data)
+        record_message(data)
         
         return BaseResponse(message="Query generated successfully", data={"response": response_text})
     except TimeoutError:
@@ -114,49 +114,75 @@ async def login(
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
-@app.post("/chat")
-async def create_chat(
-    request: ChatRequest,
+@app.post("/thread")
+async def create_thread(
+    request: ThreadRequest,
     authorized: bool = Depends(validate_token),
     db: Session = Depends(get_session)
 ):
     try:
-        chat_id = create_chat_thread(request.user_id, request.explore_key)
-        if not chat_id:
+        thread_id = create_chat_thread(request.user_id, request.explore_key)
+        if not thread_id:
             raise HTTPException(status_code=500, detail="Failed to create chat thread")
             
         return BaseResponse(
-            message="Chat created successfully",
-            data={"chat_id": chat_id, "status": "created"}
+            message="Thread created successfully",
+            data={"thread_id": thread_id, "status": "created"}
         )
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
-@app.get("/chat/history")
-async def chat_history(
+@app.get("/thread/history")
+async def thread_history(
     user_id: str,
-    chat_id: str,
+    thread_id: str,
     authorized: bool = Depends(validate_token),
     db: Session = Depends(get_session)
 ):
     try:
-        chat_history_data = retrieve_chat_history(chat_id)
-        if not chat_history_data or not chat_history_data.get("data"):
-            raise HTTPException(status_code=404, detail="Chat history not found")
-        return ChatHistoryResponse(**chat_history_data)
+        thread_history_data = retrieve_thread_history(thread_id)
+        
+        # Case 1: First-time user with no thread history
+        if not thread_history_data:
+            return ThreadHistoryResponse(
+                message="No thread history found for user",
+                data={"threads": []}
+            )
+            
+        # Case 2: Normal case with existing history
+        return ThreadHistoryResponse(**thread_history_data)
+        
     except DatabaseError as e:
-        raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
+        # Case 3: Database or server-related errors
+        raise HTTPException(
+            status_code=503, 
+            detail={
+                "error": "Service temporarily unavailable",
+                "message": "Failed to retrieve thread history",
+                "details": e.args[0]
+            }
+        )
+    except Exception as e:
+        # Case 4: Other unexpected errors
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Internal server error",
+                "message": "An unexpected error occurred",
+                "details": str(e)
+            }
+        )
 
-@app.post("/prompt")
-async def handle_prompt(
-    request: PromptRequest,
+@app.post("/message")
+async def handle_message(
+    request: MessageRequest,
     authorized: bool = Depends(validate_token),
     db: Session = Depends(get_session)
 ):
     try:
-        chat_id = request.current_thread_id
+        thread_id = request.current_thread_id
 
-        if not chat_id:
+        if not thread_id:
             raise HTTPException(status_code=500, detail="Failed to create chat thread")
 
         if not request.message_id:
@@ -166,11 +192,11 @@ async def handle_prompt(
             # to continue the process.
             new_id = add_message(
                 message_id=None,
-                chat_id=request.current_thread_id,
+                thread_id=request.current_thread_id,
                 contents=request.contents,
-                prompt_type=request.prompt_type,
+                message_type=request.message_type,
                 current_explore_key=request.current_explore_key,
-                raw_prompt=request.raw_prompt,
+                raw_message=request.raw_message,
                 user_id=request.user_id,
                 is_user=request.is_user
             )
@@ -181,8 +207,8 @@ async def handle_prompt(
             )
 
         elif request.message_id:
-            # scenario : FE sends the prompt with valid message id to LLM.
-            # the endpoint will now pass the prompt to LLM and return the results
+            # scenario : FE sends the message with valid message id to LLM.
+            # the endpoint will now pass the message to LLM and return the results
             response_text = generate_response(
                 request.contents,
                 request.parameters
@@ -191,11 +217,11 @@ async def handle_prompt(
             # update the logged message record with LLM response
             updated_message = update_message(
                 message_id=request.message_id,
-                chat_id=request.current_thread_id,
+                thread_id=request.current_thread_id,
                 contents=request.contents,
-                prompt_type=request.prompt_type,
+                message_type=request.message_type,
                 current_explore_key=request.current_explore_key,
-                raw_prompt=request.raw_prompt,
+                raw_message=request.raw_message,
                 user_id=request.user_id,
                 is_user=request.is_user,
                 llm_response=response_text
@@ -204,8 +230,8 @@ async def handle_prompt(
             logger.info(f"LLM Response: {response_text}")
             
             return BaseResponse(
-                message="Prompt handled successfully",
-                data={"response": response_text, "chat_id": chat_id}
+                message="Message handled successfully",
+                data={"response": response_text, "thread_id": thread_id}
             )
         
     except DatabaseError as e:
@@ -213,8 +239,8 @@ async def handle_prompt(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.put("/prompt/update")
-async def update_prompt(
+@app.put("/message/update")
+async def update_message(
     update_fields: dict,
     authorized: bool = Depends(validate_token),
     db: Session = Depends(get_session)
@@ -224,7 +250,7 @@ async def update_prompt(
         updated_message = update_message(**update_fields)
         
         return BaseResponse(
-            message="Prompt updated successfully",
+            message="Message updated successfully",
             data={"response": updated_message}
             )
     
@@ -250,8 +276,8 @@ async def give_feedback(
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
-@app.get("/chat/search")
-async def search_chats(
+@app.get("/thread/search")
+async def search_threads(
     user_id: str,
     search_query: str,
     limit: int = 10,
@@ -260,7 +286,7 @@ async def search_chats(
     db: Session = Depends(get_session)
 ) -> SearchResponse:
     try:
-        search_results = search_chat_history(
+        search_results = search_thread_history(
             user_id=user_id,
             search_query=search_query,
             limit=limit,
@@ -276,7 +302,7 @@ async def search_chats(
     except DatabaseError as e:
         raise HTTPException(
             status_code=500,
-            detail={"error": "Failed to search chats", "details": str(e)}
+            detail={"error": "Failed to search thread history", "details": str(e)}
         )
 
 if __name__ == "__main__":

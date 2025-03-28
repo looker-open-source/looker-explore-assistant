@@ -28,7 +28,8 @@ from helper_functions import (
     record_prompt,
     generate_looker_query,
     DatabaseError,
-    search_chat_history
+    search_chat_history,
+    update_message
 )
 
 # Configure logging
@@ -78,6 +79,7 @@ async def base(
 
     try:
         response_text = generate_looker_query(contents, parameters)
+        logger.info(f"endpoint root - LLM response : {response_text}")
 
         data = [{
             "prompt": contents,
@@ -152,39 +154,83 @@ async def handle_prompt(
     db: Session = Depends(get_session)
 ):
     try:
-        if request.prompt_type == "looker":
-            response_text = generate_looker_query(request.contents, 
-                                                  request.parameters)
-        else:
-            response_text = generate_response(request.contents, 
-                                              request.parameters)
-            
-        chat_id = request.chat_id or create_chat_thread(request.user_id, 
-                                                        request.current_explore_key)
+        chat_id = request.current_thread_id
+
         if not chat_id:
             raise HTTPException(status_code=500, detail="Failed to create chat thread")
 
-        user_message_id = add_message(chat_id, 
-                                      request.user_id,
-                                      request.message or request.contents,
-                                      True)
-        if not user_message_id:
-            raise HTTPException(status_code=500, detail="Failed to add user message")
+        if not request.message_id:
+            # scenario : FE send request to generate a message ID
+            # the endpoint will return a message id of the logged data
+            # WITHOUT any LLM processing; FE will the resend the message with new id
+            # to continue the process.
+            new_id = add_message(
+                message_id=None,
+                chat_id=request.current_thread_id,
+                contents=request.contents,
+                prompt_type=request.prompt_type,
+                current_explore_key=request.current_explore_key,
+                raw_prompt=request.raw_prompt,
+                user_id=request.user_id,
+                is_user=request.is_user
+            )
+            
+            return BaseResponse(
+                message="Message ID generated successfully",
+                data={"message_id": new_id}
+            )
 
-        bot_message_id = add_message(chat_id,
-                                     request.user_id,
-                                     response_text,False)
-        if not bot_message_id:
-            raise HTTPException(status_code=500, detail="Failed to add bot message")
+        elif request.message_id:
+            # scenario : FE sends the prompt with valid message id to LLM.
+            # the endpoint will now pass the prompt to LLM and return the results
+            response_text = generate_response(
+                request.contents,
+                request.parameters
+                )
+            
+            # update the logged message record with LLM response
+            updated_message = update_message(
+                message_id=request.message_id,
+                chat_id=request.current_thread_id,
+                contents=request.contents,
+                prompt_type=request.prompt_type,
+                current_explore_key=request.current_explore_key,
+                raw_prompt=request.raw_prompt,
+                user_id=request.user_id,
+                is_user=request.is_user,
+                llm_response=response_text
+            )
 
-        return BaseResponse(
-            message="Prompt handled successfully",
-            data={"response": response_text, "chat_id": chat_id}
-        )
+            logger.info(f"LLM Response: {response_text}")
+            
+            return BaseResponse(
+                message="Prompt handled successfully",
+                data={"response": response_text, "chat_id": chat_id}
+            )
+        
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/prompt/update")
+async def update_prompt(
+    update_fields: dict,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+):
+    try:
+
+        updated_message = update_message(**update_fields)
+        
+        return BaseResponse(
+            message="Prompt updated successfully",
+            data={"response": updated_message}
+            )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/feedback")
 async def give_feedback(
@@ -195,7 +241,10 @@ async def give_feedback(
     try:
         result = add_feedback(request.user_id, request.message_id, request.feedback_text, request.is_positive)
         if result:
-            return {"message": "Feedback submitted successfully"}
+            return BaseResponse(
+                message="Feedback submitted successfully",
+                data={"response": result}
+                )
         else:
             raise HTTPException(status_code=500, detail="Failed to submit feedback")
     except DatabaseError as e:

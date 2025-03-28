@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any, List
 from enum import Enum
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
-import hashlib
+import uuid
 
 
 class User(SQLModel, table=True):
@@ -29,31 +29,21 @@ class Chat(SQLModel, table=True):
 class Message(SQLModel, table=True):
     __tablename__ = "messages"
 
-    # TODO : temp put this here to handle default message_id key cause currenlty FE is sending message_id as string.
-    # once PR to FE sending int message_id/  relies on BE to generate message id , remove this __init__ and change message_id to int in Message, Feedback and FeedbackRequest
-    message_id: str = Field(default=None, primary_key=True)  # Change to str for hash
+    message_id: Optional[int] = Field(default=None, primary_key=True)
 
     
     chat_id: int = Field(foreign_key="chats.chat_id")
-    content: str
+    contents: str
+    prompt_type: Optional[str] = None
+    current_explore_key: str
+    raw_prompt: Optional[str]
     is_user: bool
+    llm_response: Optional[str] = None
+    user_id: str = Field(foreign_key="users.user_id")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     
     chat: "Chat" = Relationship(back_populates="messages")
     feedback: Optional["Feedback"] = Relationship(back_populates="message")
-
-    def __init__(self, content: str, chat_id: int, is_user: bool):
-        self.content = content
-        self.chat_id = chat_id
-        self.is_user = is_user
-        self.message_id = self.generate_hash(content)  # Generate hash for message_id
-
-
-
-    @staticmethod
-    def generate_hash(content: str) -> str:
-        # Create a SHA-256 hash of the content
-        return hashlib.sha256(content.encode()).hexdigest()
 
 
 class Feedback(SQLModel, table=True):
@@ -61,7 +51,7 @@ class Feedback(SQLModel, table=True):
 
     user_id: str = Field(foreign_key="users.user_id")
     feedback_id: Optional[int] = Field(default=None, primary_key=True)
-    message_id: str = Field(foreign_key="messages.message_id")
+    message_id: int = Field(foreign_key="messages.message_id")
     feedback_text: str
     is_positive: bool
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -80,16 +70,18 @@ class ChatRequest(BaseModel):
 
 class PromptRequest(BaseModel):
     contents: str = Field(..., description="The prompt contents")
-    prompt_type: str = Field(..., description="Type of prompt")
     current_explore_key: str = Field(..., description="Current explore key")
-    user_id: str = Field(..., description="User ID")
+    current_thread_id: Optional[int] = Field(None, description="Optional chat ID for existing conversations")
     parameters: Optional[Dict[str, Any]] = Field(None, description="Optional parameters for the prompt")
-    message: Optional[str] = Field("", description="Optional message")
-    chat_id: Optional[int] = Field(None, description="Optional chat ID for existing conversations")
+    prompt_type: str = Field(..., description="Type of prompt")
+    raw_prompt: Optional[str] = Field("", description="Optional message")
+    user_id: str = Field(..., description="User ID")
+    message_id: Optional[int] = Field(None, description="the message ID sent from FE by either user or system.")
+    is_user: bool = Field(..., description="flag indicating the message originates from user or system")
 
 class FeedbackRequest(BaseModel):
     user_id: str = Field(..., description="User ID")
-    message_id: str = Field(..., description="Message ID")
+    message_id: int = Field(..., description="Message ID")
     feedback_text: str = Field(..., description="Feedback text")
     is_positive: bool = Field(..., description="Whether the feedback is positive")
 

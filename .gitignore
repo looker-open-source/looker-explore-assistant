@@ -1,5 +1,6 @@
 .cache
 .vscode
+!.vscode/launch.json
 temp_db.json
 .env
 .eslintcache

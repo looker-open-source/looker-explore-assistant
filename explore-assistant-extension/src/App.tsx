@@ -6,13 +6,18 @@ import { RootState } from './store'
 import { useLookerFields } from './hooks/useLookerFields'
 import { useBigQueryExamples } from './hooks/useBigQueryExamples'
 import useSendVertexMessage from './hooks/useSendVertexMessage'
+import { useAutoOAuth } from './hooks/useAutoOAuth'
 import AgentPage from './pages/AgentPage'
 import SettingsModal from './pages/AgentPage/Settings'
+import { Box, CircularProgress, Typography } from '@material-ui/core'
 
 const ExploreApp = () => {
   const dispatch = useDispatch()
   const { settings, bigQueryTestSuccessful, vertexTestSuccessful } = useSelector((state: RootState) => state.assistant) as any
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  
+  // Skip auto OAuth if settings modal is open
+  const { isAuthenticating } = useAutoOAuth(isSettingsOpen)
 
   useLookerFields()
   const { testBigQuerySettings } = useBigQueryExamples()
@@ -34,6 +39,15 @@ const ExploreApp = () => {
       runTests()
     }
   }, [testBigQuerySettings, testVertexSettings, bigQueryTestSuccessful, vertexTestSuccessful, settings])
+
+  if (isAuthenticating) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <CircularProgress />
+        <div ml={2}>Authenticating with Google...</div>
+      </Box>
+    )
+  }
 
   return (
     <>

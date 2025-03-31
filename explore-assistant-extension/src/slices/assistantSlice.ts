@@ -179,7 +179,6 @@ export const initialState: AssistantState = {
       name: 'Google OAuth Client ID',
       description: 'Client ID for authenticating with Google OAuth',
       value: '',
-      type: 'string',
     },
     bigquery_example_prompts_connection_name: {
       name: 'BigQuery Example Prompts Connection Name',
@@ -200,19 +199,16 @@ export const initialState: AssistantState = {
       name: 'Vertex AI Project ID',
       description: 'GCP Project ID for Vertex AI integration',
       value: '',
-      type: 'string',
     },
     vertex_location: {
       name: 'Vertex AI Location',
       description: 'Location for Vertex AI API (e.g., us-central1)',
       value: 'us-central1',
-      type: 'string',
     },
     vertex_model: {
       name: 'Vertex AI Model',
       description: 'Vertex AI model to use (e.g., gemini-1.5-flash)',
       value: 'gemini-1.5-flash',
-      type: 'string',
     }
   },
   isBigQueryMetadataLoaded: false,

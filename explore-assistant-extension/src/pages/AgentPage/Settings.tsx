@@ -12,6 +12,7 @@ import { useBigQueryExamples } from '../../hooks/useBigQueryExamples'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
 import styles from '../../styles.module.css'
 import InfoIcon from '@mui/icons-material/Info'
+import { useAutoOAuth } from '../../hooks/useAutoOAuth'
 
 interface SettingsModalProps {
   open: boolean
@@ -66,7 +67,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
             (settingKey === 'vertex_project' || 
              settingKey === 'vertex_location' || 
              settingKey === 'vertex_model' ||
-             settingKey === 'google_oauth_client_id') && 
+             settingKey === 'google_oauth_client_id' ||
+             settingKey === 'bigquery_example_looker_model_name') && 
             value && 
             settings[settingKey]
           ) {
@@ -81,12 +83,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     }
   };
 
+  // Use our hook but don't trigger auto-authentication here
+  const { isAuthenticating } = useAutoOAuth()
+
   // OAuth authentication - Now as a function that can be called on demand
   const doOAuth = async () => {
     try {
       // Check if we have a client ID
       if (!settings['google_oauth_client_id']?.value) {
         console.error('OAuth client ID is required but not provided');
+        return false;
+      }
+      
+      // Skip if already authenticating
+      if (isAuthenticating) {
+        console.log('OAuth flow already in progress, skipping duplicate request');
         return false;
       }
       
@@ -172,7 +183,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   // Handle saving settings to user attributes
   const handleSaveSetting = async (id: string, value: string) => {
     // Only persist specific settings
-    if (!['vertex_project', 'vertex_location', 'vertex_model', 'google_oauth_client_id'].includes(id)) {
+    if (!['vertex_project', 'vertex_location', 'vertex_model', 'google_oauth_client_id', 'bigquery_example_looker_model_name'].includes(id)) {
       dispatch(setSetting({ id, value }));
       return;
     }
@@ -245,7 +256,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     id === 'vertex_project' || 
     id === 'vertex_location' || 
     id === 'vertex_model' ||
-    id === 'google_oauth_client_id'
+    id === 'google_oauth_client_id' ||
+    id === 'bigquery_example_looker_model_name'
   )
 
   return (
@@ -329,5 +341,4 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     </Modal>
   )
 }
-
 export default SettingsModal

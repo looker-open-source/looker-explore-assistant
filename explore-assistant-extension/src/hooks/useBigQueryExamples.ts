@@ -15,13 +15,19 @@ import { useErrorBoundary } from 'react-error-boundary'
 import { RootState } from '../store'
 
 export const useBigQueryExamples = () => {
-
   const dispatch = useDispatch()
   const { showBoundary } = useErrorBoundary()
-  const { isBigQueryMetadataLoaded } = useSelector((state: RootState) => state.assistant as AssistantState)
+  const { isBigQueryMetadataLoaded, settings } = useSelector((state: RootState) => state.assistant as AssistantState)
   
   const { core40SDK, lookerHostData } = useContext(ExtensionContext)
-  const modelName = lookerHostData?.extensionId.split('::')[0]
+  const defaultModelName = lookerHostData?.extensionId.split('::')[0]
+  // Use the setting if available, otherwise fallback to the default model name from extensionId
+  const modelName = settings?.bigquery_example_looker_model_name?.value 
+    ? String(settings.bigquery_example_looker_model_name.value)
+    : defaultModelName
+  
+
+  console.log('using model name:', modelName)
   
   const runExampleQuery = async () => {
     try {

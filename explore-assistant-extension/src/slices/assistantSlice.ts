@@ -175,6 +175,12 @@ export const initialState: AssistantState = {
       description: 'Google OAuth token used for authenticating Vertex AI requests',
       value: '',
     },
+    google_oauth_client_id: {
+      name: 'Google OAuth Client ID',
+      description: 'Client ID for authenticating with Google OAuth',
+      value: '',
+      type: 'string',
+    },
     bigquery_example_prompts_connection_name: {
       name: 'BigQuery Example Prompts Connection Name',
       description: 'The BQ connection name in Looker that has query access to example prompts',

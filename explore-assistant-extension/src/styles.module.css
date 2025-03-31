@@ -129,3 +129,15 @@ svg {
 .button:hover {
   background-color: #0056b3;
 }
+
+.clientIdContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.authButton {
+  white-space: nowrap;
+  min-width: 110px;
+}

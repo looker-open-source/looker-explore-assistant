@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react'
-import { Modal, Box, Typography, Switch, IconButton } from '@mui/material'
+import { Modal, Box, Typography, Switch, IconButton, Button } from '@mui/material'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store'
 import {
@@ -36,7 +36,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const { testVertexSettings } = useSendVertexMessage()
   const [isAdmin, setIsAdmin] = useState(false)
 
-  const GOOGLE_CLIENT_ID = '1001158531636-7pe05ceq59jbso5tjjh2j215in4v01ba.apps.googleusercontent.com'
+  const GOOGLE_CLIENT_ID = settings['google_oauth_client_id']?.value as string || '';
   const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/cloud-platform'
   
   // Load user attribute values
@@ -55,15 +55,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       
       console.log('userAttributeValues:', userAttributeValues);
 
-      // Map user attribute values to their corresponding settings - only for vertex settings
+      // Map user attribute values to their corresponding settings - only for vertex settings and client ID
       userAttributeValues.forEach((attr: any) => {
         if (attr.name && attr.name.startsWith(`${model_application}_`)) {
           const settingKey = attr.name.replace(`${model_application}_`, '');
           const value = attr.value;
           
-          // Only persist specific Vertex AI settings
+          // Only persist specific settings
           if (
-            (settingKey === 'vertex_project' || settingKey === 'vertex_location' || settingKey === 'vertex_model') && 
+            (settingKey === 'vertex_project' || 
+             settingKey === 'vertex_location' || 
+             settingKey === 'vertex_model' ||
+             settingKey === 'google_oauth_client_id') && 
             value && 
             settings[settingKey]
           ) {
@@ -78,28 +81,41 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     }
   };
 
-  // OAuth authentication
-  useEffect(() => {
-    const doOAuth = async () => {
-      try {
-        const response = await extensionSDK.oauth2Authenticate(
-          'https://accounts.google.com/o/oauth2/v2/auth',
-          {
-            client_id: GOOGLE_CLIENT_ID,
-            scope: GOOGLE_SCOPES,
-            response_type: 'token',
-          }
-        );
-        const { access_token } = response;
-        if (access_token) {
-          dispatch(setSetting({ id: 'oauth2_token', value: access_token }));
-        }
-      } catch (error) {
-        console.error('OAuth2 authentication failed:', error);
+  // OAuth authentication - Now as a function that can be called on demand
+  const doOAuth = async () => {
+    try {
+      // Check if we have a client ID
+      if (!settings['google_oauth_client_id']?.value) {
+        console.error('OAuth client ID is required but not provided');
+        return false;
       }
+      
+      const clientId = settings['google_oauth_client_id']?.value as string;
+      console.log('Starting OAuth flow with client ID:', clientId);
+      
+      const response = await extensionSDK.oauth2Authenticate(
+        'https://accounts.google.com/o/oauth2/v2/auth',
+        {
+          client_id: clientId,
+          scope: GOOGLE_SCOPES,
+          response_type: 'token',
+        }
+      );
+      
+      const { access_token } = response;
+      if (access_token) {
+        dispatch(setSetting({ id: 'oauth2_token', value: access_token }));
+        console.log('OAuth token obtained successfully');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('OAuth2 authentication failed:', error);
+      return false;
     }
-    doOAuth()
-  }, [extensionSDK]);
+  }
+
+  // No longer automatically running OAuth on component mount
 
   // Load user attributes and their values when the modal opens
   useEffect(() => {
@@ -155,8 +171,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
   // Handle saving settings to user attributes
   const handleSaveSetting = async (id: string, value: string) => {
-    // Only persist specific Vertex AI settings
-    if (!['vertex_project', 'vertex_location', 'vertex_model'].includes(id)) {
+    // Only persist specific settings
+    if (!['vertex_project', 'vertex_location', 'vertex_model', 'google_oauth_client_id'].includes(id)) {
       dispatch(setSetting({ id, value }));
       return;
     }
@@ -199,6 +215,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
   // Run tests and save settings
   const handleTestAndSave = async () => {
+    // Run OAuth first if we have a client ID but no token
+    if (settings['google_oauth_client_id']?.value && !settings['oauth2_token']?.value) {
+      await doOAuth();
+    }
+    
     const bigQueryResult = await testBigQuerySettings()
     setBigQueryTestResult(bigQueryResult)
     const vertexResult = await testVertexSettings()
@@ -220,8 +241,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
   // Only show the "show_explore_data" toggle setting and vertex settings
   const relevantSettings = Object.entries(settings).filter(
-    ([id]) => id === 'show_explore_data' || id === 'vertex_project' || 
-    id === 'vertex_location' || id === 'vertex_model'
+    ([id]) => id === 'show_explore_data' || 
+    id === 'vertex_project' || 
+    id === 'vertex_location' || 
+    id === 'vertex_model' ||
+    id === 'google_oauth_client_id'
   )
 
   return (
@@ -246,7 +270,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
                 >
                   {setting.name} <div className='infoIcon'><InfoIcon /></div>
                 </IconButton>
-                {typeof setting.value === 'boolean' ? (
+                {id === 'google_oauth_client_id' ? (
+                  <div className={styles.clientIdContainer}>
+                    <input
+                      type="text"
+                      value={String(setting.value)}
+                      onChange={(e) => handleSaveSetting(id, e.target.value)}
+                      className={styles.inputField}
+                    />
+                    <Button 
+                      onClick={doOAuth} 
+                      variant="contained" 
+                      size="small"
+                      disabled={!setting.value}
+                      className={styles.authButton}
+                    >
+                      Authenticate
+                    </Button>
+                  </div>
+                ) : typeof setting.value === 'boolean' ? (
                   <Switch
                     edge="end"
                     onChange={() => handleToggle(id)}
@@ -271,6 +313,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
           ))}
         </ul>
         <div className={styles.modalContent}>
+          <Typography variant="body2">
+            OAuth Status: {settings['oauth2_token']?.value ? <span className={styles.passed}>Authenticated</span> : <span className={styles.failed}>Not Authenticated</span>}
+          </Typography>
           <Typography variant="body2">
             BigQuery Examples Test: {bigQueryTestResult === null ? 'Testing...' : bigQueryTestResult ? <span className={styles.passed}>Passed</span> : <span className={styles.failed}>Failed</span>}
           </Typography>

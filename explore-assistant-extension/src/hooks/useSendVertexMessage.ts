@@ -54,19 +54,19 @@ const useSendVertexMessage = () => {
   const { showBoundary } = useErrorBoundary()
   const dispatch = useDispatch()
 
-  // cloud function
-
-  // bigquery
-
   const { core40SDK, extensionSDK, lookerHostData } = useContext(ExtensionContext)
 
   const { settings, examples, currentExplore } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
-  const VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME =
-    settings['vertex_bigquery_looker_connection_name']?.value || ''
-  const VERTEX_BIGQUERY_MODEL_ID = settings['vertex_bigquery_model_id']?.value || ''
-  const VERTEX_AI_ENDPOINT = settings['vertex_ai_endpoint']?.value as string || '' as string
+  
+  // Only need Vertex AI direct mode settings
+  const VERTEX_PROJECT = settings['vertex_project']?.value as string || ''
+  const VERTEX_LOCATION = settings['vertex_location']?.value as string || 'us-central1'
+  const VERTEX_MODEL = settings['vertex_model']?.value as string || 'gemini-1.5-flash'
+  
+  // Get the OAuth token from settings
+  const oauth2Token = settings['oauth2_token']?.value as string || ''
 
   const currentExploreKey = currentExplore.exploreKey
   const exploreRefinementExamples =
@@ -74,78 +74,78 @@ const useSendVertexMessage = () => {
 
   const modelName = lookerHostData?.extensionId.split('::')[0]
 
-  const vertexBigQuery = async (
+  const callVertexAPI = async (
     contents: string,
     parameters: ModelParameters,
   ) => {
-    try {     // Escape special characters
-      const sanitizedContents = `"${contents
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"')
-        .replace(/\n/g, ' ') 
-        .replace(/\r/g, ' ') 
-        .replace(/\t/g, ' ') 
-        .replace(/,/g, ' ')  }"`
-      const query = await core40SDK.ok(
-        core40SDK.run_inline_query({
-          result_format: 'json',
-          body: {
-            model: modelName || "explore_assistant",
-            view: "explore_assistant",
-            filters: {
-              'explore_assistant.prompt': sanitizedContents,
-            },
-            fields: [`explore_assistant.generated_content`],
-          }
-        })
-      )
-
-      if (query === undefined) {
-        return ''
-      }
-      return JSON.stringify(query)
-    } catch (error: any) {
-      if (error.name === 'LookerSDKError' || error.message === 'Model Not Found') {
-        console.error('Error running query:', error.message)
-        return ''
-      }
-      showBoundary(error)
-      throw new Error('error')
-    }
-  }
-
-  const vertexCloudFunction = async (
-    contents: string,
-    parameters: ModelParameters,
-  ) => {
-    const body = JSON.stringify({
-      contents: contents,
-      parameters: parameters,
-      client_secret: extensionSDK.createSecretKeyTag("vertex_cf_auth_token")
-    })
-
     try {
-      console.log('Sending request to Vertex Cloud Function with body:', body)
-      const response = await extensionSDK.fetchProxy(VERTEX_AI_ENDPOINT, {
+      console.log('Sending request to Vertex AI with content length:', contents.length);
+      
+      if (!oauth2Token) {
+        throw new Error('OAuth token is required but not provided');
+      }
+
+      // Define default parameters
+      const defaultParameters = {
+        temperature: 0.2,
+        maxOutputTokens: 500,
+        topP: 0.8,
+        topK: 40
+      };
+      
+      // Override default parameters with any provided
+      const mergedParams = { ...defaultParameters, ...parameters };
+      
+      // Construct the request body according to Vertex AI API specs
+      const requestBody = {
+        contents: [{
+          role: "user",
+          parts: [{ text: contents }]
+        }],
+        generationConfig: {
+          temperature: mergedParams.temperature,
+          maxOutputTokens: mergedParams.maxOutputTokens,
+          topP: mergedParams.topP,
+          topK: mergedParams.topK
+        }
+      };
+      
+      // Directly call the Vertex AI API using OAuth authentication
+      const endpoint = `https://${VERTEX_LOCATION}-aiplatform.googleapis.com/v1/projects/${VERTEX_PROJECT}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_MODEL}:generateContent`;
+      
+      console.log(`Making request to: ${endpoint}`);
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${oauth2Token}`
         },
-        body: body,
-      })
-      console.log('Response from serverProxy:', response)
-
-      if (response.ok) {
-        const responseData = await response.body
-        console.log('Response data:', responseData)
-        return responseData.trim()
+        body: JSON.stringify(requestBody)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API call failed:', errorText);
+        throw new Error(`API call failed: ${response.status} - ${errorText}`);
+      }
+      
+      const responseData = await response.json();
+      console.log('API call successful, response:', responseData);
+      
+      // Extract text from the response (format similar to the Python code's output)
+      if (responseData.candidates && 
+          responseData.candidates[0] && 
+          responseData.candidates[0].content && 
+          responseData.candidates[0].content.parts && 
+          responseData.candidates[0].content.parts[0]) {
+        return responseData.candidates[0].content.parts[0].text;
       } else {
-        console.error('Error response from serverProxy:', response.statusText)
-        return `Error: ${response.statusText}`
+        throw new Error('Unexpected response format from Vertex AI');
       }
     } catch (error) {
-      console.error('Error sending request to Vertex Cloud Function:', error)
-      throw error
+      console.error('Error sending request to Vertex AI:', error);
+      throw error;
     }
   }
 
@@ -407,8 +407,11 @@ ${exploreRefinementExamples &&
     // Split query string and iterate key-value pairs
     const keyValuePairs = queryString.split("&");
     for (const qq of keyValuePairs) {
+      if (!qq) continue; // Skip empty segments
+      
       const [key, value] = qq.split('=');
-      console.log(qq)
+      if (!key || !value) continue; // Skip malformed pairs
+      
       lookerEncoding['model'] = model
       lookerEncoding['explore'] = explore
       switch (key) {
@@ -429,7 +432,13 @@ ${exploreRefinementExamples &&
           lookerEncoding[key] = parseInt(value);
           break;
         case "vis":
-          lookerEncoding[key] = JSON.parse(decodeURIComponent(value));
+          try {
+            const decodedValue = decodeURIComponent(value);
+            lookerEncoding[key] = JSON.parse(decodedValue);
+          } catch (error) {
+            console.error(`Error parsing visualization config: ${error}: ${value}`);
+            lookerEncoding[key] = {}; // Use empty object as fallback
+          }
           break;
         default:
           if (key.startsWith("f[")) {
@@ -451,6 +460,7 @@ ${exploreRefinementExamples &&
     }
     return lookerEncoding;
   };
+
   const generateFilterParams = useCallback(
     async (prompt: string, sharedContext: string, dimensions: any[], measures: any[]) => {
       // get the filters
@@ -673,29 +683,13 @@ ${exploreRefinementExamples &&
   const sendMessage = async (message: string, parameters: ModelParameters) => {
     const wrappedMessage = promptWrapper(message)
     try {
-      if (
-        VERTEX_AI_ENDPOINT &&
-        VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME &&
-        VERTEX_BIGQUERY_MODEL_ID
-      ) {
-        throw new Error(
-          'Both Vertex AI and BigQuery are enabled. Please only enable one',
-        )
+      // Simplified: we only use direct Vertex AI now
+      if (!oauth2Token || !VERTEX_PROJECT) {
+        throw new Error('OAuth token and Vertex project ID are required');
       }
 
-      let response = ''
-      if (VERTEX_AI_ENDPOINT) {
-        response = await vertexCloudFunction(wrappedMessage, parameters)
-      } else if (
-        VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME &&
-        VERTEX_BIGQUERY_MODEL_ID
-      ) {
-        response = await vertexBigQuery(wrappedMessage, parameters)
-      } else {
-        throw new Error('No Vertex AI or BigQuery connection found')
-      }
-
-      return typeof response === 'string' ? response : JSON.stringify(response)
+      const response = await callVertexAPI(wrappedMessage, parameters);
+      return typeof response === 'string' ? response : JSON.stringify(response);
     } catch (error) {
       showBoundary(error)
       return ''
@@ -703,25 +697,41 @@ ${exploreRefinementExamples &&
   }
 
   const testVertexSettings = async () => {
-    if (settings.useCloudFunction.value && (!VERTEX_AI_ENDPOINT)) {
-      return false
+    // Simplified: only need to check direct Vertex AI settings
+    if (!oauth2Token) {
+      console.error('OAuth token is required');
+      return false;
     }
-    if (!settings.useCloudFunction.value && (!VERTEX_BIGQUERY_LOOKER_CONNECTION_NAME || !VERTEX_BIGQUERY_MODEL_ID)) {
-      return false
+    
+    if (!VERTEX_PROJECT) {
+      console.error('Vertex AI Project ID is required');
+      return false;
     }
+    
+    console.log('Testing Vertex AI with:');
+    console.log(`- Project: ${VERTEX_PROJECT}`);
+    console.log(`- Location: ${VERTEX_LOCATION || 'us-central1 (default)'}`);
+    console.log(`- Model: ${VERTEX_MODEL || 'gemini-1.5-flash (default)'}`);
+    
+    console.log('Testing Vertex settings with minimal payload...');
     try {
-      const response = settings.useCloudFunction.value ? await vertexCloudFunction('test', {}) : await vertexBigQuery('test', {})
+      const testBody = 'test'; // Minimal test payload
+      const response = await callVertexAPI(testBody, {});
+      
+      console.log('Test response received:', Boolean(response));
       
       if (response !== '') {
-        dispatch(setVertexTestSuccessful(true))
+        dispatch(setVertexTestSuccessful(true));
+        return true;
       } else {
-        dispatch(setVertexTestSuccessful(false))
+        console.error('Empty response from test');
+        dispatch(setVertexTestSuccessful(false));
+        return false;
       }
-      return response !== ''
     } catch (error) {
-      console.error('Error testing Vertex settings:', error)
-      dispatch(setVertexTestSuccessful(false))
-      return false
+      console.error('Error testing Vertex settings:', error);
+      dispatch(setVertexTestSuccessful(false));
+      return false;
     }
   }
 

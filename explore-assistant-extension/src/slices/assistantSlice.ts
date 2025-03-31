@@ -170,25 +170,14 @@ export const initialState: AssistantState = {
   },
   settings: {
     
-    useCloudFunction: {
-      name: 'Backend',
-      description: 'Toggle between Cloud Function and BigQuery',
-      value: true,
-    },
-    vertex_ai_endpoint: {
-      name: 'Vertex AI Endpoint',
-      description: 'This is your deployed cloud function endpoint with access to Vertex AI',
+    oauth2_token: {
+      name: 'OAuth2 Token',
+      description: 'Google OAuth token used for authenticating Vertex AI requests',
       value: '',
     },
-    vertex_cf_auth_token: {
-      name: 'Vertex CF Auth Token',
-      description: 'This is the token used to communicate with the cloud function',
-      value: '',
-    },
-    
     bigquery_example_prompts_connection_name: {
       name: 'BigQuery Example Prompts Connection Name',
-      description: 'The BQ connection name in Looker that has query access to example prompts. This may be the same as the Vertex Connection Name if using just one gcp project',
+      description: 'The BQ connection name in Looker that has query access to example prompts',
       value: '',
     },
     show_explore_data: {
@@ -198,8 +187,26 @@ export const initialState: AssistantState = {
     },
     bigquery_example_looker_model_name: {
       name: 'BigQuery Example Looker Model Name',
-      description: 'the model name for the lookml model that has access to the training data explore',
+      description: 'The model name for the lookml model that has access to the examples and samples',
       value: 'explore_assistant',
+    },
+    vertex_project: {
+      name: 'Vertex AI Project ID',
+      description: 'GCP Project ID for Vertex AI integration',
+      value: '',
+      type: 'string',
+    },
+    vertex_location: {
+      name: 'Vertex AI Location',
+      description: 'Location for Vertex AI API (e.g., us-central1)',
+      value: 'us-central1',
+      type: 'string',
+    },
+    vertex_model: {
+      name: 'Vertex AI Model',
+      description: 'Vertex AI model to use (e.g., gemini-1.5-flash)',
+      value: 'gemini-1.5-flash',
+      type: 'string',
     }
   },
   isBigQueryMetadataLoaded: false,

@@ -33,7 +33,7 @@ const ExploreApp = () => {
     if (!bigQueryTestSuccessful || !vertexTestSuccessful) {
       runTests()
     }
-  }, [testBigQuerySettings, testVertexSettings, bigQueryTestSuccessful, vertexTestSuccessful, dispatch, settings.useCloudFunction.value, settings])
+  }, [testBigQuerySettings, testVertexSettings, bigQueryTestSuccessful, vertexTestSuccessful, settings])
 
   return (
     <>

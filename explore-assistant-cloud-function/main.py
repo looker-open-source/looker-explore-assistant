@@ -50,10 +50,15 @@ def verify_client_secret(request):
         return False
 
 def get_response_headers(request):
+    # Get the origin from the request headers or default to "*"
+    origin = request.headers.get('Origin', '*')
+    
+    # Return headers that allow the specific origin
     headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Credentials": "true"
     }
     return headers
 
@@ -104,7 +109,8 @@ def generate_looker_query(contents, parameters=None, model_name="gemini-1.5-flas
 # Flask app for running as a web server
 def create_flask_app():
     app = Flask(__name__)
-    CORS(app)
+    # Configure CORS with more specific settings
+    CORS(app, resources={r"/*": {"origins": "*", "supports_credentials": True}})
 
     @app.route("/", methods=["POST", "OPTIONS"])
     def base():
@@ -120,8 +126,9 @@ def create_flask_app():
         if contents is None:
             return "Missing 'contents' parameter", 400, get_response_headers(request)
 
-        if not has_valid_signature(request):
-            return "Invalid signature", 403, get_response_headers(request)
+        # Remove the undefined function call
+        # if not has_valid_signature(request):
+        #     return "Invalid signature", 403, get_response_headers(request)
 
         try:
             response_text = generate_looker_query(contents, parameters)
@@ -143,19 +150,30 @@ def cloud_function_entrypoint(request):
     if request.method == "OPTIONS":
         return handle_options_request(request)
 
+    # Add client secret verification for consistency
+    if not verify_client_secret(request):
+        return "Forbidden: Invalid client secret", 403, get_response_headers(request)
+
     incoming_request = request.get_json()
     contents = incoming_request.get("contents")
     parameters = incoming_request.get("parameters")
     if contents is None:
         return "Missing 'contents' parameter", 400
 
-    response_text = generate_looker_query(contents, parameters)
-
-    return response_text, 200, get_response_headers(request)
+    try:
+        response_text = generate_looker_query(contents, parameters)
+        return Response(response_text, 
+                       status=200, 
+                       headers=get_response_headers(request))
+    except Exception as e:
+        logging.error(f"Internal server error: {str(e)}")
+        return str(e), 500, get_response_headers(request)
 
 
 def handle_options_request(request):
-    return "", 204, get_response_headers(request)
+    # Respond to preflight requests with explicit CORS headers
+    headers = get_response_headers(request)
+    return Response("", status=204, headers=headers)
 
 
 # Determine the running environment and execute accordingly

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState, useContext } from 'react'
 import PromptInput from './PromptInput'
 import Sidebar from './Sidebar'
 import { v4 as uuidv4 } from 'uuid'

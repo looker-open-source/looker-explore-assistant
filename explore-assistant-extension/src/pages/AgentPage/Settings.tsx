@@ -26,7 +26,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     (state: RootState) => state.assistant as AssistantState,
   )
   const extensionId = extensionSDK?.lookerHostData?.extensionId
-  const model_application = extensionId?.replace(/::/g, '_').replace(/-/g, '_')
+  // Convert model_application to lowercase for use in attribute names
+  const model_application = extensionId?.replace(/::/g, '_').replace(/-/g, '_').toLowerCase()
 
   const [userAttributes, setUserAttributes] = useState<{ id: string | undefined, name: string, value?: string }[]>([])
   const [expandedSetting, setExpandedSetting] = useState<string | null>(null)
@@ -56,10 +57,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       
       console.log('userAttributeValues:', userAttributeValues);
 
-      // Map user attribute values to their corresponding settings - only for vertex settings and client ID
+      // Map user attribute values to their corresponding settings
       userAttributeValues.forEach((attr: any) => {
-        if (attr.name && attr.name.startsWith(`${model_application}_`)) {
-          const settingKey = attr.name.replace(`${model_application}_`, '');
+        if (attr.name && attr.name.toLowerCase().startsWith(`${model_application}_`)) {
+          // Use case-insensitive matching for attribute names
+          const settingKey = attr.name.toLowerCase().replace(`${model_application}_`, '');
           const value = attr.value;
           
           // Only persist specific settings
@@ -188,10 +190,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       return;
     }
     
-    const prefixedId = `${model_application}_${id}`
+    // Ensure the user attribute name is lowercase
+    const prefixedId = `${model_application}_${id}`.toLowerCase()
     dispatch(setSetting({ id, value }))
     try {
-      const userAttribute = userAttributes.find((attr) => attr.name === prefixedId)
+      // Case-insensitive lookup for existing attribute
+      const userAttribute = userAttributes.find(
+        (attr) => attr.name.toLowerCase() === prefixedId
+      )
       console.log('userAttribute:', userAttribute, 'for name:', prefixedId)
       if (userAttribute) {
         await core40SDK.ok(

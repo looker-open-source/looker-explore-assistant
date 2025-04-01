@@ -357,6 +357,7 @@ export const assistantSlice = createSlice({
       state, 
       action: PayloadAction<boolean>
     ) => {
+      console.log('REDUCER: Setting isBigQueryMetadataLoaded to', action.payload)
       state.isBigQueryMetadataLoaded = action.payload
     },
     setIsSemanticModelLoaded: (state, action: PayloadAction<boolean>) => {

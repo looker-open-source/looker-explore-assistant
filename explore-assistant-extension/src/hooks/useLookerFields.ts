@@ -102,6 +102,7 @@ export const useLookerFields = () => {
     }
 
     const loadSemanticModels = async () => {
+      console.log('Loading semantic models...')
       try {
         const fetchPromises = supportedExplores.map((exploreKey) => {
           const [modelName, exploreId] = exploreKey.split(':')
@@ -118,7 +119,7 @@ export const useLookerFields = () => {
             semanticModels[exploreKey] = model
           }
         })
-
+        console.log('Loaded semantic models:', semanticModels)
         dispatch(setSemanticModels(semanticModels))
         dispatch(setIsSemanticModelLoaded(true))
       } catch (error) {

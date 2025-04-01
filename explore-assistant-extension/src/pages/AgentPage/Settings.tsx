@@ -79,7 +79,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
           }
         }
       });
-      setUserAttributes(userAttributeValues.map((attr: any) => ({ id: attr.user_attribute_id, name: attr.name, value: attr.value }))) 
+      setUserAttributes(userAttributeValues.map((attr: any) => ({ 
+        id: attr.user_attribute_id, 
+        name: attr.name.toLowerCase(), // Ensure name is stored lowercase
+        value: attr.value 
+      }))) 
     } catch (error) {
       console.error('Error loading user attribute values:', error);
     }
@@ -202,7 +206,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       if (userAttribute) {
         await core40SDK.ok(
           core40SDK.update_user_attribute(userAttribute.id || '', {
-            name: prefixedId,
+            name: prefixedId.toLowerCase(),
             label: prefixedId,
             type: 'string',
             default_value: value,
@@ -214,7 +218,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       } else {
         const newUserAttribute = await core40SDK.ok(
           core40SDK.create_user_attribute({
-            name: prefixedId,
+            name: prefixedId.toLowerCase(),
             label: prefixedId,
             type: 'string',
             default_value: value,

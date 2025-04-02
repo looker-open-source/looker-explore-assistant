@@ -211,7 +211,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
             type: 'string',
             default_value: value,
             value_is_hidden: false,
-            user_can_view: false,
+            user_can_view: true,
             user_can_edit: false,
           })
         )
@@ -223,7 +223,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
             type: 'string',
             default_value: value,
             value_is_hidden: false,
-            user_can_view: false,
+            user_can_view: true,
             user_can_edit: false,
           })
         )

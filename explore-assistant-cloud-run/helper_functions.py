@@ -232,7 +232,7 @@ def generate_response(contents, parameters=None):
         "message": {
             "request": contents, 
             "response": response.text,
-            "input_characters": metadata.prompt_token_count, 
+            "input_characters": metadata.prompt_token_count,
             "output_characters": metadata.candidates_token_count
             },
         "component": "prompt-response-metadata",

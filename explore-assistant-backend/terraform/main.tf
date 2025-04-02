@@ -73,11 +73,12 @@ resource "time_sleep" "wait_after_apis_activate" {
 }
 
 resource "google_bigquery_dataset" "dataset" {
-  dataset_id    = var.dataset_id_name
-  friendly_name = var.dataset_id_name
-  description   = "big query dataset for examples"
-  location      = var.deployment_region
-  depends_on    = [time_sleep.wait_after_apis_activate]
+  dataset_id                 = var.dataset_id_name
+  friendly_name              = var.dataset_id_name
+  description                = "big query dataset for examples"
+  location                   = var.deployment_region
+  delete_contents_on_destroy = true
+  depends_on                 = [time_sleep.wait_after_apis_activate]
 }
 
 module "cloud_sql" {

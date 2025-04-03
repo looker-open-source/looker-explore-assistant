@@ -266,7 +266,7 @@ export const fetchThreadId = createAsyncThunk(
       }
 
       const data = await response.json();
-      return data.data.chat_id; // Assuming the response contains a threadId
+      return data.data.thread_id; // Assuming the response contains a threadId
     } catch (error) {
       console.error('Error in fetchThreadId:', error);
       throw error;

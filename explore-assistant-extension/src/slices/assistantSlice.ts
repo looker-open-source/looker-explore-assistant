@@ -251,7 +251,7 @@ export const fetchThreadId = createAsyncThunk(
       explore_key: params.exploreKey
     })
     try {
-      const response = await fetch(`${VERTEX_AI_ENDPOINT}/chat`, {
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/thread`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

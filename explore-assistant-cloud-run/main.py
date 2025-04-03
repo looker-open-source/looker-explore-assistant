@@ -25,7 +25,6 @@ from helper_functions import (
     add_message,
     add_feedback,
     generate_response,
-    record_message,
     generate_looker_query,
     DatabaseError,
     update_message_db,
@@ -87,7 +86,6 @@ async def base(
             "response": response_text,
             "recorded_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S.%f")
         }]
-        record_message(data)
         
         return BaseResponse(message="Query generated successfully", data={"response": response_text})
     except TimeoutError:

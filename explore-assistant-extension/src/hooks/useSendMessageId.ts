@@ -33,7 +33,7 @@ const useSendMessageId = () => {
                 is_user
             })
             try {
-                const response = await fetch(`${VERTEX_AI_ENDPOINT}/prompt`, {
+                const response = await fetch(`${VERTEX_AI_ENDPOINT}/message`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -65,7 +65,7 @@ const useSendMessageId = () => {
                 ...updateFields,
             })
             try {
-                const response = await fetch(`${VERTEX_AI_ENDPOINT}/prompt/update`, {
+                const response = await fetch(`${VERTEX_AI_ENDPOINT}/message/update`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',

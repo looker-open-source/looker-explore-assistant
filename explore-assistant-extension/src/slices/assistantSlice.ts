@@ -251,7 +251,7 @@ export const fetchThreadId = createAsyncThunk(
       explore_key: params.exploreKey
     })
     try {
-      const response = await fetch(`${VERTEX_AI_ENDPOINT}/chat`, {
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/thread`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -266,7 +266,7 @@ export const fetchThreadId = createAsyncThunk(
       }
 
       const data = await response.json();
-      return data.data.chat_id; // Assuming the response contains a threadId
+      return data.data.thread_id; // Assuming the response contains a threadId
     } catch (error) {
       console.error('Error in fetchThreadId:', error);
       throw error;

@@ -166,7 +166,7 @@ const useSendVertexMessage = () => {
   // })
   console.log('Body:', JSON.parse(body))
 
-    const responseData = await fetch(`${VERTEX_AI_ENDPOINT}/prompt`, {
+    const responseData = await fetch(`${VERTEX_AI_ENDPOINT}/message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

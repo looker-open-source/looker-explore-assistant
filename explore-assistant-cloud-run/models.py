@@ -4,7 +4,8 @@ from enum import Enum
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 import uuid
-
+from sqlalchemy import Column
+from sqlalchemy.dialects.mysql import LONGTEXT
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
@@ -30,14 +31,13 @@ class Message(SQLModel, table=True):
     __tablename__ = "messages"
 
     message_id: Optional[int] = Field(default=None, primary_key=True)
-    contents: str
-    message_type: Optional[str] = None
+    contents: str = Field(sa_column=Column(LONGTEXT))
+    prompt_type: Optional[str] = None
     current_explore_key: str
-    raw_message: Optional[str]
+    raw_prompt: Optional[str] = Field(sa_column=Column(LONGTEXT))
     thread_id: int = Field(foreign_key="threads.thread_id")
-    content: str
     is_user: bool
-    llm_response: Optional[str] = None
+    llm_response: Optional[str] = Field(sa_column=Column(LONGTEXT))
     user_id: str = Field(foreign_key="users.user_id")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     thread: "Thread" = Relationship(back_populates="messages")
@@ -68,11 +68,11 @@ class ThreadRequest(BaseModel):
 
 class MessageRequest(BaseModel):
     contents: str = Field(..., description="The message contents")
-    message_type: str = Field(..., description="Type of message")
     current_explore_key: str = Field(..., description="Current explore key")
     current_thread_id: Optional[int] = Field(None, description="Optional thread ID for existing conversations")
     parameters: Optional[Dict[str, Any]] = Field(None, description="Optional parameters for the message")
-    raw_message: Optional[str] = Field("", description="Optional message")
+    prompt_type: str = Field(..., description="Type of prompt")
+    raw_prompt: Optional[str] = Field("", description="Original prompt")
     user_id: str = Field(..., description="User ID")
     message_id: Optional[int] = Field(None, description="the message ID sent from FE by either user or system.")
     is_user: bool = Field(..., description="flag indicating the message originates from user or system")

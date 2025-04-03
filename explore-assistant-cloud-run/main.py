@@ -28,7 +28,7 @@ from helper_functions import (
     record_message,
     generate_looker_query,
     DatabaseError,
-    update_message,
+    update_message_db,
     search_thread_history
 )
 
@@ -183,7 +183,7 @@ async def handle_message(
         thread_id = request.current_thread_id
 
         if not thread_id:
-            raise HTTPException(status_code=500, detail="Failed to create chat thread")
+            raise HTTPException(status_code=500, detail="Failed to create message thread")
 
         if not request.message_id:
             # scenario : FE send request to generate a message ID
@@ -194,9 +194,9 @@ async def handle_message(
                 message_id=None,
                 thread_id=request.current_thread_id,
                 contents=request.contents,
-                message_type=request.message_type,
+                prompt_type=request.prompt_type,
                 current_explore_key=request.current_explore_key,
-                raw_message=request.raw_message,
+                raw_prompt=request.raw_prompt,
                 user_id=request.user_id,
                 is_user=request.is_user
             )
@@ -215,13 +215,13 @@ async def handle_message(
                 )
             
             # update the logged message record with LLM response
-            updated_message = update_message(
+            updated_message = update_message_db(
                 message_id=request.message_id,
                 thread_id=request.current_thread_id,
                 contents=request.contents,
-                message_type=request.message_type,
+                prompt_type=request.prompt_type,
                 current_explore_key=request.current_explore_key,
-                raw_message=request.raw_message,
+                raw_prompt=request.raw_prompt,
                 user_id=request.user_id,
                 is_user=request.is_user,
                 llm_response=response_text
@@ -247,7 +247,7 @@ async def update_message(
 ):
     try:
 
-        updated_message = update_message(**update_fields)
+        updated_message = update_message_db(**update_fields)
         
         return BaseResponse(
             message="Message updated successfully",

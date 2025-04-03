@@ -159,7 +159,7 @@ def add_message(**kwargs) -> int | None:
     except Exception as e:
         raise DatabaseError("Failed to add message", str(e))
 
-def update_message(**kwargs) -> Message:
+def update_message_db(**kwargs) -> Message:
     try:
         with Session(engine) as session:
             message = session.get(Message, kwargs['message_id'])

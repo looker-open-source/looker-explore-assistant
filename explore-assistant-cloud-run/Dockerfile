@@ -21,6 +21,6 @@ COPY database.py /app/
 COPY test.py /app/
 COPY .env /app/
 
-EXPOSE 8000
-# Set the entrypoint to run the Flask app
+EXPOSE 8080
+# Set the entrypoint to run the FastAPI app
 CMD ["python", "main.py"]

@@ -19,7 +19,6 @@ COPY models.py /app/
 COPY helper_functions.py /app/
 COPY database.py /app/
 COPY test.py /app/
-COPY .env /app/
 
 EXPOSE 8080
 # Set the entrypoint to run the FastAPI app

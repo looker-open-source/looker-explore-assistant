@@ -20,7 +20,7 @@ module "base-project-services" {
 
 resource "time_sleep" "wait_after_basic_apis_activate" {
   depends_on      = [module.base-project-services]
-  create_duration = "120s"
+  create_duration = "1s"
 }
 
 module "bg-backend-project-services" {
@@ -103,8 +103,12 @@ module "cloud_run_backend" {
   cloud_run_service_name               = var.cloud_run_service_name
   explore-assistant-cr-oauth-client-id = var.explore-assistant-cr-oauth-client-id
   explore-assistant-cr-sa-id           = var.explore-assistant-cr-sa-id
+  cloudSQL_server_name                 = var.cloudSQL_server_name
+  looker_client_id                     = var.looker_client_id
+  looker_client_secret                 = var.looker_client_secret
+  looker_api_url                       = var.looker_api_url
 
-  depends_on = [module.cloud_sql,time_sleep.wait_after_apis_activate]
+  depends_on = [module.cloud_sql, time_sleep.wait_after_apis_activate]
 }
 
 module "bigquery_backend" {

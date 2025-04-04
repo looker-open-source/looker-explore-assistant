@@ -18,6 +18,17 @@ variable "project_number" {
   type = number
 }
 
+variable "looker_client_id" {
+  type = string
+}
+
+variable "looker_client_secret" {
+  type = string
+}
+
+variable "looker_api_url" {
+  type = string
+}
 variable "image" {
   description = "The full path to image on your Google artifacts repo"
   type        = string
@@ -31,6 +42,11 @@ variable "explore-assistant-cr-oauth-client-id" {
 variable "explore-assistant-cr-sa-id" {
   type = string
   description = "service account for cloud run to use & make vertexai requests."
+}
+
+variable "cloudSQL_server_name" {
+  type = string
+  description = "prefix the cloud run use to source cloud sql secrets for db connection"
 }
 
 resource "google_service_account" "explore_assistant_sa" {
@@ -86,6 +102,42 @@ resource "google_cloud_run_v2_service" "default" {
           }
         }
       }
+      env {
+        name = "CLOUD_SQL_HOST"
+        value_source {
+          secret_key_ref {
+            secret  = format("projects/${var.project_number}/secrets/looker-genai-cloud-sql-host-%s",var.cloudSQL_server_name)
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "CLOUD_SQL_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = format("projects/${var.project_number}/secrets/looker-genai-cloud-sql-password-%s",var.cloudSQL_server_name)
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "CLOUD_SQL_DATABASE"
+        value_source {
+          secret_key_ref {
+            secret  = format("projects/${var.project_number}/secrets/looker-genai-cloud-sql-database-%s",var.cloudSQL_server_name)
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "CLOUD_SQL_USER"
+        value_source {
+          secret_key_ref {
+            secret  = format("projects/${var.project_number}/secrets/looker-genai-cloud-sql-user-%s",var.cloudSQL_server_name)
+            version = "latest"
+          }
+        }
+      }
       ports {
         container_port = 8080
       }
@@ -101,6 +153,18 @@ resource "google_cloud_run_v2_service" "default" {
         name  = "PROJECT_NAME"
         value = var.project_id
       }
+      env {
+        name  = "LOOKER_CLIENT_ID"
+        value = var.looker_client_id
+      }
+      env {
+        name  = "LOOKER_CLIENT_SECRET"
+        value = var.looker_client_secret
+      }
+      env {
+        name  = "LOOKER_API_URL"
+        value = var.looker_api_url
+      }
     }
     service_account = google_service_account.explore_assistant_sa.email
   }
@@ -108,6 +172,7 @@ resource "google_cloud_run_v2_service" "default" {
     percent         = 100
     type = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
   }
+  depends_on = [ google_service_account.explore_assistant_sa ]
 }
 
 ### IAM permissions for Cloud Run (public access)
@@ -129,7 +194,7 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
 }
 
 output "cloud_run_uri" {
-  value = google_cloud_run_v2_service.default.traffic_statuses[0].uri
+  value = google_cloud_run_v2_service.default.uri
 }
 
 output "cloud_run_data" {

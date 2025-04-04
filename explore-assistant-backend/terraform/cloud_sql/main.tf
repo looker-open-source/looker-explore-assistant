@@ -135,6 +135,96 @@ resource "google_sql_user" "cloud_sql_user" {
   depends_on = [google_sql_database.production]
 }
 
+
+
+
+# Create secrets for Cloud SQL credentials
+resource "google_secret_manager_secret" "cloud_sql_host" {
+  project   = var.project_id
+  secret_id = format("looker-genai-cloud-sql-host-%s", var.cloudSQL_server_name)
+  
+  replication {
+        auto { 
+    }
+  }
+  
+}
+
+resource "google_secret_manager_secret" "cloud_sql_user" {
+  project   = var.project_id
+  secret_id = format("looker-genai-cloud-sql-user-%s", var.cloudSQL_server_name)
+  
+  replication {
+        auto { 
+    }
+  }
+  
+}
+
+resource "google_secret_manager_secret" "cloud_sql_password" {
+  project   = var.project_id
+  secret_id = format("looker-genai-cloud-sql-password-%s", var.cloudSQL_server_name)
+  
+  replication {
+        auto { 
+    }
+  }
+  
+}
+
+resource "google_secret_manager_secret" "cloud_sql_database" {
+  project   = var.project_id
+  secret_id = format("looker-genai-cloud-sql-database-%s", var.cloudSQL_server_name)
+  
+  replication {
+        auto { 
+    }
+  }
+  
+}
+
+
+# Create secret versions with actual values
+resource "google_secret_manager_secret_version" "cloud_sql_host_version" {
+  secret      = google_secret_manager_secret.cloud_sql_host.id
+  secret_data = google_sql_database_instance.main.public_ip_address
+  
+  depends_on = [
+    google_secret_manager_secret.cloud_sql_host,
+    google_sql_database_instance.main
+  ]
+}
+
+resource "google_secret_manager_secret_version" "cloud_sql_user_version" {
+  secret      = google_secret_manager_secret.cloud_sql_user.id
+  secret_data = google_sql_user.cloud_sql_user.name
+  
+  depends_on = [
+    google_secret_manager_secret.cloud_sql_user,
+    google_sql_user.cloud_sql_user
+  ]
+}
+
+resource "google_secret_manager_secret_version" "cloud_sql_password_version" {
+  secret      = google_secret_manager_secret.cloud_sql_password.id
+  secret_data = google_sql_user.cloud_sql_user.password
+  
+  depends_on = [
+    google_secret_manager_secret.cloud_sql_password,
+    google_sql_user.cloud_sql_user
+  ]
+}
+
+resource "google_secret_manager_secret_version" "cloud_sql_database_version" {
+  secret      = google_secret_manager_secret.cloud_sql_database.id
+  secret_data = google_sql_database.production.name
+  
+  depends_on = [
+    google_secret_manager_secret.cloud_sql_database,
+    google_sql_database.production
+  ]
+}
+
 output "cloudsql_instance_info" {
   value = {
     public_ip = google_sql_database_instance.main.public_ip_address

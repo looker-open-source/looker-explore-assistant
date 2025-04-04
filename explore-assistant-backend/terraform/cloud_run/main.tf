@@ -33,6 +33,11 @@ variable "explore-assistant-cr-sa-id" {
   description = "service account for cloud run to use & make vertexai requests."
 }
 
+variable "cloudSQL_server_name" {
+  type = string
+  description = "prefix the cloud run use to source cloud sql secrets for db connection"
+}
+
 resource "google_service_account" "explore_assistant_sa" {
   account_id   = var.explore-assistant-cr-sa-id
   display_name = "Looker Explore Assistant Cloud Run SA"
@@ -82,6 +87,42 @@ resource "google_cloud_run_v2_service" "default" {
         value_source {
           secret_key_ref {
             secret  = "projects/${var.project_number}/secrets/looker-explore-assistant-admin-token"
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "CLOUD_SQL_HOST"
+        value_source {
+          secret_key_ref {
+            secret  = format("projects/${var.project_number}/secrets/looker-genai-cloud-sql-host-%s",var.cloudSQL_server_name)
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "CLOUD_SQL_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = format("projects/${var.project_number}/secrets/looker-genai-cloud-sql-password-%s",var.cloudSQL_server_name)
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "CLOUD_SQL_DATABASE"
+        value_source {
+          secret_key_ref {
+            secret  = format("projects/${var.project_number}/secrets/looker-genai-cloud-sql-database-%s",var.cloudSQL_server_name)
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "CLOUD_SQL_USER"
+        value_source {
+          secret_key_ref {
+            secret  = format("projects/${var.project_number}/secrets/looker-genai-cloud-sql-user-%s",var.cloudSQL_server_name)
             version = "latest"
           }
         }

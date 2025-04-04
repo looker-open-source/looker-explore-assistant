@@ -103,8 +103,9 @@ module "cloud_run_backend" {
   cloud_run_service_name               = var.cloud_run_service_name
   explore-assistant-cr-oauth-client-id = var.explore-assistant-cr-oauth-client-id
   explore-assistant-cr-sa-id           = var.explore-assistant-cr-sa-id
+  cloudSQL_server_name                 = var.cloudSQL_server_name
 
-  depends_on = [module.cloud_sql,time_sleep.wait_after_apis_activate]
+  depends_on = [module.cloud_sql, time_sleep.wait_after_apis_activate]
 }
 
 module "bigquery_backend" {

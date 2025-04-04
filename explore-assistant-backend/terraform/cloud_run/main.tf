@@ -170,7 +170,7 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
 }
 
 output "cloud_run_uri" {
-  value = google_cloud_run_v2_service.default.traffic_statuses[0].uri
+  value = google_cloud_run_v2_service.default.uri
 }
 
 output "cloud_run_data" {

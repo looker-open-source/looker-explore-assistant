@@ -18,6 +18,17 @@ variable "project_number" {
   type = number
 }
 
+variable "looker_client_id" {
+  type = string
+}
+
+variable "looker_client_secret" {
+  type = string
+}
+
+variable "looker_api_url" {
+  type = string
+}
 variable "image" {
   description = "The full path to image on your Google artifacts repo"
   type        = string
@@ -142,6 +153,18 @@ resource "google_cloud_run_v2_service" "default" {
         name  = "PROJECT_NAME"
         value = var.project_id
       }
+      env {
+        name  = "LOOKER_CLIENT_ID"
+        value = var.looker_client_id
+      }
+      env {
+        name  = "LOOKER_CLIENT_SECRET"
+        value = var.looker_client_secret
+      }
+      env {
+        name  = "LOOKER_API_URL"
+        value = var.looker_api_url
+      }
     }
     service_account = google_service_account.explore_assistant_sa.email
   }
@@ -149,7 +172,7 @@ resource "google_cloud_run_v2_service" "default" {
     percent         = 100
     type = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
   }
-  depends_on = [ google_project_iam_member.default ]
+  depends_on = [ google_service_account.explore_assistant_sa ]
 }
 
 ### IAM permissions for Cloud Run (public access)

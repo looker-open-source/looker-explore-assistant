@@ -84,6 +84,20 @@ variable "explore-assistant-cr-sa-id" {
 }
 
 
+variable "looker_client_id" {
+  type        = string
+  description = "client id for cr server to validate incoming requests are from valid users"
+}
+
+variable "looker_client_secret" {
+  type        = string
+  description = "client secret for cr server to validate incoming requests are from valid users"
+}
+
+variable "looker_api_url" {
+  type        = string
+  description = "api url to validate users against"
+}
 
 #
 # BIGQUERY VARIABLES

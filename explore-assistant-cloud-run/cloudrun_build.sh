@@ -23,7 +23,7 @@ IMAGE_NAME="$IMAGE_NAME"
 ## hard coded
 REPO_NAME="looker-explore-assistant"
 REPOSITORY_REGION="$REGION_NAME-docker.pkg.dev"
-TAG="latest"
+TAG=${TAG:-latest}
 IMAGE="$REPOSITORY_REGION/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:$TAG"
 
 echo "Building Docker image..."

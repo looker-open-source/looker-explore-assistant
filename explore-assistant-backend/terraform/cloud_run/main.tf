@@ -149,6 +149,7 @@ resource "google_cloud_run_v2_service" "default" {
     percent         = 100
     type = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
   }
+  depends_on = [ google_project_iam_member.default ]
 }
 
 ### IAM permissions for Cloud Run (public access)

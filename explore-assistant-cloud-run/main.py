@@ -27,7 +27,8 @@ from helper_functions import (
     generate_response,
     generate_looker_query,
     DatabaseError,
-    update_message_db,
+    _update_message,
+    _update_thread,
     search_thread_history
 )
 
@@ -130,7 +131,7 @@ async def create_thread(
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
-@app.get("/thread/history")
+@app.get("/thread")
 async def thread_history(
     user_id: str,
     thread_id: str,
@@ -171,33 +172,94 @@ async def thread_history(
             }
         )
 
+@app.get("/thread/{thread_id}/messages")
+async def get_thread_messages(
+    thread_id: int,
+    limit: int = 100,
+    offset: int = 0,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+):
+# ) -> ThreadMessagesResponse:
+    try:
+        messages = []
+        total_count = 0
+        
+        with Session(engine) as session:
+            # Get total count
+            total_count = session.query(Message).filter(Message.thread_id == thread_id).count()
+            
+            # Get messages with pagination
+            query_results = (
+                session.query(Message)
+                .filter(Message.thread_id == thread_id)
+                .order_by(Message.timestamp)  # Chronological order
+                .offset(offset)
+                .limit(limit)
+                .all()
+            )
+            
+            # Convert to message summaries
+            for msg in query_results:
+                messages.append(MessageSummary(
+                    message_id=msg.message_id,
+                    contents=msg.contents,
+                    is_user=msg.is_user,
+                    timestamp=msg.timestamp,
+                    prompt_type=msg.prompt_type
+                ))
+        
+        return ThreadMessagesResponse(
+            messages=messages,
+            total_count=total_count
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Failed to retrieve thread messages",
+                "message": str(e)
+            }
+        )
+
+
+
+
+@app.put("/thread/update")
+async def update_thread(
+    update_fields: dict,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+):
+    try:
+        updated_thread = _update_thread(**update_fields)
+        
+        return BaseResponse(
+            message="Thread updated successfully",
+            data={"response": updated_thread}
+            )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/message")
-async def handle_message(
+async def process_message(
     request: MessageRequest,
     authorized: bool = Depends(validate_token),
     db: Session = Depends(get_session)
 ):
     try:
-        thread_id = request.current_thread_id
 
-        if not thread_id:
-            raise HTTPException(status_code=500, detail="Failed to create message thread")
 
+        request_dict = request.model_dump()
         if not request.message_id:
             # scenario : FE send request to generate a message ID
             # the endpoint will return a message id of the logged data
             # WITHOUT any LLM processing; FE will the resend the message with new id
             # to continue the process.
-            new_id = add_message(
-                message_id=None,
-                thread_id=request.current_thread_id,
-                contents=request.contents,
-                prompt_type=request.prompt_type,
-                current_explore_key=request.current_explore_key,
-                raw_prompt=request.raw_prompt,
-                user_id=request.user_id,
-                is_user=request.is_user
-            )
+            new_id = add_message(**request_dict)
             
             return BaseResponse(
                 message="Message ID generated successfully",
@@ -213,23 +275,14 @@ async def handle_message(
                 )
             
             # update the logged message record with LLM response
-            updated_message = update_message_db(
-                message_id=request.message_id,
-                thread_id=request.current_thread_id,
-                contents=request.contents,
-                prompt_type=request.prompt_type,
-                current_explore_key=request.current_explore_key,
-                raw_prompt=request.raw_prompt,
-                user_id=request.user_id,
-                is_user=request.is_user,
-                llm_response=response_text
-            )
+            request_dict['llm_response'] = response_text
+            updated_message = _update_message(**request_dict)
 
             logger.info(f"LLM Response: {response_text}")
             
             return BaseResponse(
                 message="Message handled successfully",
-                data={"response": response_text, "thread_id": thread_id}
+                data={"response": response_text, "updated_data": updated_message}
             )
         
     except DatabaseError as e:
@@ -245,7 +298,7 @@ async def update_message(
 ):
     try:
 
-        updated_message = update_message_db(**update_fields)
+        updated_message = _update_message(**update_fields)
         
         return BaseResponse(
             message="Message updated successfully",

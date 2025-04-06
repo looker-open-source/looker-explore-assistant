@@ -159,7 +159,7 @@ def add_message(**kwargs) -> int | None:
     except Exception as e:
         raise DatabaseError("Failed to add message", str(e))
 
-def update_message_db(**kwargs) -> Message:
+def _update_message(**kwargs) -> Message:
     try:
         with Session(engine) as session:
             message = session.get(Message, kwargs['message_id'])
@@ -173,7 +173,7 @@ def update_message_db(**kwargs) -> Message:
             session.refresh(message)
             return message
     except Exception as e:
-        raise DatabaseError("Failed to add message", str(e))
+        raise DatabaseError("Failed to update message", str(e))
 
 
 def add_feedback(user_id: str, message_id: int, feedback_text: str, is_positive: bool) -> Feedback:
@@ -317,3 +317,45 @@ def search_thread_history(user_id: str, search_query: str, limit: int = 10, offs
     except Exception as e:
         logging.error(f"Database error in search_thread_history: {e}")
         raise DatabaseError("Failed to search thread history", str(e))
+
+
+
+
+def _update_thread(**kwargs) -> Thread:
+    """
+    Update an existing thread in the database.
+    
+    Args:
+        thread_id: The ID of the thread to update
+        update_fields: Fields to update (explore_key, etc.)
+        
+    Returns:
+        Thread
+        
+    Raises:
+        DatabaseError: If the thread doesn't exist
+    """
+    try:
+        with Session(engine) as session:
+            # Get the thread
+            thread = session.get(Thread, kwargs['thread_id'])
+            
+            if not thread:
+                raise DatabaseError("Failed to update message",f"Thread with ID {kwargs['thread_id']} not found")
+                
+            
+            # Update fields
+            for key, value in kwargs.items():
+                setattr(thread, key, value)
+            
+            session.add(thread)
+            session.commit()
+            session.refresh(thread)
+            
+            # Return updated thread data
+            return thread
+
+
+    except Exception as e:
+        logging.error(f"Error updating thread: {str(e)}")
+        raise DatabaseError("Failed to update thread", str(e))

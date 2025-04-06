@@ -143,18 +143,17 @@ const useSendVertexMessage = () => {
       console.log(currentExploreKey)
       
 
-    const messageId = await getMessageId(contents, prompt_type, raw_prompt, parameters, false);
+    const messageId = await getMessageId(contents, prompt_type, raw_prompt, parameters, "system");
 
     const body = JSON.stringify({
       message_id: messageId,
+      user_id: me.id,
+      thread_id: currentThreadID,
       contents: contents,
       prompt_type: prompt_type,
-      current_explore_key: currentExploreKey,
-      user_id: me.id,
-      current_thread_id: currentThreadID,
       raw_prompt: raw_prompt,
       parameters: parameters,
-      is_user: false
+      actor: "system"
     })
 
 

@@ -4,6 +4,76 @@ import { RootState } from '../store';
 import { ModelParameters } from './useSendVertexMessage';
 import process from 'process';
 
+// Add a mapping object to define the field name conversions
+const messageFieldMapping = {
+  // FE field name: BE field name
+  // fields required to fully load a thread messages
+  uuid: 'message_id',
+  exploreUrl: 'explore_url',
+  actor: 'actor',
+  type: 'type',
+  message: 'message',
+  summarizedPrompt: 'summarized_prompt',
+  summary: 'summary',
+  createdAt: 'created_at',
+  
+    
+  // other fields
+  prompt_type: 'prompt_type',
+  contents: 'contents',
+  raw_prompt: 'raw_prompt',
+  parameters: 'parameters',
+  llm_response: 'llm_response',
+  thread_id: 'thread_id',
+  user_id: 'user_id'
+};
+
+// Add a helper function to convert FE field names to BE field names
+const mapMessageFieldsToBE = (messageData: Record<string, any>): Record<string, any> => {
+  const mappedData: Record<string, any> = {};
+  
+  // Loop through each key in the message data
+  Object.entries(messageData).forEach(([feKey, value]) => {
+    // Find the corresponding BE key from the mapping
+    const beKey = messageFieldMapping[feKey as keyof typeof messageFieldMapping];
+    
+    if (beKey) {
+      mappedData[beKey] = value;
+    } else {
+      // If no mapping exists, use the original key (fallback)
+      mappedData[feKey] = value;
+    }
+  });
+  
+  return mappedData;
+};
+
+// For mapping back BE calls
+const reverseMessageFieldMapping: Record<string, string> = {};
+Object.entries(messageFieldMapping).forEach(([feKey, beKey]) => {
+  reverseMessageFieldMapping[beKey] = feKey;
+});
+
+// Convert BE field names to FE field names
+const mapMessageFieldsToFE = (messageData: Record<string, any>): Record<string, any> => {
+    const mappedData: Record<string, any> = {};
+    
+    Object.entries(messageData).forEach(([beKey, value]) => {
+      const feKey = reverseMessageFieldMapping[beKey];
+      
+      if (feKey) {
+        mappedData[feKey] = value;
+      } else {
+        // If no mapping exists, use the original key (fallback)
+        mappedData[beKey] = value;
+      }
+    });
+    
+    return mappedData;
+  };
+  
+
+
 const useSendMessageId = () => {
     const { access_token } = useSelector((state: RootState) => state.auth);
     const {
@@ -19,19 +89,22 @@ const useSendMessageId = () => {
             prompt_type: string,
             raw_prompt: string,
             parameters: ModelParameters,
-            is_user: boolean
+            actor: string
         ) => {
-
-            const body = JSON.stringify({
+            // Create message data with frontend field names
+            const messageData = {
+                user_id: me.id,
+                thread_id: currentExploreThread.uuid,
+                actor,
                 contents,
                 prompt_type,
-                current_explore_key: currentExploreThread.exploreKey,
-                user_id: me.id,
-                current_thread_id: currentExploreThread.uuid,
                 raw_prompt,
                 parameters,
-                is_user
-            })
+            };
+
+            // Map to backend field names
+            const mappedData = mapMessageFieldsToBE(messageData);
+
             try {
                 const response = await fetch(`${VERTEX_AI_ENDPOINT}/message`, {
                     method: 'POST',
@@ -39,7 +112,7 @@ const useSendMessageId = () => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${access_token}`,
                     },
-                    body: body,
+                    body: JSON.stringify(mappedData),
                 });
             
                 if (!response.ok || response.status !== 200) {
@@ -54,16 +127,19 @@ const useSendMessageId = () => {
                 console.error('Error in getMessageId:', error);
                 throw error;
             }
-
-      
-        }, [currentExploreThread, access_token]);
+        }, [currentExploreThread, access_token, me]);
 
     const updateMessage = useCallback(
-        async (messageId: string, updateFields: { [key: string]: any } ) => {
-            const body = JSON.stringify({
+        async (messageId: string, updateFields: { [key: string]: any }) => {
+            // Create message data with frontend field names
+            const messageData = {
                 message_id: messageId,
-                ...updateFields,
-            })
+                ...updateFields
+            };
+
+            // Map to backend field names
+            const mappedData = mapMessageFieldsToBE(messageData);
+
             try {
                 const response = await fetch(`${VERTEX_AI_ENDPOINT}/message/update`, {
                     method: 'PUT',
@@ -71,7 +147,7 @@ const useSendMessageId = () => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${access_token}`,
                     },
-                    body: body,
+                    body: JSON.stringify(mappedData),
                 });
             
                 if (!response.ok || response.status !== 200) {

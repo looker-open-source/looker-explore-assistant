@@ -20,7 +20,7 @@ import {
   setQuery,
   setSidePanelExploreUrl,
   setuserLoggedInStatus,
-  updateCurrentThread,
+  updateCurrentThreadWithSync,
   updateLastHistoryEntry,
   newThreadState,
   newTempThreadState,
@@ -174,7 +174,7 @@ const AgentPage = () => {
     }
   }, [isDataLoaded, query]);
 
-  const { getMessageId } = useSendMessageId();
+  const { getMessageId, updateMessage } = useSendMessageId();
 
   const submitMessage = useCallback(async () => {
     if (query === '') {
@@ -191,7 +191,7 @@ const AgentPage = () => {
     }
 
     dispatch(
-      updateCurrentThread({
+      updateCurrentThreadWithSync({
         promptList,
       }),
     )
@@ -203,7 +203,7 @@ const AgentPage = () => {
     // set the explore if it is not set
     if (!currentExploreThread?.modelName || !currentExploreThread?.exploreId) {
       dispatch(
-        updateCurrentThread({
+        updateCurrentThreadWithSync({
           exploreId: currentExplore.exploreId,
           modelName: currentExplore.modelName,
           exploreKey: currentExplore.exploreKey,
@@ -214,7 +214,7 @@ const AgentPage = () => {
     // console.log('Prompt List: ', promptList)
     // console.log(currentExploreThread)
     // console.log(currentExplore)
-    const userMessageId = await getMessageId(query, 'chatMessage', query, {}, true)
+    const userMessageId = await getMessageId(query, 'chatMessage', query, {}, "user")
 
     dispatch(
       addMessage({
@@ -225,6 +225,14 @@ const AgentPage = () => {
         type: 'text',
       }),
     )
+    await updateMessage(
+      userMessageId,
+      {
+        message: query,
+        actor: 'user',
+        type: 'text',
+      }
+    );    
     console.log('thread:', currentExploreThread)
 
     const [promptSummary, isSummary] = await Promise.all([
@@ -260,14 +268,14 @@ const AgentPage = () => {
     }
 
     dispatch(
-      updateCurrentThread({
+      updateCurrentThreadWithSync({
         exploreUrl: newExploreUrl,
         summarizedPrompt: promptSummary,
       }),
     )
 
     if (isSummary) {
-      const summaryMessageId = await getMessageId(newExploreUrl, 'chatMessage', query, {}, false)
+      const summaryMessageId = await getMessageId(newExploreUrl, 'chatMessage', query, {}, "system")
       dispatch(
         addMessage({
           uuid: summaryMessageId,
@@ -278,11 +286,20 @@ const AgentPage = () => {
           type: 'summarize',
         }),
       )
+      await updateMessage(
+        summaryMessageId,
+        {
+          exploreUrl: newExploreUrl,
+          actor: 'system',
+          summary: '',
+          type: 'summarize',
+        }
+      );
     } else {
-      const exploreMessageId = await getMessageId(newExploreUrl, 'chatMessage', query, {}, false)
+      const exploreMessageId = await getMessageId(newExploreUrl, 'chatMessage', query, {}, "system")
       dispatch(setSidePanelExploreUrl(newExploreUrl))
       dispatch(openSidePanel())
-
+      
       dispatch(
         addMessage({
           uuid: exploreMessageId,
@@ -293,6 +310,15 @@ const AgentPage = () => {
           type: 'explore',
         }),
       )
+      await updateMessage(
+        exploreMessageId,
+        {
+          exploreUrl: newExploreUrl,
+          summarizedPrompt: promptSummary,
+          actor: 'system',
+          type: 'explore',
+        }
+      );
     }
 
     // update the history with the current contents of the thread
@@ -329,7 +355,7 @@ const AgentPage = () => {
       }),
     )
     dispatch(
-      updateCurrentThread({
+      updateCurrentThreadWithSync({
         exploreId: modelName,
         modelName: exploreId,
         exploreKey: exploreKey,

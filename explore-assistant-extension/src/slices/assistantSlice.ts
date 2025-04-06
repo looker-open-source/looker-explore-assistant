@@ -275,6 +275,177 @@ export const fetchThreadId = createAsyncThunk(
 );
 
 
+export const fetchUserThreads = createAsyncThunk(
+  'assistant/fetchUserThreads',
+  async (_, { getState, dispatch }) => {
+    const state = getState() as RootState;
+    const { access_token } = state.auth;
+    const { me } = state.assistant;
+    const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || '';
+
+    if (!me || !access_token) {
+      throw new Error('User not authenticated');
+    }
+
+    const body = JSON.stringify({
+      user_id: me.id,
+    })    
+
+    try {
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/threads`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`,
+        },
+        body: body,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Server responded with ${response.status}: ${error}`);
+      }
+
+      const data = await response.json();
+      const threads = data.data.threads;
+    
+      // After fetching threads, initiate background fetching of messages for all threads
+      threads.forEach(thread => {
+        dispatch(fetchThreadMessages(thread.uuid));
+      });
+    
+      return threads;
+    } catch (error) {
+      console.error('Error fetching user threads:', error);
+      throw error;
+    }
+  }
+);
+
+export const fetchThreadMessages = createAsyncThunk(
+  'assistant/fetchThreadMessages',
+  async (threadId: string, { getState }) => {
+    const state = getState() as RootState;
+    const { access_token } = state.auth;
+    const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || '';
+
+    if (!access_token) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/thread/${threadId}/messages`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Server responded with ${response.status}: ${error}`);
+      }
+
+      const data = await response.json();
+      return {
+        threadId,
+        messages: data.data.messages
+      };
+    } catch (error) {
+      console.error(`Error fetching messages for thread ${threadId}:`, error);
+      return { threadId, messages: [] };
+    }
+  }
+);
+
+
+// Add a mapping object to define the field name conversions
+const threadFieldMapping = {
+  // FE field name: BE field name
+  uuid: 'thread_id',
+  userId: 'user_id',
+  exploreKey: 'explore_key',
+  exploreId: 'explore_id',
+  modelName: 'model_name',
+  messages: 'messages',
+  exploreUrl: 'explore_url',
+  summarizedPrompt: 'summarized_prompt',
+  promptList: 'prompt_list',
+  createdAt: 'created_at'
+};
+
+// Add a helper function to convert FE field names to BE field names
+const mapThreadFieldsToBE = (threadData: Partial<ExploreThread>): Record<string, any> => {
+  const mappedData: Record<string, any> = {};
+  
+  // Loop through each key in the thread data
+  Object.entries(threadData).forEach(([feKey, value]) => {
+    
+    // Find the corresponding BE key from the mapping
+    const beKey = threadFieldMapping[feKey as keyof typeof threadFieldMapping];
+    
+    if (beKey) {
+      mappedData[beKey] = value;
+    } else {
+      // If no mapping exists, use the original key (fallback)
+      mappedData[feKey] = value;
+    }
+  });
+  
+  return mappedData;
+};
+
+// Wrapper around updateCurrentThread to update local redux AND update BE thread meta
+// The updated thunk with field mapping
+export const updateCurrentThreadWithSync = createAsyncThunk(
+  'assistant/updateCurrentThreadWithSync',
+  async (threadUpdate: Partial<ExploreThread>, { dispatch, getState }) => {
+    // First, update the state
+    dispatch(updateCurrentThread(threadUpdate));
+    
+    // Then, send the update to the backend
+    const state = getState() as RootState;
+    const { access_token } = state.auth;
+    const { currentExploreThread, me } = state.assistant;
+    const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || '';
+    
+    if (!currentExploreThread || !me || !access_token) {
+      throw new Error('Missing required data for thread update');
+    }
+    
+    try {
+      // Map the thread fields to backend naming convention
+      const mappedThreadData = mapThreadFieldsToBE({
+        uuid: currentExploreThread.uuid,
+        userId: me.id,
+        ...threadUpdate
+      });
+      
+      // Send the PUT request
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/thread/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`,
+        },
+        body: JSON.stringify(mappedThreadData),
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Server responded with ${response.status}: ${error}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error updating thread on backend:', error);
+      throw error;
+    }
+  }
+);
+
 
 
 export interface Setting {
@@ -368,6 +539,12 @@ export interface SemanticModel {
 }
 
 export interface AssistantState {
+  // added loading state to wait for async fetchthread history
+  isLoadingThreads: boolean;
+  messageFetchStatus: {
+    [threadId: string]: 'idle' | 'pending' | 'fulfilled' | 'rejected'
+  };
+  isUpdatingThread: boolean;  
   me: any
   userLoggedInStatus: boolean
   isQuerying: boolean
@@ -448,6 +625,9 @@ export const newTempThreadState = () => {
 };
 
 export const initialState: AssistantState = {
+  isLoadingThreads: false,
+  messageFetchStatus: {},
+  isUpdatingThread: false,
   me: null,
   userLoggedInStatus: false,
   isQuerying: false,
@@ -568,7 +748,7 @@ export const assistantSlice = createSlice({
         ...state.currentExploreThread,
         ...action.payload,
       }
-    },
+    }, 
     setCurrentThread: (state, action: PayloadAction<ExploreThread>) => {
       state.currentExploreThread = { ...action.payload }
     },
@@ -656,6 +836,83 @@ export const assistantSlice = createSlice({
     builder.addCase(fetchThreadId.fulfilled, (state, action) => {
       // Handle the fulfilled state if needed
     });
+    // Thread fetching
+    builder.addCase(fetchUserThreads.pending, (state) => {
+      state.isLoadingThreads = true;
+    });
+    builder.addCase(fetchUserThreads.fulfilled, (state, action) => {
+      state.isLoadingThreads = false;
+
+      // Merge new threads with existing history, preserving messages if they exist
+      const newThreads = action.payload;
+
+      // Create a map of existing threads for quick lookup
+      const existingThreadsMap = state.history.reduce((map, thread) => {
+        map[thread.uuid] = thread;
+        return map;
+      }, {} as Record<string, ExploreThread>);
+
+      // Merge new threads with existing ones, preserving messages
+      state.history = newThreads.map(newThread => {
+        const existingThread = existingThreadsMap[newThread.uuid];
+        if (existingThread) {
+          // Keep existing messages if available
+          return {
+            ...newThread,
+            messages: existingThread.messages.length > 0 ? 
+                      existingThread.messages : 
+                      newThread.messages || []
+          };
+        }
+        return {
+          ...newThread,
+          messages: newThread.messages || []
+        };
+      });
+    });
+    builder.addCase(fetchUserThreads.rejected, (state) => {
+      state.isLoadingThreads = false;
+    });
+
+    // Message fetching status tracking
+    builder.addCase(fetchThreadMessages.pending, (state, action) => {
+      const threadId = action.meta.arg;
+      state.messageFetchStatus[threadId] = 'pending';
+    });
+
+    builder.addCase(fetchThreadMessages.fulfilled, (state, action) => {
+      const { threadId, messages } = action.payload;
+      state.messageFetchStatus[threadId] = 'fulfilled';
+
+      // Update messages in history
+      const threadInHistory = state.history.find(thread => thread.uuid === threadId);
+      if (threadInHistory && messages.length > 0) {
+        threadInHistory.messages = messages;
+      }
+
+      // Also update current thread if it matches
+      if (state.currentExploreThread && state.currentExploreThread.uuid === threadId && messages.length > 0) {
+        state.currentExploreThread.messages = messages;
+      }
+    });
+
+    builder.addCase(fetchThreadMessages.rejected, (state, action) => {
+      const threadId = action.meta.arg;
+      state.messageFetchStatus[threadId] = 'rejected';
+    });
+    // for update current thread thunk
+    builder.addCase(updateCurrentThreadWithSync.pending, (state) => {
+      // Optionally set a loading state
+      state.isUpdatingThread = true;
+    });
+    builder.addCase(updateCurrentThreadWithSync.fulfilled, (state) => {
+      state.isUpdatingThread = false;
+    });
+    builder.addCase(updateCurrentThreadWithSync.rejected, (state, action) => {
+      state.isUpdatingThread = false;
+      // Optionally handle the error
+      console.error('Failed to update thread on backend:', action.error);
+    });    
   },
 })
 

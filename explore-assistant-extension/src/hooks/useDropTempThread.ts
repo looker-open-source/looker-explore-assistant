@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { newThreadState, updateCurrentThread } from '../slices/assistantSlice';
+import { newThreadState, updateCurrentThreadWithSync } from '../slices/assistantSlice';
 import { RootState } from '../store';
 
 const useDropTempThread = () => {
@@ -11,7 +11,7 @@ const useDropTempThread = () => {
     if (currentExploreThread?.uuid === 'temp') {
         const newThread = await dispatch(newThreadState(me)).unwrap();
         dispatch(
-          updateCurrentThread({
+          updateCurrentThreadWithSync({
             uuid: newThread.uuid,
             exploreId: newThread.exploreId,
             modelName: newThread.modelName,

@@ -18,9 +18,10 @@ interface ExploreMessageProps {
   modelName: string
   prompt: string
   exploreParams: ExploreParams
+  autoOpen: boolean
 }
 
-const ExploreMessage = ({ modelName, exploreId, prompt, exploreParams }: ExploreMessageProps) => {
+const ExploreMessage = ({ modelName, exploreId, prompt, exploreParams, autoOpen }: ExploreMessageProps) => {
   const dispatch = useDispatch()
   const { extensionSDK } = useContext(ExtensionContext)
 
@@ -34,6 +35,11 @@ const ExploreMessage = ({ modelName, exploreId, prompt, exploreParams }: Explore
     dispatch(openSidePanel())
   }
 
+  if (autoOpen) {
+    setTimeout(() => {
+      openExplore()
+    }, 100)
+  }
   return (
     <>
       <Message actor="system" createdAt={Date.now()}>

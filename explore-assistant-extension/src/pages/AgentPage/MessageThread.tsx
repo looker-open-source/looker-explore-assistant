@@ -35,8 +35,10 @@ const MessageThread = ({ endOfMessageRef }: MessageThreadProps) => {
   const messages = currentExploreThread.messages as ChatMessage[]
   return (
     <div className="">
-      {messages.map((message) => {
+      {messages.map((message,i) => {
         if (message.type === 'explore') {
+          console.log('explore message', message)
+          console.log('i and len', i , messages.length )
           return (
             <ExploreMessage
               key={message.uuid}
@@ -44,6 +46,7 @@ const MessageThread = ({ endOfMessageRef }: MessageThreadProps) => {
               modelName={currentExploreThread.modelName}
               exploreId={currentExploreThread.exploreId}
               prompt={message.summarizedPrompt}
+              autoOpen={i===1 && messages.length === 2}
             />
           )
         } else if (message.type === 'summarize') {

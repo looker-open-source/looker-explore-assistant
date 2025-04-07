@@ -32,13 +32,25 @@ const ExploreApp = () => {
 
   useEffect(() => {
     const runTests = async () => {
-      testBigQuerySettings()
-      testVertexSettings()
-    }
+      // Validate existing token before running tests
+      const existingToken = settings['oauth2_token']?.value;
+      if (existingToken) {
+        const tokenInfo = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + existingToken);
+        if (!tokenInfo.ok) {
+          console.error('Existing OAuth token is invalid, triggering re-authentication');
+          setIsSettingsOpen(true);
+          return;
+        }
+      }
+
+      testBigQuerySettings();
+      testVertexSettings();
+    };
+
     if (!bigQueryTestSuccessful || !vertexTestSuccessful) {
-      runTests()
+      runTests();
     }
-  }, [testBigQuerySettings, testVertexSettings, bigQueryTestSuccessful, vertexTestSuccessful, settings])
+  }, [testBigQuerySettings, testVertexSettings, bigQueryTestSuccessful, vertexTestSuccessful, settings]);
 
   if (isAuthenticating) {
     return (

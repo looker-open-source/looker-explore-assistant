@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import Message from '../../components/Chat/Message'
@@ -33,12 +33,18 @@ const MessageThread = ({ endOfMessageRef }: MessageThreadProps) => {
   }
 
   const messages = currentExploreThread.messages as ChatMessage[]
+  const autoOpenTriggered = useRef(false); // Ref to track if autoOpen has been triggered
+
   return (
     <div className="">
-      {messages.map((message,i) => {
+      {messages.map((message, i) => {
         if (message.type === 'explore') {
-          console.log('explore message', message)
-          console.log('i and len', i , messages.length )
+          
+          const shouldAutoOpen = !autoOpenTriggered.current && i === 1 && messages.length === 2;
+          if (shouldAutoOpen) {
+            autoOpenTriggered.current = true; // Set the ref to true after triggering autoOpen
+          }
+
           return (
             <ExploreMessage
               key={message.uuid}
@@ -46,11 +52,11 @@ const MessageThread = ({ endOfMessageRef }: MessageThreadProps) => {
               modelName={currentExploreThread.modelName}
               exploreId={currentExploreThread.exploreId}
               prompt={message.summarizedPrompt}
-              autoOpen={i===1 && messages.length === 2}
+              autoOpen={shouldAutoOpen}
             />
           )
         } else if (message.type === 'summarize') {
-          return <SummaryMessage key={message.uuid} message={message}  onSummaryComplete={handleSummaryComplete}/>
+          return <SummaryMessage key={message.uuid} message={message} onSummaryComplete={handleSummaryComplete} />
         } else {
           return (
             <Message

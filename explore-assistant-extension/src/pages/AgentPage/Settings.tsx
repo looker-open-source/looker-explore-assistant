@@ -101,16 +101,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         console.error('OAuth client ID is required but not provided');
         return false;
       }
-      
+
+      // Validate existing token if present
+      const existingToken = settings['oauth2_token']?.value;
+      if (existingToken) {
+        const tokenInfo = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + existingToken);
+        if (tokenInfo.ok) {
+          console.log('Existing OAuth token is valid');
+          return true;
+        }
+      }
+
       // Skip if already authenticating
       if (isAuthenticating) {
         console.log('OAuth flow already in progress, skipping duplicate request');
         return false;
       }
-      
+
       const clientId = settings['google_oauth_client_id']?.value as string;
       console.log('Starting OAuth flow with client ID:', clientId);
-      
+
       const response = await extensionSDK.oauth2Authenticate(
         'https://accounts.google.com/o/oauth2/v2/auth',
         {
@@ -119,7 +129,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
           response_type: 'token',
         }
       );
-      
+
       const { access_token } = response;
       if (access_token) {
         dispatch(setSetting({ id: 'oauth2_token', value: access_token }));

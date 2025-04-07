@@ -23,18 +23,27 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
 
   useEffect(() => {
     const doAutoOAuth = async () => {
-      // Skip if requested, or if we already have a token, or if another OAuth flow is in progress
-      if (skipAutoAuth || OAUTH2_TOKEN || isAuthenticating || globalOAuthInProgress) {
+      // Skip if requested, or if we already have a valid token, or if another OAuth flow is in progress
+      if (skipAutoAuth || isAuthenticating || globalOAuthInProgress) {
         return
       }
-      
-      // Check if we have a client ID but no token
+
+      // Check if we have a client ID
       if (GOOGLE_CLIENT_ID) {
         try {
+          // Validate existing token if present
+          if (OAUTH2_TOKEN) {
+            const tokenInfo = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + OAUTH2_TOKEN)
+            if (tokenInfo.ok) {
+              console.log('Existing OAuth token is valid')
+              return
+            }
+          }
+
           console.log('Starting automatic OAuth flow')
           setIsAuthenticating(true)
           setGlobalOAuthInProgress(true)
-          
+
           const response = await extensionSDK.oauth2Authenticate(
             'https://accounts.google.com/o/oauth2/v2/auth',
             {
@@ -43,7 +52,7 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
               response_type: 'token',
             }
           )
-          
+
           const { access_token } = response
           if (access_token) {
             dispatch(setSetting({ id: 'oauth2_token', value: access_token }))
@@ -57,7 +66,7 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
         }
       }
     }
-    
+
     doAutoOAuth()
   }, [GOOGLE_CLIENT_ID, OAUTH2_TOKEN, extensionSDK, dispatch, skipAutoAuth, isAuthenticating, globalOAuthInProgress])
 

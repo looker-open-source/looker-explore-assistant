@@ -48,14 +48,14 @@ const ExploreApp = () => {
       </Box>
     )
   }
-
+  console.log('settings, bq,vt', !isSettingsOpen , bigQueryTestSuccessful, vertexTestSuccessful)
   return (
     <>
       <SettingsModal
         open={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />
-      {!isSettingsOpen && bigQueryTestSuccessful && vertexTestSuccessful && (
+      { bigQueryTestSuccessful && vertexTestSuccessful && (
         <Switch>
           <Route path="/index" exact>
             <AgentPage />

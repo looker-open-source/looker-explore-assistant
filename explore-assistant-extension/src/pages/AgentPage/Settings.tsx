@@ -47,6 +47,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       // Get user attribute values
       const myUserId = await core40SDK.ok(core40SDK.me());
       console.log('myUserId:', myUserId)
+
       const userAttributeValues = await core40SDK.ok(
         core40SDK.user_attribute_user_values({
           user_id: myUserId.id || '',
@@ -163,10 +164,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
-        const response = await core40SDK.ok(core40SDK.me('group_ids'))
-        if (response?.group_ids?.includes('1')) {
-          setIsAdmin(true)
-        }
+        const response = await core40SDK.ok(core40SDK.me())
+              // @ts-ignore
+      if (response.is_iam_admin) {
+        setIsAdmin(true)
+        return
+      }
       } catch (error) {
         console.error('Error checking admin status:', error)
       }

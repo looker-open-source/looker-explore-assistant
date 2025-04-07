@@ -24,7 +24,7 @@ SOFTWARE.
 
 */
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import ReactDOM from 'react-dom'
 import { App } from './App'
 import { Provider } from 'react-redux'
@@ -36,6 +36,24 @@ import { ErrorBoundary } from 'react-error-boundary'
 import Fallback from './components/Error/ErrorFallback'
 import { ComponentsProvider } from '@looker/components'
 import { AuthProvider } from './components/Auth/AuthProvider'
+import { fetchUserThreads } from './slices/assistantSlice'
+
+// Create a wrapper component to handle thread initialization
+const AppWithThreadInitialization = () => {
+  useEffect(() => {
+    // Check if user is authenticated and dispatch thread loading
+    const state = store.getState();
+    const { isAuthenticated, access_token } = state.auth;
+    const { me, history, threadsInitialized } = state.assistant;
+    
+    // Only fetch threads if authenticated and threads haven't been initialized yet
+    if (isAuthenticated && access_token && me && !threadsInitialized) {
+      store.dispatch(fetchUserThreads());
+    }
+  }, []);
+  
+  return <App />;
+}
 
 const getRoot = () => {
   const id = 'extension-root'
@@ -63,7 +81,7 @@ const render = (Component: typeof App) => {
             <AuthProvider>
               <ComponentsProvider>
                 <ErrorBoundary FallbackComponent={Fallback}>
-                  <Component />
+                  <AppWithThreadInitialization />
                 </ErrorBoundary>
               </ComponentsProvider>
             </AuthProvider>

@@ -47,7 +47,8 @@ const SummaryMessage = ({ message, uuid }: SummaryMessageProps) => {
         const updatedMessageId = await updateMessage(
           message.uuid,
           {
-          contents: response,
+            contents: response,
+            summary: response
         });
 
         // update the history with the current contents of the thread

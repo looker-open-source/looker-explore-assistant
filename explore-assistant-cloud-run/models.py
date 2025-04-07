@@ -25,8 +25,17 @@ class Thread(SQLModel, table=True):
     explore_id: Optional[str]
     model_name: Optional[str]
     explore_url: Optional[str] = Field(sa_column=Column(LONGTEXT))
-    summarized_prompt: Optional[str] = Field(sa_column=Column(LONGTEXT))
+    summarized_prompt: Optional[str] = Field(
+        description="""
+        The last user prompt summarized by LLM.
+        This is also the thread title shown on sidebar
+        Gets updated with every new prompt from user.
+        """,
+        sa_column=Column(LONGTEXT)
+        )
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    is_deleted: bool = Field(default=False)
+    
     
     # Store as LONGTEXT and handle JSON conversion manually
     prompt_list_str: Optional[str] = Field(
@@ -288,33 +297,21 @@ class UserThreadsRequest(BaseModel):
     limit: Optional[int] = Field(10, description="Maximum number of threads to return")
     offset: Optional[int] = Field(0, description="Offset for pagination")    
 
-
-class ThreadSummary(BaseModel):
-    thread_id: int
-    explore_key: str
-    created_at: datetime
-    last_message: Optional[str] = None
-    message_count: int
-
 class UserThreadsResponse(BaseModel):
-    threads: List[ThreadSummary]
+    # list of Dict instead of List[Thread] to include custom prop prompt_list
+    threads: List[Dict]
     total_count: int
-
 
 class ThreadMessagesRequest(BaseModel):
     thread_id: int = Field(..., description="Thread ID")
     limit: Optional[int] = Field(50, description="Maximum number of messages to return")
     offset: Optional[int] = Field(0, description="Offset for pagination")
 
-
-class MessageSummary(BaseModel):
-    message_id: int
-    contents: str
-    actor: Literal["user","system"]
-    timestamp: datetime
-    prompt_type: Optional[str] = None
-
 class ThreadMessagesResponse(BaseModel):
-    messages: List[MessageSummary]
+    # List of Dict instead of List[Message] to include the custom prop "parameter"
+    messages: List[Dict]
     total_count: int
 
+class ThreadDeleteRequest(BaseModel):
+    user_id: str = Field(..., description="User ID")
+    thread_ids: List[int] = Field(..., description="List of thread IDs to mark as deleted")

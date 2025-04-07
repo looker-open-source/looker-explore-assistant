@@ -9,8 +9,8 @@ import time
 from google.cloud import bigquery
 from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
 from dotenv import load_dotenv
-from typing import Dict, Any, List, Optional
-from sqlmodel import Session, select
+from typing import Dict, Any, List, Optional, Tuple, Sequence
+from sqlmodel import Session, select, func, desc, asc
 from models import User, Thread, Message, Feedback
 from database import engine
 
@@ -122,7 +122,7 @@ def retrieve_thread_history(thread_id: int) -> Dict:
             messages = session.exec(
                 select(Message)
                 .where(Message.thread_id == thread_id)
-                .order_by(Message.created_at)
+                .order_by(desc(Message.created_at))
             ).all()
             
             thread_history = []
@@ -147,6 +147,108 @@ def retrieve_thread_history(thread_id: int) -> Dict:
             return {"data": thread_history}
     except Exception as e:
         raise DatabaseError("Failed to retrieve thread history", str(e))
+
+def _get_user_threads(
+    user_id: str,
+    limit: Optional[int] = 10,
+    offset: Optional[int] = 0,
+    ) -> Tuple:
+    try:
+        with Session(engine) as session:
+            count_query = (select(func.count())
+                           .select_from(Thread)
+                           .where(Thread.user_id == user_id)
+                           .where(Thread.is_deleted == False)
+                           )
+            total_count = session.exec(count_query).one()
+            
+            
+            # Get thread summaries
+            threads_query = (
+                select(Thread)
+                .where(Thread.user_id == user_id)
+                .where(Thread.is_deleted == False)
+                .order_by(desc(Thread.created_at))
+                .offset(offset)
+                .limit(limit)
+            )    
+            thread_results = session.exec(threads_query).all()
+            # manually get prompt_list list from  prompt_list_str
+            thread_response = [
+                {
+                    **thread.model_dump(), 
+                    "prompt_list": thread.prompt_list
+                }
+                for thread in thread_results
+            ]
+            return thread_response, total_count
+    except Exception as e:
+        raise DatabaseError("Failed to retrieve user threads", str(e))
+
+
+def _get_thread_messages(
+        thread_id: int,
+        limit: Optional[int] = 50,
+        offset: Optional[int] = 0,
+        ) -> Tuple:
+    try: 
+        with Session(engine) as session:
+            count_query = select(func.count()).select_from(Message).where(Message.thread_id == thread_id)
+            total_count = session.exec(count_query).one()            
+            message_results = (
+                session.exec(
+                    select(Message)
+                    .where(Message.thread_id == thread_id)
+                    # filter only relevant messages for FE to load thread content
+                    .where(Message.prompt_type == 'chatMessage') 
+                    .limit(limit)
+                    .offset(offset)
+                    .order_by(desc(Message.created_at))
+                ).all()
+            )
+            
+            # manually get parameters from parameters_str
+            message_response = [
+                {
+                    **message.model_dump(),
+                    "parameters": message.parameters
+                }
+                for message in message_results
+            ] 
+            return message_response, total_count
+    except Exception as e:
+        raise DatabaseError("Failed to retrieve thread history", str(e))        
+        
+def soft_delete_specific_threads(user_id: str, thread_ids: List[int]) -> Dict[str, Any]:
+    """
+    Mark specific threads for a user as deleted (soft delete)
+    
+    Parameters:
+    - user_id: The ID of the user
+    - thread_ids: List of thread IDs to mark as deleted
+    
+    Returns:
+    - Dictionary with count of affected threads
+    """
+    try:
+        with Session(engine) as session:
+            # Find all specified threads for the user that aren't already deleted
+            threads = session.query(Thread).filter(
+                Thread.user_id == user_id,
+                Thread.thread_id.in_(thread_ids),
+                Thread.is_deleted == False
+            ).all()
+            
+            # Mark them as deleted
+            count = 0
+            for thread in threads:
+                thread.is_deleted = True
+                count += 1
+            
+            session.commit()
+            return {"affected_count": count, "thread_ids": thread_ids}
+    except Exception as e:
+        raise DatabaseError("Failed to soft delete threads", {str(e)})
 
 def add_message(**kwargs) -> int | None:
     try:

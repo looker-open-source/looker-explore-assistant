@@ -1,7 +1,7 @@
 import os
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, Tuple
 from fastapi import FastAPI, Request, HTTPException, Response, Depends, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -12,7 +12,8 @@ import json
 from sqlmodel import Session
 from models import (
     LoginRequest, ThreadRequest, MessageRequest, FeedbackRequest,
-    BaseResponse, ThreadHistoryResponse, SearchResponse
+    BaseResponse, SearchResponse, UserThreadsResponse, ThreadMessagesResponse,
+    ThreadMessagesRequest, UserThreadsRequest, ThreadDeleteRequest
 )
 from database import get_session
 from helper_functions import (
@@ -29,7 +30,10 @@ from helper_functions import (
     DatabaseError,
     _update_message,
     _update_thread,
-    search_thread_history
+    _get_user_threads,
+    _get_thread_messages,
+    search_thread_history,
+    soft_delete_specific_threads
 )
 
 # Configure logging
@@ -131,28 +135,30 @@ async def create_thread(
     except DatabaseError as e:
         raise HTTPException(status_code=500, detail={"error": e.args[0], "details": e.details})
 
-@app.get("/thread")
-async def thread_history(
+@app.get("/user/thread")
+async def get_user_threads(
     user_id: str,
-    thread_id: str,
+    limit: Optional[int] = 10,
+    offset: Optional[int] = 0,
     authorized: bool = Depends(validate_token),
     db: Session = Depends(get_session)
-):
+    ) -> UserThreadsResponse:
+    """
+    Get threads for a user with pagination.
+    
+    Parameters:
+    - user_id: The ID of the user
+    - limit: Maximum number of threads to return (default: 10)
+    - offset: Offset for pagination (default: 0)
+    """
     try:
-        thread_history_data = retrieve_thread_history(thread_id)
+        user_threads, total_count = _get_user_threads(user_id, limit, offset)
         
-        # Case 1: First-time user with no thread history
-        if not thread_history_data:
-            return ThreadHistoryResponse(
-                message="No thread history found for user",
-                data={"threads": []}
+        return UserThreadsResponse(
+            threads=user_threads, 
+            total_count=total_count
             )
-            
-        # Case 2: Normal case with existing history
-        return ThreadHistoryResponse(**thread_history_data)
-        
     except DatabaseError as e:
-        # Case 3: Database or server-related errors
         raise HTTPException(
             status_code=503, 
             detail={
@@ -162,7 +168,6 @@ async def thread_history(
             }
         )
     except Exception as e:
-        # Case 4: Other unexpected errors
         raise HTTPException(
             status_code=500,
             detail={
@@ -175,45 +180,26 @@ async def thread_history(
 @app.get("/thread/{thread_id}/messages")
 async def get_thread_messages(
     thread_id: int,
-    limit: int = 100,
-    offset: int = 0,
+    limit: Optional[int] = 50,
+    offset: Optional[int] = 0,
     authorized: bool = Depends(validate_token),
     db: Session = Depends(get_session)
-):
-# ) -> ThreadMessagesResponse:
+    ) -> ThreadMessagesResponse:
+    """
+    Get messages for a thread with pagination.
+    
+    Parameters:
+    - thread_id: The ID of the thread
+    - limit: Maximum number of messages to return (default: 50)
+    - offset: Offset for pagination (default: 0)
+    """
     try:
-        messages = []
-        total_count = 0
-        
-        with Session(engine) as session:
-            # Get total count
-            total_count = session.query(Message).filter(Message.thread_id == thread_id).count()
-            
-            # Get messages with pagination
-            query_results = (
-                session.query(Message)
-                .filter(Message.thread_id == thread_id)
-                .order_by(Message.timestamp)  # Chronological order
-                .offset(offset)
-                .limit(limit)
-                .all()
-            )
-            
-            # Convert to message summaries
-            for msg in query_results:
-                messages.append(MessageSummary(
-                    message_id=msg.message_id,
-                    contents=msg.contents,
-                    is_user=msg.is_user,
-                    timestamp=msg.timestamp,
-                    prompt_type=msg.prompt_type
-                ))
+        messages, total_count = _get_thread_messages(thread_id, limit, offset)
         
         return ThreadMessagesResponse(
             messages=messages,
             total_count=total_count
         )
-        
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -242,6 +228,25 @@ async def update_thread(
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/threads/delete")
+async def delete_specific_threads(
+    request: ThreadDeleteRequest,
+    authorized: bool = Depends(validate_token),
+    db: Session = Depends(get_session)
+):
+    try:
+        result = soft_delete_specific_threads(request.user_id, request.thread_ids)
+        return BaseResponse(
+            message="Threads marked as deleted successfully",
+            data=result
+        )
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to delete threads", "details": str(e)}
+        )
 
 
 @app.post("/message")

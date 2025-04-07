@@ -62,6 +62,14 @@ const toCamelCase = (input: string): string => {
 const AgentPage = () => {
   const { showBoundary } = useErrorBoundary()
   
+  useEffect(() => {
+    if (isChatMode && currentExploreThread?.messages?.length > 0 && endOfMessagesRef.current) {
+      console.log('Messages changed, scrolling to end');
+      setTimeout(() => {
+        endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+    }
+  }, [isChatMode, currentExploreThread?.messages?.length]);  
   
   useEffect(() => {
     loginUser();
@@ -401,13 +409,17 @@ const AgentPage = () => {
 
   return (
     <div className="relative page-container flex h-screen">
-      <Sidebar expanded={expanded} toggleDrawer={toggleDrawer} />
+    <Sidebar 
+      expanded={expanded} 
+      toggleDrawer={toggleDrawer} 
+      endOfMessagesRef={endOfMessagesRef}
+    />
 
-      <main
-        className={`flex-grow flex flex-col transition-all duration-300 ${
-          expanded ? 'ml-80' : 'ml-16'
-        } h-screen`}
-      >
+    <main
+      className={`flex-grow flex flex-col transition-all duration-300 ${
+        expanded ? 'ml-80' : 'ml-16'
+      } h-screen`}
+    >
         <div className="flex-grow">
           {isChatMode && (
             <div className="z-10 flex flex-row items-start text-xs fixed inset w-full h-10 pl-2 bg-gray-50 border-b border-gray-200">
@@ -488,6 +500,7 @@ const AgentPage = () => {
                     ) : (
                       <div className="pt-8">
                         <MessageThread />
+                        <div ref={endOfMessagesRef} style={{ height: '1px', marginTop: '20px' }} />
                       </div>
                     )}
                   </div>
@@ -577,7 +590,6 @@ const AgentPage = () => {
             </>
           )}
         </div>
-        <div ref={endOfMessagesRef} /> {/* Ref for the last message */}
       </main>
     </div>
   )

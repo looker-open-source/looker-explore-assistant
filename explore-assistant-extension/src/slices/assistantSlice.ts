@@ -3,239 +3,6 @@ import { v4 as uuidv4 } from 'uuid'
 import { RootState } from '../store';
 import process from 'process';
 
-// TODO JOON : ENDPOINT /chat/history :  migrate chat history from in cache to cloud run endpoint.
-
-// step 1 : create a thunk to fetch chat history from cloud run endpoint
-
-// src/slices/assistantSlice.ts
-// import { createAsyncThunk } from '@reduxjs/toolkit';
-// import { RootState } from '../store';
-
-// export const fetchChatHistory = createAsyncThunk(
-//   'assistant/fetchChatHistory',
-//   async (threadId: string, { getState }) => {
-//     const state = getState() as RootState;
-//     const access_token = state.auth.access_token;
-//     const VERTEX_CF_SECRET = process.env.VERTEX_CF_SECRET || '';
-
-//     const headers = {
-//       'Content-Type': 'application/json',
-//       'X-Signature': VERTEX_CF_SECRET,
-//       'Authorization': `Bearer ${access_token}`,
-//     };
-
-//     const response = await fetch(`http://your-flask-server-url/chat/history`, {
-//       method: 'POST',
-//       headers: headers,
-//       body: JSON.stringify({ contents: { user_id: threadId } }),
-//     });
-
-//     if (!response.ok) {
-//       throw new Error(`Failed to fetch chat history: ${response.statusText}`);
-//     }
-
-//     return await response.json();
-//   }
-// );
-
-
-// step 2 : Update Reducers to Handle the Fetched Data
-// src/slices/assistantSlice.ts
-// import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-// import { fetchChatHistory } from './path/to/thunks';
-
-// const assistantSlice = createSlice({
-//   name: 'assistant',
-//   initialState,
-//   reducers: {
-//     // existing reducers
-//   },
-//   extraReducers: (builder) => {
-//     builder.addCase(fetchChatHistory.fulfilled, (state, action) => {
-//       if (state.currentExploreThread) {
-//         state.currentExploreThread.messages = action.payload;
-//       }
-//     });
-//   },
-// });
-
-// export const { /* existing actions */ } = assistantSlice.actions;
-// export default assistantSlice.reducer;
-
-// step 3 : Dispatch Fetch Action in MessageThread.tsx
-// Ensure that the MessageThread component fetches chat history when it mounts.
-
-
-// src/pages/AgentPage/MessageThread.tsx
-// import React, { useEffect } from 'react';
-// import { useSelector, useDispatch } from 'react-redux';
-// import { RootState } from '../../store';
-// import { fetchChatHistory } from '../../slices/assistantSlice';
-// import Message from '../../components/Chat/Message';
-// import ExploreMessage from '../../components/Chat/ExploreMessage';
-// import SummaryMessage from '../../components/Chat/SummaryMessage';
-// import { CircularProgress } from '@material-ui/core';
-// import { AssistantState, ChatMessage } from '../../slices/assistantSlice';
-
-// const MessageThread = () => {
-//   const dispatch = useDispatch();
-//   const { currentExploreThread, isQuerying } = useSelector(
-//     (state: RootState) => state.assistant as AssistantState,
-//   );
-
-//   useEffect(() => {
-//     if (currentExploreThread) {
-//       dispatch(fetchChatHistory(currentExploreThread.uuid));
-//     }
-//   }, [currentExploreThread, dispatch]);
-
-//   if (currentExploreThread === null) {
-//     return <></>;
-//   }
-
-//   const messages = currentExploreThread.messages as ChatMessage[];
-
-//   return (
-//     <div className="">
-//       {messages.map((message) => {
-//         if (message.type === 'explore') {
-//           return (
-//             <ExploreMessage
-//               key={message.uuid}
-//               modelName={currentExploreThread.modelName}
-//               exploreId={currentExploreThread.exploreId}
-//               queryArgs={message.exploreUrl}
-//               prompt={message.summarizedPrompt}
-//             />
-//           );
-//         } else if (message.type === 'summarize') {
-//           return <SummaryMessage key={message.uuid} message={message} />;
-//         } else {
-//           return (
-//             <Message
-//               key={message.uuid}
-//               message={message.message}
-//               actor={message.actor}
-//               createdAt={message.createdAt}
-//             />
-//           );
-//         }
-//       })}
-//       {isQuerying && (
-//         <div className="flex flex-col text-gray-300 size-8">
-//           <CircularProgress color={'inherit'} size={'inherit'} />
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
-
-// export default MessageThread;
-
-// step 4 : update the cloud run endpoint with the history of the chat
-
-// explore-assistant-cloud-run/main.py
-// from flask import Flask, request, jsonify
-// import mysql.connector
-
-// app = Flask(__name__)
-
-// # Configure your MySQL connection
-// db_config = {
-//     'user': 'your-username',
-//     'password': 'your-password',
-//     'host': 'your-cloud-sql-instance-ip',
-//     'database': 'your-database-name'
-// }
-
-// @app.route('/chat/history', methods=['POST'])
-// def chat_history():
-//     headers = request.headers
-//     data = request.get_json()
-
-//     # Verify headers and authorization
-//     if headers.get('X-Signature') != '<VERTEX_CF_SECRET>':
-//         return jsonify({'error': 'Invalid signature'}), 401
-
-//     # Connect to MySQL
-//     conn = mysql.connector.connect(**db_config)
-//     cursor = conn.cursor(dictionary=True)
-
-//     # Example: Retrieve chat history for a user
-//     user_id = data['contents']['user_id']
-//     query = "SELECT * FROM Messages WHERE user_id = %s ORDER BY createdAt"
-//     cursor.execute(query, (user_id,))
-//     chat_history = cursor.fetchall()
-
-//     cursor.close()
-//     conn.close()
-
-//     return jsonify(chat_history)
-
-
-
-
-
-// TODO JOON : endpoint /chat to create new chat thread
-// step 1 
-// **Create a New Thunk**: This should be placed in your Redux slice file, such as `assistantSlice.ts`, where other thunks and actions are defined. 
-// This keeps all state management logic centralized.
-
-// src/slices/assistantSlice.ts
-// import { createAsyncThunk } from '@reduxjs/toolkit';
-
-// export const createChatThread = createAsyncThunk(
-//   'assistant/createChatThread',
-//   async (threadData: { userId: string, initialMessage: string }) => {
-//     const response = await fetch('http://your-server-url/chat/threads', {
-//       method: 'POST',
-//       headers: {
-//         'Content-Type': 'application/json',
-//       },
-//       body: JSON.stringify(threadData),
-//     });
-
-//     if (!response.ok) {
-//       throw new Error('Failed to create chat thread');
-//     }
-
-//     return await response.json();
-//   }
-// );
-
-
-// step 2  : 
-// Trigger Thread Creation: Identify the component where the user initiates a new chat thread. 
-// This could be a button or form submission. 
-// If this action is part of the initial app setup or a specific page, you might consider placing it in App.tsx or a dedicated component for starting new threads.
-
-// Then, Dispatch the Thunk: Use the useDispatch hook to dispatch the createChatThread thunk. 
-// This could be done in App.tsx if the thread creation is part of the app's initial setup or in a specific component where the user starts a new conversation.
-// Example in App.tsx or a relevant component:
-
-// import React from 'react';
-// import { useDispatch } from 'react-redux';
-// import { createChatThread } from './slices/assistantSlice';
-
-// const StartChatComponent = () => {
-//   const dispatch = useDispatch();
-
-//   const handleStartChat = () => {
-//     const threadData = {
-//       userId: 'user-id', // Replace with actual user ID
-//       initialMessage: 'Hello, I want to start a new chat thread.',
-//     };
-//     dispatch(createChatThread(threadData));
-//   };
-
-//   return (
-//     <button onClick={handleStartChat}>Start New Chat</button>
-//   );
-// };
-
-// export default StartChatComponent;
-
-
 // Thunk to fetch UUID from /chat endpoint
 export const fetchThreadId = createAsyncThunk(
   'assistant/fetchThreadId',
@@ -277,7 +44,7 @@ export const fetchThreadId = createAsyncThunk(
 
 export const fetchUserThreads = createAsyncThunk(
   'assistant/fetchUserThreads',
-  async (_, { getState, dispatch }) => {
+  async ({ limit = 15, offset = 0 }: { limit?: number, offset?: number } = {}, { getState, dispatch }) => {
     const state = getState() as RootState;
     const { access_token } = state.auth;
     const { me } = state.assistant;
@@ -287,18 +54,19 @@ export const fetchUserThreads = createAsyncThunk(
       throw new Error('User not authenticated');
     }
 
-    const body = JSON.stringify({
-      user_id: me.id,
-    })    
-
     try {
-      const response = await fetch(`${VERTEX_AI_ENDPOINT}/threads`, {
+      // Build URL with query parameters
+      const url = new URL(`${VERTEX_AI_ENDPOINT}/user/thread`);
+      url.searchParams.append('user_id', me.id);
+      url.searchParams.append('limit', limit.toString());
+      url.searchParams.append('offset', offset.toString());
+
+      const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${access_token}`,
         },
-        body: body,
       });
 
       if (!response.ok) {
@@ -307,24 +75,45 @@ export const fetchUserThreads = createAsyncThunk(
       }
 
       const data = await response.json();
-      const threads = data.data.threads;
+      // The response format from the backend is different from what we expect
+      // We need to map the backend fields to frontend fields
+      const threads = data.threads.map(thread => ({
+        uuid: thread.thread_id.toString(),
+        userId: thread.user_id,
+        exploreKey: thread.explore_key || '',
+        exploreId: thread.explore_id || '',
+        modelName: thread.model_name || '',
+        exploreUrl: thread.explore_url || '',
+        summarizedPrompt: thread.summarized_prompt || '',
+        promptList: thread.prompt_list || [],
+        createdAt: new Date(thread.created_at).getTime(),
+        messages: [] // Will be populated when user clicks on thread
+      }));
     
-      // After fetching threads, initiate background fetching of messages for all threads
-      threads.forEach(thread => {
-        dispatch(fetchThreadMessages(thread.uuid));
-      });
-    
-      return threads;
+      return {
+        threads,
+        totalCount: data.total_count,
+        offset,
+        limit
+      };
     } catch (error) {
       console.error('Error fetching user threads:', error);
-      throw error;
+      return []; // Return empty array on error to avoid breaking the UI
     }
   }
 );
 
 export const fetchThreadMessages = createAsyncThunk(
   'assistant/fetchThreadMessages',
-  async (threadId: string, { getState }) => {
+  async ({ 
+    threadId, 
+    limit = 2, 
+    offset = 0 
+  }: { 
+    threadId: string, 
+    limit?: number, 
+    offset?: number 
+  }, { getState }) => {
     const state = getState() as RootState;
     const { access_token } = state.auth;
     const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || '';
@@ -334,7 +123,12 @@ export const fetchThreadMessages = createAsyncThunk(
     }
 
     try {
-      const response = await fetch(`${VERTEX_AI_ENDPOINT}/thread/${threadId}/messages`, {
+      // Build URL with query parameters
+      const url = new URL(`${VERTEX_AI_ENDPOINT}/thread/${threadId}/messages`);
+      url.searchParams.append('limit', limit.toString());
+      url.searchParams.append('offset', offset.toString());
+
+      const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -348,18 +142,68 @@ export const fetchThreadMessages = createAsyncThunk(
       }
 
       const data = await response.json();
+      
+      // Map backend message format to frontend message format
+      const messages = data.messages.map(message => {
+        // Base message properties
+        const baseMessage = {
+          uuid: message.message_id.toString(),
+          createdAt: new Date(message.created_at).getTime(),
+          actor: message.actor,
+        };
+
+        // Based on message type, create the appropriate message object
+        if (message.type === 'text') {
+          return {
+            ...baseMessage,
+            message: message.message || '',
+            type: 'text',
+          } as Message;
+        } else if (message.type === 'explore') {
+          return {
+            ...baseMessage,
+            exploreUrl: message.explore_url || '',
+            summarizedPrompt: message.summarized_prompt || '',
+            type: 'explore',
+          } as ExploreMessage;
+        } else if (message.type === 'summarize') {
+          return {
+            ...baseMessage,
+            exploreUrl: message.explore_url || '',
+            summary: message.summary || '',
+            type: 'summarize',
+          } as SummarizeMesage;
+        } else {
+          // Default case for system messages without a specific type
+          return {
+            ...baseMessage,
+            message: message.contents || '',
+            type: 'text',
+          } as Message;
+        }
+      });
+
       return {
         threadId,
-        messages: data.data.messages
+        messages,
+        totalCount: data.total_count,
+        offset,
+        limit,
+        hasMore: messages.length >= limit
       };
     } catch (error) {
       console.error(`Error fetching messages for thread ${threadId}:`, error);
-      return { threadId, messages: [] };
+      return { 
+        threadId, 
+        messages: [],
+        totalCount: 0,
+        offset,
+        limit,
+        hasMore: false
+      };
     }
   }
 );
-
-
 // Add a mapping object to define the field name conversions
 const threadFieldMapping = {
   // FE field name: BE field name
@@ -441,6 +285,45 @@ export const updateCurrentThreadWithSync = createAsyncThunk(
       return data;
     } catch (error) {
       console.error('Error updating thread on backend:', error);
+      throw error;
+    }
+  }
+);
+
+export const softDeleteSpecificThreads = createAsyncThunk(
+  'assistant/softDeleteSpecificThreads',
+  async (threadIds: number[], { getState }) => {
+    const state = getState() as RootState;
+    const { access_token } = state.auth;
+    const { me } = state.assistant;
+    const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || '';
+
+    if (!me || !access_token) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const response = await fetch(`${VERTEX_AI_ENDPOINT}/threads/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`,
+        },
+        body: JSON.stringify({
+          user_id: me.id,
+          thread_ids: threadIds
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Server responded with ${response.status}: ${error}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error soft deleting threads:', error);
       throw error;
     }
   }
@@ -545,6 +428,24 @@ export interface AssistantState {
     [threadId: string]: 'idle' | 'pending' | 'fulfilled' | 'rejected'
   };
   isUpdatingThread: boolean;  
+  threadsInitialized: boolean;
+  // pagination
+  pagination: {
+    threads: {
+      limit: number;
+      offset: number;
+      hasMore: boolean;
+      totalCount: number;
+    },
+    messages: {
+      [threadId: string]: {
+        limit: number;
+        offset: number;
+        hasMore: boolean;
+        totalCount: number;
+      }
+    }
+  }
   me: any
   userLoggedInStatus: boolean
   isQuerying: boolean
@@ -628,6 +529,16 @@ export const initialState: AssistantState = {
   isLoadingThreads: false,
   messageFetchStatus: {},
   isUpdatingThread: false,
+  threadsInitialized: false,  
+  pagination: {
+    threads: {
+      limit: 15,
+      offset: 0,
+      hasMore: true,
+      totalCount: 0
+    },
+    messages: {}
+  },
   me: null,
   userLoggedInStatus: false,
   isQuerying: false,
@@ -658,9 +569,9 @@ export const initialState: AssistantState = {
     },
   },
   isBigQueryMetadataLoaded: false,
-  isSemanticModelLoaded: false
+  isSemanticModelLoaded: false,
+  isLoadingThreads: false,
 }
-
 export const assistantSlice = createSlice({
   name: 'assistant',
   initialState,
@@ -706,7 +617,7 @@ export const assistantSlice = createSlice({
     setSidePanelExploreUrl: (state, action: PayloadAction<string>) => {
       state.sidePanel.exploreUrl = action.payload
     },
-    clearHistory : (state) => {
+    clearHistory: (state) => {
       state.history = []
     },
     updateLastHistoryEntry: (state) => {
@@ -748,7 +659,7 @@ export const assistantSlice = createSlice({
         ...state.currentExploreThread,
         ...action.payload,
       }
-    }, 
+    },
     setCurrentThread: (state, action: PayloadAction<ExploreThread>) => {
       state.currentExploreThread = { ...action.payload }
     },
@@ -826,6 +737,28 @@ export const assistantSlice = createSlice({
     },
     setCurrenExplore: (state, action: PayloadAction<AssistantState['currentExplore']>) => {
       state.currentExplore = action.payload
+    },
+    // pagination
+    resetThreadPagination: (state) => {
+      state.pagination.threads = {
+        limit: 15,
+        offset: 0,
+        hasMore: true,
+        totalCount: 0
+      };
+    },
+    
+    resetMessagePagination: (state, action: PayloadAction<string>) => {
+      const threadId = action.payload;
+      state.pagination.messages[threadId] = {
+        limit: 10,
+        offset: 0,
+        hasMore: true,
+        totalCount: 0
+      };
+    }, 
+    resetThreadHasMore: (state) => {
+      state.pagination.threads.hasMore = false
     }
   },
   extraReducers: (builder) => {
@@ -841,37 +774,44 @@ export const assistantSlice = createSlice({
       state.isLoadingThreads = true;
     });
     builder.addCase(fetchUserThreads.fulfilled, (state, action) => {
+      state.history = action.payload.threads || [];
+      state.threadsInitialized = true; // Mark as initialized regardless of result
       state.isLoadingThreads = false;
+      const { threads, totalCount, offset, limit } = action.payload;
 
-      // Merge new threads with existing history, preserving messages if they exist
-      const newThreads = action.payload;
+      // Update pagination info
+      state.pagination.threads = {
+        limit,
+        offset: offset + threads.length,
+        hasMore: offset + threads.length < totalCount,
+        totalCount
+      };
 
-      // Create a map of existing threads for quick lookup
-      const existingThreadsMap = state.history.reduce((map, thread) => {
-        map[thread.uuid] = thread;
-        return map;
-      }, {} as Record<string, ExploreThread>);
+      // If this is the first page (offset=0), replace history
+      // Otherwise append to existing history
+      if (offset === 0) {
+        state.history = threads;
+      } else {
+        // Create a map of existing threads to avoid duplicates
+        const existingThreadsMap = state.history.reduce((map, thread) => {
+          map[thread.uuid] = thread;
+          return map;
+        }, {} as Record<string, ExploreThread>);
 
-      // Merge new threads with existing ones, preserving messages
-      state.history = newThreads.map(newThread => {
-        const existingThread = existingThreadsMap[newThread.uuid];
-        if (existingThread) {
-          // Keep existing messages if available
-          return {
-            ...newThread,
-            messages: existingThread.messages.length > 0 ? 
-                      existingThread.messages : 
-                      newThread.messages || []
-          };
-        }
-        return {
-          ...newThread,
-          messages: newThread.messages || []
-        };
-      });
+        // Add only new threads
+        threads.forEach(thread => {
+          if (!existingThreadsMap[thread.uuid]) {
+            state.history.push(thread);
+          }
+        });
+      }
+      
+      // Sort by creation time
+      state.history = [...state.history].sort((a, b) => b.createdAt - a.createdAt);
     });
     builder.addCase(fetchUserThreads.rejected, (state) => {
       state.isLoadingThreads = false;
+      state.threadsInitialized = true;
     });
 
     // Message fetching status tracking
@@ -881,21 +821,66 @@ export const assistantSlice = createSlice({
     });
 
     builder.addCase(fetchThreadMessages.fulfilled, (state, action) => {
-      const { threadId, messages } = action.payload;
+      const { threadId, messages, totalCount, offset, limit, hasMore } = action.payload;
       state.messageFetchStatus[threadId] = 'fulfilled';
 
-      // Update messages in history
-      const threadInHistory = state.history.find(thread => thread.uuid === threadId);
-      if (threadInHistory && messages.length > 0) {
-        threadInHistory.messages = messages;
-      }
+      // Update pagination info for this thread
+      state.pagination.messages[threadId] = {
+        limit,
+        offset: offset + messages.length,
+        hasMore,
+        totalCount
+      };
 
+      // Find the thread in history
+      const threadInHistory = state.history.find(thread => thread.uuid === threadId);
+      
+      if (threadInHistory) {
+        // If this is the first page (offset=0), replace messages
+        // Otherwise append to existing messages
+        if (offset === 0) {
+          threadInHistory.messages = messages;
+        } else {
+          // Create a map of existing messages to avoid duplicates
+          const existingMessagesMap = threadInHistory.messages.reduce((map, message) => {
+            map[message.uuid] = message;
+            return map;
+          }, {} as Record<string, ChatMessage>);
+
+          // Add only new messages
+          messages.forEach(message => {
+            if (!existingMessagesMap[message.uuid]) {
+              threadInHistory.messages.push(message);
+            }
+          });
+          // Sort by creation time
+          threadInHistory.messages = [...threadInHistory.messages].sort((a, b) => a.createdAt - b.createdAt);
+        }
+      }
       // Also update current thread if it matches
-      if (state.currentExploreThread && state.currentExploreThread.uuid === threadId && messages.length > 0) {
-        state.currentExploreThread.messages = messages;
+      if (state.currentExploreThread && state.currentExploreThread.uuid === threadId) {
+        if (offset === 0) {
+          state.currentExploreThread.messages = messages;
+        } else {
+          // Create a map of existing messages to avoid duplicates
+          const existingMessagesMap = state.currentExploreThread.messages.reduce((map, message) => {
+            map[message.uuid] = message;
+            return map;
+          }, {} as Record<string, ChatMessage>);
+
+          // Add only new messages
+          messages.forEach(message => {
+            if (!existingMessagesMap[message.uuid]) {
+              state.currentExploreThread.messages.push(message);
+            }
+          });
+          // Sort by creation time
+          state.currentExploreThread.messages = [...state.currentExploreThread.messages].sort(
+            (a, b) => a.createdAt - b.createdAt
+          );
+        }
       }
     });
-
     builder.addCase(fetchThreadMessages.rejected, (state, action) => {
       const threadId = action.meta.arg;
       state.messageFetchStatus[threadId] = 'rejected';
@@ -912,7 +897,18 @@ export const assistantSlice = createSlice({
       state.isUpdatingThread = false;
       // Optionally handle the error
       console.error('Failed to update thread on backend:', action.error);
-    });    
+    });
+    builder.addCase(softDeleteSpecificThreads.fulfilled, (state) => {
+      // Clear the history in the frontend state
+      state.history = [];
+      // Reset pagination
+      state.pagination.threads = {
+        limit: 15,
+        offset: 0,
+        hasMore: true,
+        totalCount: 0
+      };
+    });   
   },
 })
 
@@ -955,6 +951,10 @@ export const {
   setCurrenExplore,
 
   resetExploreAssistant,
+
+  resetThreadPagination,
+  resetMessagePagination,
+  resetThreadHasMore
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

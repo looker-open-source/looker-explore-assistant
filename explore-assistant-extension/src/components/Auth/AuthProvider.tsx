@@ -36,6 +36,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const dispatch = useDispatch();
   const authenticate = useOAuthAuthentication();
   const { access_token, expires_in } = useSelector((state: RootState) => state.auth);
+  const { me, history } = useSelector((state: RootState) => state.assistant);
   
 
 
@@ -55,12 +56,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             dispatch(setToken(authResult.access_token));
             dispatch(setExpiry(newExpiry));
             localStorage.setItem('lastAuthTime', Date.now().toString());
+            
+            // After successful authentication, fetch user threads if not already initialized
+            if (me && !threadsInitialized) {
+              dispatch(fetchUserThreads());
+            }
           }
         } catch (error) {
           console.error('Auth failed:', error);
         }
       }
     };
+  
   
     initializeAuth();
     // Add refresh interval
@@ -71,4 +78,3 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return <>{children}</>;
 };
-

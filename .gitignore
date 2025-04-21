@@ -13,3 +13,4 @@ node_modules
 dist
 
 explore-assistant-backend/terraform/backend.tf
+.ipynb_checkpoints

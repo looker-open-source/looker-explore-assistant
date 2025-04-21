@@ -1,4 +1,29 @@
 # Changelog
+
+
+## V4.1 (Marketplace PR)
+- Instead of using sql runner queries, the required data is modeled in LookML. This prevents the need for escalated privileges for users (ie use_sql_runner permission). 
+  - Requires the use of a Looker block or remote project import.
+- Environment variables previously built into the Frontend application are now entered in an admin menu of the UI and stored as user attributes. 
+  - The compiled .js is now portable.
+- Instead of calling a cloud function endpoint through the browser, this call is proxied through Looker. 
+  - Allows a closed network design.
+- Backend install flow available in Cloud Console (GCP Cloud Shell). 
+  - Local IDE setup is now unnecessary.
+- Cloud console flow for backend setup includes step by step instructions as well as Terraform script. 
+  - This makes installation in an existing Google Project possible.
+
+
+## V4.0 (Making it smarter)
+- Updated Readme to provide clearer instructions and troubleshooting tips
+- Simplified setup with a single shared environment file
+- Improved bash scripts for example generation
+- Added the ability to generate training prompts from trusted dashboards
+- Improved error messages (added CORS headers) to improve the setup process
+- Improved the accuracy of Explore Assistant returning the correct results by adding relevant context. Specific improvements include:
+  - Date filters: Accuracy for basic, range, and complex date filters increased significantly (details in table below).
+  - Field selection: Accuracy for selecting fields with pivots and dates has also improved.
+
 ## v3.1
 
 ### Added

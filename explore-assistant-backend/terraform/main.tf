@@ -3,7 +3,6 @@ provider "google" {
 }
 
 module "base-project-services" {
-  count                       = var.use_bigquery_backend ? 1 : 0
   source                      = "terraform-google-modules/project-factory/google//modules/project_services"
   version                     = "14.2.1"
   disable_services_on_destroy = false
@@ -12,15 +11,17 @@ module "base-project-services" {
   enable_apis = true
 
   activate_apis = [
+    "aiplatform.googleapis.com",
     "serviceusage.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
+    "artifactregistry.googleapis.com",
   ]
 }
 
 resource "time_sleep" "wait_after_basic_apis_activate" {
   depends_on      = [module.base-project-services]
-  create_duration = "120s"
+  create_duration = "300s"  // Increase wait time to 300 seconds (5 minutes)
 }
 
 module "bg-backend-project-services" {
@@ -33,7 +34,6 @@ module "bg-backend-project-services" {
   enable_apis = true
 
   activate_apis = [
-    "aiplatform.googleapis.com",
     "bigquery.googleapis.com",
   ]
 
@@ -63,14 +63,13 @@ module "cf-backend-project-services" {
   depends_on = [module.base-project-services, time_sleep.wait_after_basic_apis_activate]
 }
 
-
 resource "time_sleep" "wait_after_apis_activate" {
   depends_on      = [
     time_sleep.wait_after_basic_apis_activate, 
     module.cf-backend-project-services, 
     module.bg-backend-project-services
   ]
-  create_duration = "120s"
+  create_duration = "300s"  // Increase wait time to 300 seconds (5 minutes)
 }
 
 resource "google_bigquery_dataset" "dataset" {
@@ -79,6 +78,10 @@ resource "google_bigquery_dataset" "dataset" {
   description   = "big query dataset for examples"
   location      = var.deployment_region
   depends_on    = [time_sleep.wait_after_apis_activate]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 module "cloud_run_backend" {
@@ -87,6 +90,7 @@ module "cloud_run_backend" {
   project_id             = var.project_id
   deployment_region      = var.deployment_region
   cloud_run_service_name = var.cloud_run_service_name
+  vertex_cf_auth_token   = var.vertex_cf_auth_token
 
   depends_on = [time_sleep.wait_after_apis_activate]
 }

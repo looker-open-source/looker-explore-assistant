@@ -642,7 +642,7 @@ ${exploreRefinementExamples &&
       console.log(contents)
       const response = await sendMessage(contents, parameters)
       const responseJSON = parseJSONResponse(response)
-
+      console.log('in generateBaseExploreParams, responsejson and response:',responseJSON, response)
       return responseJSON
     },
     [currentExplore],

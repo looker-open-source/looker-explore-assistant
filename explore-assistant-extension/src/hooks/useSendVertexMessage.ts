@@ -17,17 +17,51 @@ import { ExploreFilterValidator, FieldType } from '../utils/ExploreFilterHelper'
 
 const parseJSONResponse = (jsonString: string | null | undefined) => {
   if (typeof jsonString !== 'string') {
+    console.log('parseJSONResponse: input is not a string', jsonString)
     return {}
   }
 
-  if (jsonString.startsWith('```json') && jsonString.endsWith('```')) {
-    jsonString = jsonString.slice(7, -3).trim()
+  console.log('parseJSONResponse raw input:', jsonString)
+  
+  // Handle different code block formats
+  if (jsonString.includes('```')) {
+    // Case: ```json...``` format
+    if (jsonString.includes('```json')) {
+      const match = jsonString.match(/```json\s*([\s\S]*?)\s*```/)
+      if (match && match[1]) {
+        jsonString = match[1].trim()
+      }
+    } 
+    // Case: ```...``` format (without language specifier)
+    else {
+      const match = jsonString.match(/```\s*([\s\S]*?)\s*```/)
+      if (match && match[1]) {
+        jsonString = match[1].trim()
+      }
+    }
   }
 
+  // Try to find any valid JSON object in the string
+  const possibleJsonMatch = jsonString.match(/(\{[\s\S]*\})/m)
+  if (possibleJsonMatch && possibleJsonMatch[1]) {
+    try {
+      const parsed = JSON.parse(possibleJsonMatch[1])
+      console.log('parseJSONResponse: found valid JSON object in string', parsed)
+      return typeof parsed === 'object' ? parsed : {}
+    } catch (e) {
+      // Continue to other parsing attempts
+      console.log('parseJSONResponse: couldn\'t parse matched object', e)
+    }
+  }
+
+  // Try parsing the entire string as JSON
   try {
     const parsed = JSON.parse(jsonString)
+    console.log('parseJSONResponse: successfully parsed entire string', parsed)
     return typeof parsed === 'object' ? parsed : {}
   } catch (error) {
+    console.error('parseJSONResponse: failed to parse JSON', error)
+    console.log('Attempted to parse:', jsonString)
     return {}
   }
 }
@@ -641,8 +675,35 @@ ${exploreRefinementExamples &&
       }
       console.log(contents)
       const response = await sendMessage(contents, parameters)
+      console.log('Raw response from Vertex AI:', response)
       const responseJSON = parseJSONResponse(response)
-      console.log('in generateBaseExploreParams, responsejson and response:',responseJSON, response)
+      console.log('in generateBaseExploreParams, responsejson and response:', responseJSON, response)
+      
+      // Fallback: If responseJSON is empty but we have a response string, try direct extraction
+      if (Object.keys(responseJSON).length === 0 && response) {
+        console.log('Attempting fallback JSON extraction')
+        try {
+          // Look for anything that looks like a JSON object in the response
+          const jsonMatches = response.match(/(\{[\s\S]*?\})/g)
+          if (jsonMatches && jsonMatches.length) {
+            for (const match of jsonMatches) {
+              try {
+                const possibleJSON = JSON.parse(match)
+                if (typeof possibleJSON === 'object' && possibleJSON !== null && 
+                    (possibleJSON.model || possibleJSON.fields)) {
+                  console.log('Found valid explore params using fallback', possibleJSON)
+                  return possibleJSON
+                }
+              } catch (e) {
+                // Continue to next match
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Fallback extraction failed', e)
+        }
+      }
+      
       return responseJSON
     },
     [currentExplore],

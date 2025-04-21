@@ -10,7 +10,6 @@ import {
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useBigQueryExamples } from '../../hooks/useBigQueryExamples'
 import useSendVertexMessage from '../../hooks/useSendVertexMessage'
-import styles from '../../styles.module.css'
 import InfoIcon from '@mui/icons-material/Info'
 import { useAutoOAuth } from '../../hooks/useAutoOAuth'
 

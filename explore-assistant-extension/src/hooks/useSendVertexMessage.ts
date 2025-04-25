@@ -97,7 +97,7 @@ const useSendVertexMessage = () => {
   // Only need Vertex AI direct mode settings
   const VERTEX_PROJECT = settings['vertex_project']?.value as string || ''
   const VERTEX_LOCATION = settings['vertex_location']?.value as string || 'us-central1'
-  const VERTEX_MODEL = 'gemini-2.5-flash'; // Hard-coded model
+  const VERTEX_MODEL = 'gemini-2.5-flash-preview-04-17'; // Hard-coded model
   
   // Get the OAuth token from settings
   const oauth2Token = settings['oauth2_token']?.value as string || ''

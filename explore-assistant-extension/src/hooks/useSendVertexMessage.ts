@@ -97,7 +97,7 @@ const useSendVertexMessage = () => {
   // Only need Vertex AI direct mode settings
   const VERTEX_PROJECT = settings['vertex_project']?.value as string || ''
   const VERTEX_LOCATION = settings['vertex_location']?.value as string || 'us-central1'
-  const VERTEX_MODEL = settings['vertex_model']?.value as string || 'gemini-1.5-flash'
+  const VERTEX_MODEL = 'gemini-2.5-flash'; // Hard-coded model
   
   // Get the OAuth token from settings
   const oauth2Token = settings['oauth2_token']?.value as string || ''
@@ -632,11 +632,8 @@ ${exploreRefinementExamples &&
   }
 
   const generateBaseExploreParams = useCallback(
-    async (
-      prompt: string,
-      sharedContext,
-    ) => {
-      const currentDateTime = new Date().toISOString()
+    async (prompt: string, sharedContext) => {
+      const currentDateTime = new Date().toISOString();
 
       const contents = `
       ${sharedContext}
@@ -668,46 +665,46 @@ ${exploreRefinementExamples &&
       ----------
       ${prompt}
       
-      `
+      `;
 
       const parameters = {
         max_output_tokens: 1000,
-      }
-      console.log(contents)
-      const response = await sendMessage(contents, parameters)
-      console.log('Raw response from Vertex AI:', response)
-      const responseJSON = parseJSONResponse(response)
-      console.log('in generateBaseExploreParams, responsejson and response:', responseJSON, response)
-      
-      // Fallback: If responseJSON is empty but we have a response string, try direct extraction
-      if (Object.keys(responseJSON).length === 0 && response) {
-        console.log('Attempting fallback JSON extraction')
-        try {
-          // Look for anything that looks like a JSON object in the response
-          const jsonMatches = response.match(/(\{[\s\S]*?\})/g)
-          if (jsonMatches && jsonMatches.length) {
+      };
+
+      try {
+        const response = await sendMessage(contents, parameters);
+        console.log('Raw response from Vertex AI:', response);
+
+        // Attempt to parse the response as JSON
+        let responseJSON = parseJSONResponse(response);
+
+        // Fallback: If responseJSON is empty but we have a response string, try direct extraction
+        if (Object.keys(responseJSON).length === 0 && response) {
+          console.log('Attempting fallback JSON extraction');
+          const jsonMatches = response.match(/(\{[\s\S]*?\})/g);
+          if (jsonMatches) {
             for (const match of jsonMatches) {
               try {
-                const possibleJSON = JSON.parse(match)
-                if (typeof possibleJSON === 'object' && possibleJSON !== null && 
-                    (possibleJSON.model || possibleJSON.fields)) {
-                  console.log('Found valid explore params using fallback', possibleJSON)
-                  return possibleJSON
+                const possibleJSON = JSON.parse(match);
+                if (typeof possibleJSON === 'object' && possibleJSON !== null) {
+                  console.log('Found valid explore params using fallback', possibleJSON);
+                  return possibleJSON;
                 }
               } catch (e) {
                 // Continue to next match
               }
             }
           }
-        } catch (e) {
-          console.error('Fallback extraction failed', e)
         }
+
+        return responseJSON;
+      } catch (error) {
+        console.error('Error in generateBaseExploreParams:', error);
+        return {};
       }
-      
-      return responseJSON
     },
     [currentExplore],
-  )
+  );
 
   const generateExploreParams = useCallback(
     async (
@@ -721,24 +718,12 @@ ${exploreRefinementExamples &&
         return
       }
       const sharedContext = generateSharedContext(dimensions, measures, exploreGenerationExamples) || ''
-      const filterResponseJSON = await generateFilterParams(prompt, sharedContext, dimensions, measures)
       const responseJSON = await generateBaseExploreParams(prompt, sharedContext)
 
-      responseJSON['filters'] = filterResponseJSON
-
-      // get the visualizations
-      // const visualizationResponseJSON = await generateVisualizationParams(
-      //   responseJSON,
-      //   prompt,
-      // )
-
-      // console.log(visualizationResponseJSON)
-
-      // responseJSON['vis_config'] = visualizationResponseJSON
-
+      // Directly return the responseJSON as the final response
       return responseJSON
     },
-    [settings],
+    [currentExplore],
   )
 
   const sendMessage = async (message: string, parameters: ModelParameters) => {

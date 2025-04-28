@@ -48,6 +48,15 @@ export const useBigQueryExamples = () => {
         console.error('Error running query:', error.message)
         return []
       }
+
+      // Detect OAuth-related errors and surface a user-friendly message
+      if (error.message && error.message.includes('OAuth')) {
+        showBoundary(new Error(
+          'It seems you are not logged into OAuth for the BigQuery connection. Please go to the "Accounts" page in Looker by clicking the User icon in the upper left corner of the website. After logging in to all connections, return to this application or refresh the page.'
+        ))
+        return []
+      }
+
       showBoundary(error)
       throw new Error('error')
     }

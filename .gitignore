@@ -14,3 +14,6 @@ looker.ini
 
 
 explore-assistant-backend/terraform/backend.tf
+__pycache__
+cache
+local_env.sh

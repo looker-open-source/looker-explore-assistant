@@ -130,6 +130,7 @@ export interface AssistantState {
   testsSuccessful: boolean
   bigQueryTestSuccessful: boolean
   vertexTestSuccessful: boolean
+  showConnectionBanner: boolean,
 }
 
 export const newThreadState = () => {
@@ -216,6 +217,7 @@ export const initialState: AssistantState = {
   testsSuccessful: false,
   bigQueryTestSuccessful: false,
   vertexTestSuccessful: false,
+  showConnectionBanner: true,
 }
 
 export const assistantSlice = createSlice({
@@ -373,6 +375,9 @@ export const assistantSlice = createSlice({
       state.vertexTestSuccessful = action.payload
       state.testsSuccessful = state.bigQueryTestSuccessful && state.vertexTestSuccessful
     },
+    setShowConnectionBanner: (state, action: PayloadAction<boolean>) => {
+      state.showConnectionBanner = action.payload
+    },
   },
 })
 
@@ -413,6 +418,7 @@ export const {
   resetExploreAssistant,
   setBigQueryTestSuccessful,
   setVertexTestSuccessful,
+  setShowConnectionBanner,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

@@ -9,6 +9,7 @@ import useSendVertexMessage from './hooks/useSendVertexMessage'
 import { useAutoOAuth } from './hooks/useAutoOAuth'
 import AgentPage from './pages/AgentPage'
 import SettingsModal from './pages/AgentPage/Settings'
+import ConnectionBanner from './components/Banner/ConnectionBanner'  // Import the new banner
 import { Box, CircularProgress, Typography } from '@material-ui/core'
 
 const ExploreApp = () => {
@@ -61,6 +62,10 @@ const ExploreApp = () => {
     )
   }
   console.log('settings, bq,vt', !isSettingsOpen , bigQueryTestSuccessful, vertexTestSuccessful)
+
+  // Check if banner was previously dismissed
+  const bannerInitialState = localStorage.getItem('connectionBannerDismissed') !== 'true'
+
   return (
     <>
       <SettingsModal
@@ -68,14 +73,17 @@ const ExploreApp = () => {
         onClose={() => setIsSettingsOpen(false)}
       />
       { bigQueryTestSuccessful && vertexTestSuccessful && (
-        <Switch>
-          <Route path="/index" exact>
-            <AgentPage />
-          </Route>
-          <Route>
-            <Redirect to="/index" />
-          </Route>
-        </Switch>
+        <>
+          <ConnectionBanner initialVisible={bannerInitialState} />
+          <Switch>
+            <Route path="/index" exact>
+              <AgentPage />
+            </Route>
+            <Route>
+              <Redirect to="/index" />
+            </Route>
+          </Switch>
+        </>
       )}
     </>
   )

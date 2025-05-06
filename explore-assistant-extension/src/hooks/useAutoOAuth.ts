@@ -31,12 +31,18 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
       // Check if we have a client ID
       if (GOOGLE_CLIENT_ID) {
         try {
-          // Validate existing token if present
+          // First check if we have a token
           if (OAUTH2_TOKEN) {
-            const tokenInfo = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + OAUTH2_TOKEN)
-            if (tokenInfo.ok) {
-              console.log('Existing OAuth token is valid')
-              return
+            try {
+              // Validate existing token
+              const tokenInfo = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${OAUTH2_TOKEN}`)
+              if (tokenInfo.ok) {
+                console.log('Existing OAuth token is valid')
+                return // Don't open OAuth window if token is valid
+              }
+              console.log('Existing token is invalid, will refresh')
+            } catch (tokenError) {
+              console.log('Error validating token, will refresh:', tokenError)
             }
           }
 

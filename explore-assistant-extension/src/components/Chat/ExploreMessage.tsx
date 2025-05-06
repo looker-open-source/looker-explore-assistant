@@ -1,7 +1,6 @@
-import React from 'react'
+import React, { useContext } from 'react'
 
 import Message from './Message'
-import { useContext } from 'react'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useDispatch } from 'react-redux'
 
@@ -19,9 +18,21 @@ interface ExploreMessageProps {
   prompt: string
   exploreParams: ExploreParams
   autoOpen: boolean
+  emojis?: string[]
+  fields?: string[]
+  isLoading?: boolean
 }
 
-const ExploreMessage = ({ modelName, exploreId, prompt, exploreParams, autoOpen }: ExploreMessageProps) => {
+export default function ExploreMessage({
+  modelName,
+  exploreId,
+  prompt,
+  exploreParams,
+  autoOpen, // You can keep this prop for backward compatibility
+  emojis,
+  fields,
+  isLoading,
+}: ExploreMessageProps) {
   const dispatch = useDispatch()
   const { extensionSDK } = useContext(ExtensionContext)
 
@@ -35,11 +46,6 @@ const ExploreMessage = ({ modelName, exploreId, prompt, exploreParams, autoOpen 
     dispatch(openSidePanel())
   }
 
-  if (autoOpen) {
-    setTimeout(() => {
-      openExplore()
-    }, 100)
-  }
   return (
     <>
       <Message actor="system" createdAt={Date.now()}>
@@ -65,5 +71,3 @@ const ExploreMessage = ({ modelName, exploreId, prompt, exploreParams, autoOpen 
     </>
   )
 }
-
-export default ExploreMessage

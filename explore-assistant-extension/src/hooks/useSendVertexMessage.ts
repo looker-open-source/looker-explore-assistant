@@ -119,7 +119,7 @@ const useSendVertexMessage = () => {
       // Define default parameters
       const defaultParameters = {
         temperature: 0.2,
-        maxOutputTokens: 500,
+        maxOutputTokens: 2000,
         topP: 0.8,
         topK: 40
       };
@@ -365,7 +365,7 @@ ${exploreRefinementExamples &&
           fields: exploreParams.fields || [],
           filters: filters,
           sorts: exploreParams.sorts || [],
-          limit: exploreParams.limit || '1000',
+          limit: exploreParams.limit || '3000',
         }),
       )
 
@@ -674,7 +674,7 @@ ${exploreRefinementExamples &&
       `;
 
       const parameters = {
-        max_output_tokens: 1000,
+        max_output_tokens: 6000,
       };
 
       try {

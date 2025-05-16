@@ -63,8 +63,8 @@ const ExploreApp = () => {
   }
   console.log('settings, bq,vt', !isSettingsOpen , bigQueryTestSuccessful, vertexTestSuccessful)
 
-  // Check if banner was previously dismissed
-  const bannerInitialState = localStorage.getItem('connectionBannerDismissed') !== 'true'
+  // Always show banner initially since we're not using localStorage anymore
+  const bannerInitialState = true
 
   return (
     <>

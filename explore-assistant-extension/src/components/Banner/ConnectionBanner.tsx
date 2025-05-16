@@ -13,8 +13,7 @@ const ConnectionBanner: React.FC<ConnectionBannerProps> = ({ initialVisible = tr
   
   const handleDismiss = () => {
     setShowBanner(false)
-    // Optional: save the dismissal to localStorage to persist across sessions
-    localStorage.setItem('connectionBannerDismissed', 'true')
+    // No longer using localStorage for compatibility with Looker's environment
   }
   
   return (

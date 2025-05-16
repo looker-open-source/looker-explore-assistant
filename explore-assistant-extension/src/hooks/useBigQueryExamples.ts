@@ -7,12 +7,25 @@ import {
   setisBigQueryMetadataLoaded,
   setCurrenExplore,
   AssistantState,
-  setBigQueryTestSuccessful
+  setBigQueryTestSuccessful,
+  setExploreEntries
 } from '../slices/assistantSlice'
 
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useErrorBoundary } from 'react-error-boundary'
 import { RootState } from '../store'
+
+// Define interfaces for better type safety
+interface ExploreExample {
+  input: string;
+  output: string;
+}
+
+interface GenerationExamples {
+  examples: Record<string, ExploreExample[]>;
+  refinement_examples: Record<string, any>;
+  samples: Record<string, any>;
+}
 
 export const useBigQueryExamples = () => {
   const dispatch = useDispatch()
@@ -34,7 +47,7 @@ export const useBigQueryExamples = () => {
           body: {
             model: modelName || "explore_assistant",
             view: "explore_assistant_examples",
-            fields: [`explore_assistant_examples.explore_id`, `explore_assistant_examples.examples`, `explore_assistant_refinement_examples.examples`, `explore_assistant_samples.samples`],
+            fields: [`explore_assistant_examples.explore_id`, `explore_assistant_examples.input`, `explore_assistant_examples.output`, `explore_assistant_refinement_examples.examples`, `explore_assistant_samples.samples`],
           }
         })
       )
@@ -52,7 +65,7 @@ export const useBigQueryExamples = () => {
       // Detect OAuth-related errors and surface a user-friendly message
       if (error.message && error.message.includes('OAuth')) {
         showBoundary(new Error(
-          'It seems you are not logged into OAuth for the BigQuery connection. Please go to the "Accounts" page in Looker by clicking the User icon in the upper left corner of the website. After logging in to all connections, return to this application or refresh the page.'
+          'It seems you are not logged into OAuth for the BigQuery connection. Please go to the "Accounts" page in Looker by clicking the User icon in the upper right corner of the website. Select Account. After logging in to all connections, return to this application or refresh the page.'
         ))
         return []
       }
@@ -77,38 +90,65 @@ export const useBigQueryExamples = () => {
         return
       }
       
+      // Store the raw response for later filtering
+      dispatch(setExploreEntries(response))
+      
+      // We'll still process the data as before to maintain backward compatibility
       const generationExamples = {
         examples: {},
         refinement_examples: {},
         samples: {}
       };
       
-      // More robust parsing with error handling
+      // Group examples by explore_id
+      const exploreExamples = {};
+      
+      // First pass: group all examples by explore ID and collect refinement examples and samples
       response.forEach((row: any) => {
         try {
-          const exploreId = row['explore_assistant_examples.explore_id']
-          console.log(`Processing row for explore: ${exploreId}`)
+          const exploreId = row['explore_assistant_examples.explore_id'];
+          console.log(`Processing row for explore: ${exploreId}`);
           
           if (!exploreId) {
-            console.error('Missing explore_id in response row', row)
-            return
+            console.error('Missing explore_id in response row', row);
+            return;
           }
           
-          // Safer JSON parsing with fallbacks
-          generationExamples.examples[exploreId] = 
-            safeJsonParse(row['explore_assistant_examples.examples'], [], 'examples')
+          // Initialize the examples structure for this explore_id if it doesn't exist
+          if (!exploreExamples[exploreId]) {
+            exploreExamples[exploreId] = [];
+          }
           
-          generationExamples.refinement_examples[exploreId] = 
-            safeJsonParse(row['explore_assistant_refinement_examples.examples'], [], 'refinement_examples')
+          // Add the individual input/output example
+          const input = row['explore_assistant_examples.input'];
+          const output = row['explore_assistant_examples.output'];
           
-          generationExamples.samples[exploreId] = 
-            safeJsonParse(row['explore_assistant_samples.samples'], [], 'samples')
+          if (input && output) {
+            exploreExamples[exploreId].push({
+              input: input,
+              output: output
+            });
+          }
+          
+          // Only process refinement examples and samples once per explore_id
+          if (!generationExamples.refinement_examples[exploreId]) {
+            generationExamples.refinement_examples[exploreId] = 
+              safeJsonParse(row['explore_assistant_refinement_examples.examples'], [], 'refinement_examples');
+          }
+          
+          if (!generationExamples.samples[exploreId]) {
+            generationExamples.samples[exploreId] = 
+              safeJsonParse(row['explore_assistant_samples.samples'], [], 'samples');
+          }
         } catch (err) {
-          console.error('Error processing row:', err, row)
+          console.error('Error processing row:', err, row);
         }
-      })
+      });
       
-      console.log('Processed generationExamples:', generationExamples)
+      // Assign processed examples to the final structure
+      generationExamples.examples = exploreExamples;
+      
+      console.log('Processed generationExamples:', generationExamples);
       
       // Check if we have any examples
       const hasExamples = Object.keys(generationExamples.examples).length > 0

@@ -22,24 +22,13 @@ const ConnectionBanner: React.FC<ConnectionBannerProps> = ({ initialVisible = tr
       bgcolor="#EEF7FF" 
       p={1} 
       display="flex" 
-      alignItems="center" 
-      justifyContent="space-around"
+      alignItems="right" 
+      justifyContent="right"
       borderBottom="1px solid #DDECF9"
     >
       <Box display="flex" alignItems="center" style={{ marginLeft: '16px' }}>
         <Typography variant="body2">
-          Error retrieving data? Open the Profile icon <img 
-            src="https://gravatar.lookercdn.com/avatar/25600dffca61be7195af08d332e8d22d?s=156&d=blank" 
-            alt="Profile Icon" 
-            style={{ 
-              height: '16px', 
-              width: '16px', 
-              borderRadius: '50%', 
-              display: 'inline-block',
-              verticalAlign: 'middle',
-              margin: '0 4px'
-            }} 
-          /> and select Accounts to log in to your data connections.
+          Errors? Open the Profile icon in the upper right corner, select Account and Log In to your connections.
         </Typography>
       </Box>
       <Box 

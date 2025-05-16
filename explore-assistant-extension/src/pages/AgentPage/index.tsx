@@ -14,6 +14,7 @@ import {
   AssistantState,
   closeSidePanel,
   openSidePanel,
+  resetChat,
   setCurrenExplore,
   setIsQuerying,
   setQuery,
@@ -52,7 +53,7 @@ const AgentPage = () => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
   const [expanded, setExpanded] = useState(false)
-  const { generateExploreParams, isSummarizationPrompt, summarizePrompts } =
+  const { generateExploreParams, isSummarizationPrompt, summarizePrompts, determineExplore } =
     useSendVertexMessage()
 
   const {
@@ -92,6 +93,9 @@ const AgentPage = () => {
 
     dispatch(setIsQuerying(true))
 
+    // Check if this is a new conversation
+    const isNewConversation = !currentExploreThread || currentExploreThread.messages.length === 0;
+    
     // update the prompt list
     let promptList = [query]
     if (currentExploreThread && currentExploreThread.promptList) {
@@ -104,24 +108,7 @@ const AgentPage = () => {
       }),
     )
 
-    const exploreKey =
-      currentExploreThread?.exploreKey || currentExplore.exploreKey
-
-    // set the explore if it is not set
-    if (!currentExploreThread?.modelName || !currentExploreThread?.exploreId) {
-      dispatch(
-        updateCurrentThread({
-          exploreId: currentExplore.exploreId,
-          modelName: currentExplore.modelName,
-          exploreKey: currentExplore.exploreKey,
-        }),
-      )
-    }
-
-    console.log('Prompt List: ', promptList)
-    console.log(currentExploreThread)
-    console.log(currentExplore)
-
+    // Add user's message to the thread immediately
     dispatch(
       addMessage({
         uuid: uuidv4(),
@@ -131,6 +118,95 @@ const AgentPage = () => {
         type: 'text',
       }),
     )
+    
+    // Add appropriate loading message
+    const loadingMessageId = uuidv4();
+    if (isNewConversation) {
+      // For new conversations, show we're determining the best data model
+      dispatch(
+        addMessage({
+          uuid: loadingMessageId,
+          message: "Analyzing your question to find the best data model...",
+          actor: 'system',
+          createdAt: Date.now(),
+          type: 'text',
+        }),
+      )
+    } else {
+      // For ongoing conversations, add a simple "thinking" message
+      dispatch(
+        addMessage({
+          uuid: loadingMessageId,
+          message: "Thinking...",
+          actor: 'system',
+          createdAt: Date.now(),
+          type: 'text',
+        }),
+      )
+    }
+
+    // Dynamically determine the best explore for this prompt if it's a new conversation
+    let exploreKey = currentExplore.exploreKey;
+    
+    if (isNewConversation) {
+      console.log('New conversation - determining best explore for:', query);
+      const suggestedExploreKey = await determineExplore(query);
+      
+      if (suggestedExploreKey) {
+        console.log('AI suggested explore:', suggestedExploreKey);
+        exploreKey = suggestedExploreKey;
+        
+        // Update the current explore in the Redux store
+        const [modelName, exploreId] = exploreKey.split(':');
+        dispatch(
+          setCurrenExplore({
+            modelName,
+            exploreId,
+            exploreKey,
+          })
+        );
+        
+        // Replace the loading message with information about the selected data model
+        dispatch(
+          addMessage({
+            uuid: loadingMessageId, // Reuse the same UUID to replace the message
+            message: `I'm using the "${exploreId}" data model to answer your question.`,
+            actor: 'system',
+            createdAt: Date.now(),
+            type: 'text',
+          }),
+        );
+      } else {
+        // Fallback to current explore if determination fails
+        exploreKey = currentExplore.exploreKey;
+        console.log('Falling back to current explore:', exploreKey);
+        
+        // Update the loading message to reflect we're continuing with the current explore
+        const [, exploreId] = exploreKey.split(':');
+        dispatch(
+          addMessage({
+            uuid: loadingMessageId, // Reuse the same UUID to replace the message
+            message: `Using the "${exploreId}" data model for this conversation.`,
+            actor: 'system',
+            createdAt: Date.now(),
+            type: 'text',
+          }),
+        );
+      }
+    }
+
+    // set the explore in the current thread
+    dispatch(
+      updateCurrentThread({
+        exploreId: exploreKey.split(':')[1],
+        modelName: exploreKey.split(':')[0],
+        exploreKey: exploreKey,
+      }),
+    )
+
+    console.log('Prompt List: ', promptList)
+    console.log(currentExploreThread)
+    console.log(currentExplore)
 
     const [promptSummary, isSummary] = await Promise.all([
       summarizePrompts(promptList),
@@ -146,12 +222,26 @@ const AgentPage = () => {
     const exploreGenerationExamples =
       examples.exploreGenerationExamples[exploreKey]
 
+    // Remove the temporary loading message
+    if (currentExploreThread) {
+      // Create a copy of the messages array without the loading message
+      const updatedMessages = currentExploreThread.messages.filter(
+        msg => msg.uuid !== loadingMessageId
+      );
+      
+      // Update the thread with the filtered messages
+      dispatch(
+        updateCurrentThread({
+          messages: updatedMessages,
+        }),
+      );
+    }
+
     const newExploreParams = await generateExploreParams(
       promptSummary,
       dimensions,
       measures,
-      exploreGenerationExamples
-      
+      exploreKey // Now we pass the exploreKey directly instead of the pre-processed examples
     )
     console.log('New Explore URL: ', newExploreParams)
     dispatch(setIsQuerying(false))
@@ -216,6 +306,8 @@ const AgentPage = () => {
   const handleExploreChange = (event: SelectChangeEvent) => {
     const exploreKey = event.target.value
     const [modelName, exploreId] = exploreKey.split(':')
+    
+    // Update the current explore in Redux
     dispatch(
       setCurrenExplore({
         modelName,
@@ -223,6 +315,23 @@ const AgentPage = () => {
         exploreKey,
       }),
     )
+    
+    // Reset chat when switching explores
+    if (currentExploreThread && currentExploreThread.messages.length > 0) {
+      // Start a new thread for the new explore
+      dispatch(resetChat());
+      
+      // Add a message to inform the user that the explore has changed
+      dispatch(
+        addMessage({
+          uuid: uuidv4(),
+          message: `Using the data model "${exploreId}" for this conversation.`,
+          actor: 'system',
+          createdAt: Date.now(),
+          type: 'text',
+        }),
+      );
+    }
   }
 
   const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded
@@ -376,27 +485,11 @@ const AgentPage = () => {
               </div>
 
               <div className="flex flex-col max-w-3xl m-auto mt-16">
-                {explores.length > 1 && (
-                  <div className="text-md border-b-2 p-2 max-w-3xl">
-                    <FormControl className="">
-                      <InputLabel>Explore</InputLabel>
-                      <Select
-                        value={currentExplore.exploreKey}
-                        label="Explore"
-                        onChange={handleExploreChange}
-                      >
-                        {explores.map((oneExplore) => (
-                          <MenuItem
-                            key={oneExplore.exploreKey}
-                            value={oneExplore.exploreKey}
-                          >
-                            {toCamelCase(oneExplore.exploreId)}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </div>
-                )}
+                <div className="text-md p-2 max-w-3xl">
+                  <p className="text-gray-500 mb-4">
+                    Just start asking questions about your data. I'll automatically select the most relevant data model for you.
+                  </p>
+                </div>
                 <SamplePrompts />
               </div>
 

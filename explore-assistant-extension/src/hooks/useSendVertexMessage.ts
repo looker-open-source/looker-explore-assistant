@@ -87,7 +87,7 @@ const useSendVertexMessage = () => {
 
   const { core40SDK, extensionSDK, lookerHostData } = useContext(ExtensionContext)
 
-  const { settings, examples, currentExplore } = useSelector(
+  const { settings, examples, currentExplore, semanticModels } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
   
@@ -225,6 +225,22 @@ ${exploreRefinementExamples &&
     
     ${prompt}
     `
+  }
+  
+  // Helper function for safe JSON parsing
+  const safeJsonParse = (jsonString: string | null | undefined, defaultValue: any, fieldName: string) => {
+    if (!jsonString) {
+      console.warn(`Empty ${fieldName} value`)
+      return defaultValue
+    }
+    
+    try {
+      return JSON.parse(jsonString)
+    } catch (err) {
+      console.error(`Error parsing ${fieldName} JSON:`, err)
+      console.log('Raw string:', jsonString)
+      return defaultValue
+    }
   }
 
   const generateSharedContext = (dimensions: any[], measures: any[], exploreGenerationExamples: any[]) => {
@@ -701,19 +717,24 @@ ${exploreRefinementExamples &&
       prompt: string,
       dimensions: any[],
       measures: any[],
-      exploreGenerationExamples: any[],
+      exploreKey: string,
     ) => {
       if (!dimensions.length || !measures.length) {
         showBoundary(new Error('Dimensions or measures are not defined'))
         return
       }
+      
+      // Get examples for this explore key using our getExamplesForExplore helper
+      const exploreData = getExamplesForExplore(exploreKey);
+      const exploreGenerationExamples = exploreData.examples || [];
+      
       const sharedContext = generateSharedContext(dimensions, measures, exploreGenerationExamples) || ''
       const responseJSON = await generateBaseExploreParams(prompt, sharedContext)
 
       // Directly return the responseJSON as the final response
       return responseJSON
     },
-    [currentExplore],
+    [currentExplore, getExamplesForExplore],
   )
 
   const sendMessage = async (message: string, parameters: ModelParameters) => {
@@ -771,6 +792,155 @@ ${exploreRefinementExamples &&
     }
   }
 
+  // New function to get examples for a specific explore directly from raw explore entries
+  const getExamplesForExplore = useCallback(
+    (exploreKey: string) => {
+      const entries = examples.exploreEntries || [];
+      
+      // Filter the raw entries to get examples for the specific explore
+      const filteredExamples = entries
+        .filter(entry => entry['explore_assistant_examples.explore_id'] === exploreKey)
+        .map(entry => ({
+          input: entry['explore_assistant_examples.input'],
+          output: entry['explore_assistant_examples.output']
+        }))
+        .filter(ex => ex.input && ex.output);
+      
+      // Get refinement examples from the first matching entry
+      const refinementEntry = entries.find(entry => 
+        entry['explore_assistant_examples.explore_id'] === exploreKey && 
+        entry['explore_assistant_refinement_examples.examples']
+      );
+      
+      const refinementExamples = refinementEntry ? 
+        safeJsonParse(refinementEntry['explore_assistant_refinement_examples.examples'], [], 'refinement_examples') : 
+        [];
+      
+      // Similarly get samples
+      const samplesEntry = entries.find(entry => 
+        entry['explore_assistant_examples.explore_id'] === exploreKey && 
+        entry['explore_assistant_samples.samples']
+      );
+      
+      const samples = samplesEntry ? 
+        safeJsonParse(samplesEntry['explore_assistant_samples.samples'], [], 'samples') : 
+        [];
+      
+      return {
+        examples: filteredExamples,
+        refinementExamples,
+        samples
+      };
+    },
+    [examples.exploreEntries]
+  );
+
+  // New function to determine the best explore for a given prompt
+  const determineExplore = async (prompt: string) => {
+    try {
+      console.log('Determining best explore for prompt:', prompt);
+      
+      // Get unique explore_ids from the raw entries
+      const uniqueExploreIds = [...new Set(
+        (examples.exploreEntries || [])
+          .map(entry => entry['explore_assistant_examples.explore_id'])
+          .filter(Boolean)
+      )];
+      
+      const availableExplores = uniqueExploreIds;
+      
+      if (!availableExplores.length) {
+        console.error('No available explores found');
+        return null;
+      }
+      
+      // Build context for the LLM with examples and semantic models
+      const exploreContext = availableExplores.map(exploreKey => {
+        const [modelName, exploreId] = exploreKey.split(':');
+        
+        // Get examples for this explore using our new function
+        const exploreData = getExamplesForExplore(exploreKey);
+        const exploreExamples = exploreData.examples || [];
+        
+        const exploreDimensions = semanticModels[exploreKey]?.dimensions || [];
+        const exploreMeasures = semanticModels[exploreKey]?.measures || [];
+        
+        // Format examples
+        const formattedExamples = exploreExamples.slice(0, 3).map(ex => 
+          `"${ex.input}"`
+        ).join(', ');
+        
+        // Format a sample of field names
+        const fieldSample = [
+          ...exploreDimensions.slice(0, 5).map(d => d.name),
+          ...exploreMeasures.slice(0, 5).map(m => m.name)
+        ].join(', ');
+        
+        return `Explore: ${exploreKey}
+Model: ${modelName}
+View: ${exploreId}
+Example queries: ${formattedExamples}
+Sample fields: ${fieldSample}`;
+      }).join('\n\n');
+      
+      // Create prompt for VertexAI
+      const contents = `
+# Task
+Determine the most appropriate Looker explore to use for the following user question.
+
+# User Question
+${prompt}
+
+# Available Explores
+${exploreContext}
+
+# Instructions
+1. Analyze the user question and determine which explore would be best suited to answer it
+2. Look for similarity between the user question and the example queries for each explore
+3. Check if the sample fields for each explore match concepts in the user question
+4. Return only the explore key (in the format "model:view") of the best match, with no additional text
+`;
+
+      // Call VertexAI to determine the best explore
+      const response = await sendMessage(contents, {
+        temperature: 0.1, // Low temperature for more deterministic output
+        max_output_tokens: 100 // Short response needed
+      });
+      
+      // Try to extract a clean explore key from the response
+      const cleanResponse = response.trim();
+      
+      // Check if response is directly one of the available explores
+      if (availableExplores.includes(cleanResponse)) {
+        console.log(`Explore directly matched: ${cleanResponse}`);
+        return cleanResponse;
+      }
+      
+      // Look for an explore key in the response
+      for (const exploreKey of availableExplores) {
+        if (cleanResponse.includes(exploreKey)) {
+          console.log(`Explore found in response: ${exploreKey}`);
+          return exploreKey;
+        }
+      }
+      
+      // If no direct match, try to interpret as model:view format
+      if (cleanResponse.includes(':')) {
+        console.log(`Possible explore key format found: ${cleanResponse}`);
+        // Check if this explore key exists
+        if (availableExplores.includes(cleanResponse)) {
+          return cleanResponse;
+        }
+      }
+      
+      console.log('No matching explore found, using first available:', availableExplores[0]);
+      return availableExplores[0]; // Default to first explore if no match
+    } catch (error) {
+      console.error('Error determining explore:', error);
+      return null;
+    }
+  };
+
   return {
     generateExploreParams,
     generateBaseExploreParams,
@@ -781,6 +951,7 @@ ${exploreRefinementExamples &&
     isSummarizationPrompt,
     summarizeExplore,
     testVertexSettings,
+    determineExplore,
   }
 }
 

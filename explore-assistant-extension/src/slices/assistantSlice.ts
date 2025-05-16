@@ -120,6 +120,7 @@ export interface AssistantState {
   }
   query: string
   examples: {
+    exploreEntries: any[],
     exploreGenerationExamples: ExploreExamples
     exploreRefinementExamples: RefinementExamples
     exploreSamples: ExploreSamples
@@ -165,6 +166,7 @@ export const initialState: AssistantState = {
   query: '',
   semanticModels: {},
   examples: {
+    exploreEntries: [],
     exploreGenerationExamples: {},
     exploreRefinementExamples: {},
     exploreSamples: {},
@@ -355,6 +357,12 @@ export const assistantSlice = createSlice({
     ) {
       state.examples.exploreSamples = action.payload
     },
+    setExploreEntries(
+      state,
+      action: PayloadAction<any[]>,
+    ) {
+      state.examples.exploreEntries = action.payload
+    },
     setisBigQueryMetadataLoaded: (
       state, 
       action: PayloadAction<boolean>
@@ -398,6 +406,7 @@ export const {
   setExploreGenerationExamples,
   setExploreRefinementExamples,
   setExploreSamples,
+  setExploreEntries,
   
   setisBigQueryMetadataLoaded,
 

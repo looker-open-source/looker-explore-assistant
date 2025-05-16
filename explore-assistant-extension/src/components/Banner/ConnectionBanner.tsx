@@ -42,7 +42,16 @@ const ConnectionBanner: React.FC<ConnectionBannerProps> = ({ initialVisible = tr
           /> and select Accounts to log in to your data connections.
         </Typography>
       </Box>
- 
+      <Box 
+        display="flex" 
+        alignItems="center" 
+        mr={1} 
+        color="#1A73E8"
+      >
+        <IconButton size="small" onClick={handleDismiss}>
+          <Close fontSize="small" />
+        </IconButton>
+      </Box>
     </Box>
   )
 }

@@ -23,36 +23,26 @@ const ConnectionBanner: React.FC<ConnectionBannerProps> = ({ initialVisible = tr
       p={1} 
       display="flex" 
       alignItems="center" 
-      justifyContent="space-between"
+      justifyContent="space-around"
       borderBottom="1px solid #DDECF9"
     >
-      <Typography variant="body2" style={{ marginLeft: '16px' }}>
-        Error retrieving data? Open the Profile icon and select Accounts to log in to your data connections
-      </Typography>
-      <Box display="flex" alignItems="center">
-        <Box 
-          display="flex" 
-          alignItems="center" 
-          mr={1} 
-          color="#1A73E8"
-        >
-          {/* Arrow pointing to upper right corner */}
-          <div style={{ 
-            borderRight: '2px solid currentColor', 
-            borderTop: '2px solid currentColor', 
-            width: '10px', 
-            height: '10px', 
-            transform: 'rotate(45deg)',
-            marginRight: '5px'
-          }}></div>
-          <Typography variant="caption" color="primary">
-            Upper right
-          </Typography>
-        </Box>
-        <IconButton size="small" onClick={handleDismiss}>
-          <Close fontSize="small" />
-        </IconButton>
+      <Box display="flex" alignItems="center" style={{ marginLeft: '16px' }}>
+        <Typography variant="body2">
+          Error retrieving data? Open the Profile icon <img 
+            src="https://gravatar.lookercdn.com/avatar/25600dffca61be7195af08d332e8d22d?s=156&d=blank" 
+            alt="Profile Icon" 
+            style={{ 
+              height: '16px', 
+              width: '16px', 
+              borderRadius: '50%', 
+              display: 'inline-block',
+              verticalAlign: 'middle',
+              margin: '0 4px'
+            }} 
+          /> and select Accounts to log in to your data connections.
+        </Typography>
       </Box>
+ 
     </Box>
   )
 }

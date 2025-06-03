@@ -196,7 +196,7 @@ export const initialState: AssistantState = {
     bigquery_example_looker_model_name: {
       name: 'BigQuery Example Looker Model Name',
       description: 'The model name for the lookml model that has access to the examples and samples',
-      value: 'explore_assistant',
+      value: 'extension_apps',
     },
     vertex_project: {
       name: 'Vertex AI Project ID',
@@ -206,12 +206,12 @@ export const initialState: AssistantState = {
     vertex_location: {
       name: 'Vertex AI Location',
       description: 'Location for Vertex AI API (e.g., us-central1)',
-      value: 'us-central1',
+      value: 'us-west1',
     },
     vertex_model: {
       name: 'Vertex AI Model',
-      description: 'Vertex AI model to use (e.g., gemini-1.5-flash)',
-      value: 'gemini-1.5-flash',
+      description: 'Vertex AI model to use (e.g., gemini-2.0-flash)',
+      value: 'gemini-2.0-flash',
     }
   },
   isBigQueryMetadataLoaded: false,

@@ -1,25 +1,30 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { useContext } from 'react'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { RootState, store } from '../store'
-import { AssistantState, setSetting } from '../slices/assistantSlice'
+import { 
+  AssistantState, 
+  setSetting,
+  setOAuthAuthenticating,
+  setOAuthValidationInProgress,
+  setOAuthLastValidation,
+  setOAuthError,
+  setOAuthHasValidToken
+} from '../slices/assistantSlice'
 
 // Debug configuration
 const TOKEN_DEBUG = true
 const AUTH_WINDOW_DEBUG = true // Specifically for debugging the auth window appearing
 
-export const useAutoOAuth = (skipAutoAuth = false) => {
-  const [isAuthenticating, setIsAuthenticating] = useState(false)
+export const useAutoOAuth = (skipAutoAuthParam = false) => {
   const { extensionSDK } = useContext(ExtensionContext)
   const dispatch = useDispatch()
   
-  // Track last successful token validation to prevent unnecessary checks
-  const lastSuccessfulValidation = useRef<number>(0)
-  const validationInProgress = useRef<boolean>(false)
+  // Track mount time for debugging
   const mountTime = useRef<number>(Date.now())
   
-  const { settings } = useSelector(
+  const { settings, oauth } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
 
@@ -27,21 +32,30 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
   const OAUTH2_TOKEN = settings['oauth2_token']?.value as string || ''
   const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/cloud-platform'
 
-  // Track if oauth flow is in progress globally to prevent duplicates
-  const [globalOAuthInProgress, setGlobalOAuthInProgress] = useState(false)
+  // Use Redux state instead of local state
+  const {
+    isAuthenticating,
+    lastValidation,
+    validationInProgress,
+    skipAutoAuth,
+    hasValidToken,
+    error
+  } = oauth
 
   useEffect(() => {
     const doAutoOAuth = async () => {
       if (TOKEN_DEBUG) {
         console.log('===== OAuth Debug Info =====')
-        console.log('Skip Auth Flag:', skipAutoAuth)
+        console.log('Skip Auth Flag (param):', skipAutoAuthParam)
+        console.log('Skip Auth Flag (Redux):', skipAutoAuth)
         console.log('isAuthenticating State:', isAuthenticating)
-        console.log('globalOAuthInProgress:', globalOAuthInProgress)
         console.log('Component mount time:', new Date(mountTime.current).toISOString())
         console.log('Current time:', new Date().toISOString())
         console.log('Time since mount (ms):', Date.now() - mountTime.current)
-        console.log('Last successful validation (ms ago):', lastSuccessfulValidation.current ? Date.now() - lastSuccessfulValidation.current : 'never')
-        console.log('Token validation in progress:', validationInProgress.current)
+        console.log('Last successful validation (ms ago):', lastValidation ? Date.now() - lastValidation : 'never')
+        console.log('Token validation in progress:', validationInProgress)
+        console.log('Has Valid Token:', hasValidToken)
+        console.log('OAuth Error:', error)
         console.log('Has Client ID:', !!GOOGLE_CLIENT_ID)
         console.log('Has Token:', !!OAUTH2_TOKEN)
         console.log('Token length (if exists):', OAUTH2_TOKEN ? OAUTH2_TOKEN.length : 0)
@@ -49,8 +63,8 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
         
         if (AUTH_WINDOW_DEBUG) {
           console.log('===== Auth Window Debug =====')
-          console.log('Time since last validation:', lastSuccessfulValidation.current ? 
-            `${(Date.now() - lastSuccessfulValidation.current) / 1000} seconds ago` : 'never validated')
+          console.log('Time since last validation:', lastValidation ? 
+            `${(Date.now() - lastValidation) / 1000} seconds ago` : 'never validated')
         }
         
         // Check browser storage to see if token might be stored elsewhere
@@ -93,22 +107,22 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
       }
 
       // Skip if requested, or if we already have a valid token, or if another OAuth flow is in progress
-      if (skipAutoAuth || isAuthenticating || globalOAuthInProgress) {
+      if (skipAutoAuthParam || skipAutoAuth || isAuthenticating) {
         TOKEN_DEBUG && console.log('Skipping OAuth flow due to flags')
         return
       }
       
       // Check if we recently validated the token (in the last 5 minutes)
       const VALIDATION_CACHE_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
-      if (lastSuccessfulValidation.current > 0 && 
-          (Date.now() - lastSuccessfulValidation.current) < VALIDATION_CACHE_TIME) {
+      if (lastValidation > 0 && 
+          (Date.now() - lastValidation) < VALIDATION_CACHE_TIME) {
         TOKEN_DEBUG && console.log('Using cached token validation from', 
-          (Date.now() - lastSuccessfulValidation.current) / 1000, 'seconds ago')
+          (Date.now() - lastValidation) / 1000, 'seconds ago')
         return
       }
       
       // If another validation is in progress, skip starting a new one
-      if (validationInProgress.current) {
+      if (validationInProgress) {
         TOKEN_DEBUG && console.log('Token validation already in progress, skipping')
         return
       }
@@ -116,12 +130,15 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
       // Check if we have a client ID
       if (GOOGLE_CLIENT_ID) {
         try {
+          // Clear any previous error
+          dispatch(setOAuthError(null))
+          
           // First check if we have a token
           if (OAUTH2_TOKEN) {
             try {
               TOKEN_DEBUG && console.log('Validating existing token...')
               // Mark validation as in progress
-              validationInProgress.current = true
+              dispatch(setOAuthValidationInProgress(true))
               
               // Validate existing token
               const tokenInfo = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${OAUTH2_TOKEN}`)
@@ -140,34 +157,40 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
                 
                 if (hasRequiredScopes) {
                   // Update last successful validation timestamp
-                  lastSuccessfulValidation.current = Date.now()
-                  validationInProgress.current = false
+                  dispatch(setOAuthLastValidation(Date.now()))
+                  dispatch(setOAuthValidationInProgress(false))
+                  dispatch(setOAuthHasValidToken(true))
                   
                   TOKEN_DEBUG && console.log('Using existing valid token with required scopes')
                   return // Don't open OAuth window if token is valid with required scopes
                 } else {
                   TOKEN_DEBUG && console.log('Token is valid but missing required scopes')
+                  dispatch(setOAuthHasValidToken(false))
                 }
               } else {
                 const errorBody = await tokenInfo.text()
                 TOKEN_DEBUG && console.log('Token validation error details:', errorBody)
                 console.log('Existing token is invalid, will refresh')
+                dispatch(setOAuthHasValidToken(false))
               }
             } catch (tokenError) {
               console.log('Error validating token, will refresh:', tokenError)
+              dispatch(setOAuthHasValidToken(false))
             } finally {
-              validationInProgress.current = false
+              dispatch(setOAuthValidationInProgress(false))
             }
           } else {
             TOKEN_DEBUG && console.log('No token found in settings, starting OAuth flow')
+            dispatch(setOAuthHasValidToken(false))
           }
 
           console.log('Starting automatic OAuth flow')
-          setIsAuthenticating(true)
-          setGlobalOAuthInProgress(true)
+          dispatch(setOAuthAuthenticating(true))
 
           TOKEN_DEBUG && console.log('Calling extensionSDK.oauth2Authenticate')
-          const response = await extensionSDK.oauth2Authenticate(
+          
+          // Add timeout for OAuth process
+          const oauthPromise = extensionSDK.oauth2Authenticate(
             'https://accounts.google.com/o/oauth2/v2/auth',
             {
               client_id: GOOGLE_CLIENT_ID,
@@ -175,6 +198,12 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
               response_type: 'token',
             }
           )
+
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('OAuth timeout after 30 seconds')), 30000)
+          })
+
+          const response = await Promise.race([oauthPromise, timeoutPromise]) as any
 
           TOKEN_DEBUG && console.log('OAuth authentication completed, response received')
           const { access_token } = response
@@ -184,7 +213,8 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
             console.log('OAuth token automatically obtained')
             
             // Set as successful validation
-            lastSuccessfulValidation.current = Date.now()
+            dispatch(setOAuthLastValidation(Date.now()))
+            dispatch(setOAuthHasValidToken(true))
             
             if (TOKEN_DEBUG) {
               // Check if the token was actually saved
@@ -198,12 +228,20 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
             }
           } else {
             TOKEN_DEBUG && console.log('No access token received from OAuth flow')
+            throw new Error('No access token received from OAuth flow')
           }
         } catch (error) {
           console.error('Automatic OAuth authentication failed:', error)
+          TOKEN_DEBUG && console.log('OAuth error details:', error)
+          
+          // Set error state
+          dispatch(setOAuthError(error instanceof Error ? error.message : 'OAuth authentication failed'))
+          dispatch(setOAuthHasValidToken(false))
+          
+          // Don't retry immediately on failure to avoid infinite loops
+          dispatch(setOAuthLastValidation(Date.now() - (4 * 60 * 1000))) // Set to 4 minutes ago to allow retry in 1 minute
         } finally {
-          setIsAuthenticating(false)
-          setGlobalOAuthInProgress(false)
+          dispatch(setOAuthAuthenticating(false))
         }
       } else {
         TOKEN_DEBUG && console.log('No Google Client ID configured, skipping OAuth')
@@ -217,11 +255,16 @@ export const useAutoOAuth = (skipAutoAuth = false) => {
       if (TOKEN_DEBUG) {
         console.log('===== useAutoOAuth unmounting =====')
         console.log('Component was mounted for:', (Date.now() - mountTime.current) / 1000, 'seconds')
-        console.log('Last successful validation was:', lastSuccessfulValidation.current ? 
-          new Date(lastSuccessfulValidation.current).toISOString() : 'never')
+        console.log('Last successful validation was:', lastValidation ? 
+          new Date(lastValidation).toISOString() : 'never')
       }
     }
-  }, [GOOGLE_CLIENT_ID, OAUTH2_TOKEN, extensionSDK, dispatch, skipAutoAuth, isAuthenticating, globalOAuthInProgress])
+  }, [GOOGLE_CLIENT_ID, OAUTH2_TOKEN, extensionSDK, dispatch, skipAutoAuthParam, oauth])
 
-  return { isAuthenticating }
+  return { 
+    isAuthenticating,
+    hasValidToken,
+    error,
+    validationInProgress
+  }
 }

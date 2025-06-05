@@ -132,6 +132,18 @@ export interface AssistantState {
   bigQueryTestSuccessful: boolean
   vertexTestSuccessful: boolean
   showConnectionBanner: boolean,
+  // User attribute loading state
+  userAttributesLoaded: boolean,
+  initialTestsCompleted: boolean,
+  // Initialize OAuth state
+  oauth: {
+    isAuthenticating: boolean
+    lastValidation: number
+    validationInProgress: boolean
+    error: string | null
+    skipAutoAuth: boolean
+    hasValidToken: boolean
+  }
 }
 
 export const newThreadState = () => {
@@ -220,6 +232,18 @@ export const initialState: AssistantState = {
   bigQueryTestSuccessful: false,
   vertexTestSuccessful: false,
   showConnectionBanner: true,
+  // User attribute loading state
+  userAttributesLoaded: false,
+  initialTestsCompleted: false,
+  // Initialize OAuth state
+  oauth: {
+    isAuthenticating: false,
+    lastValidation: 0,
+    validationInProgress: false,
+    error: null,
+    skipAutoAuth: false,
+    hasValidToken: false
+  }
 }
 
 export const assistantSlice = createSlice({
@@ -386,6 +410,35 @@ export const assistantSlice = createSlice({
     setShowConnectionBanner: (state, action: PayloadAction<boolean>) => {
       state.showConnectionBanner = action.payload
     },
+    // User attribute loading actions
+    setUserAttributesLoaded: (state, action: PayloadAction<boolean>) => {
+      state.userAttributesLoaded = action.payload
+    },
+    setInitialTestsCompleted: (state, action: PayloadAction<boolean>) => {
+      state.initialTestsCompleted = action.payload
+    },
+    // OAuth state management actions
+    setOAuthAuthenticating: (state, action: PayloadAction<boolean>) => {
+      state.oauth.isAuthenticating = action.payload
+    },
+    setOAuthValidationInProgress: (state, action: PayloadAction<boolean>) => {
+      state.oauth.validationInProgress = action.payload
+    },
+    setOAuthLastValidation: (state, action: PayloadAction<number>) => {
+      state.oauth.lastValidation = action.payload
+    },
+    setOAuthError: (state, action: PayloadAction<string | null>) => {
+      state.oauth.error = action.payload
+    },
+    setOAuthSkipAutoAuth: (state, action: PayloadAction<boolean>) => {
+      state.oauth.skipAutoAuth = action.payload
+    },
+    setOAuthHasValidToken: (state, action: PayloadAction<boolean>) => {
+      state.oauth.hasValidToken = action.payload
+    },
+    resetOAuthState: (state) => {
+      state.oauth = initialState.oauth
+    },
   },
 })
 
@@ -428,6 +481,19 @@ export const {
   setBigQueryTestSuccessful,
   setVertexTestSuccessful,
   setShowConnectionBanner,
+
+  // User attribute loading actions
+  setUserAttributesLoaded,
+  setInitialTestsCompleted,
+
+  // OAuth state management actions
+  setOAuthAuthenticating,
+  setOAuthValidationInProgress,
+  setOAuthLastValidation,
+  setOAuthError,
+  setOAuthSkipAutoAuth,
+  setOAuthHasValidToken,
+  resetOAuthState,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

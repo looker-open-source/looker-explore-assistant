@@ -15,18 +15,6 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useErrorBoundary } from 'react-error-boundary'
 import { RootState } from '../store'
 
-// Define interfaces for better type safety
-interface ExploreExample {
-  input: string;
-  output: string;
-}
-
-interface GenerationExamples {
-  examples: Record<string, ExploreExample[]>;
-  refinement_examples: Record<string, any>;
-  samples: Record<string, any>;
-}
-
 export const useBigQueryExamples = () => {
   const dispatch = useDispatch()
   const { showBoundary } = useErrorBoundary()
@@ -56,7 +44,7 @@ export const useBigQueryExamples = () => {
         return []
       }
       return query
-    } catch (error) {
+    } catch (error: any) {
       if (error.name === 'LookerSDKError' || error.message === 'Model Not Found') {
         console.error('Error running query:', error.message)
         return []
@@ -64,12 +52,13 @@ export const useBigQueryExamples = () => {
 
       // Detect OAuth-related errors and surface a user-friendly message
       if (error.message && error.message.includes('OAuth')) {
-        showBoundary(new Error(
-          'It seems you are not logged into OAuth for the BigQuery connection. Please go to the "Accounts" page in Looker by clicking the User icon in the upper right corner of the website. Select Account. After logging in to all connections, return to this application or refresh the page.'
-        ))
+        console.error('OAuth error detected in BigQuery connection:', error.message)
+        // Don't use showBoundary for OAuth errors - let the app handle gracefully
+        dispatch(setBigQueryTestSuccessful(false))
         return []
       }
 
+      console.error('Unexpected error in BigQuery query:', error)
       showBoundary(error)
       throw new Error('error')
     }
@@ -94,14 +83,18 @@ export const useBigQueryExamples = () => {
       dispatch(setExploreEntries(response))
       
       // We'll still process the data as before to maintain backward compatibility
-      const generationExamples = {
+      const generationExamples: {
+        examples: Record<string, any[]>;
+        refinement_examples: Record<string, any>;
+        samples: Record<string, any>;
+      } = {
         examples: {},
         refinement_examples: {},
         samples: {}
       };
       
       // Group examples by explore_id
-      const exploreExamples = {};
+      const exploreExamples: Record<string, any[]> = {};
       
       // First pass: group all examples by explore ID and collect refinement examples and samples
       response.forEach((row: any) => {
@@ -166,7 +159,7 @@ export const useBigQueryExamples = () => {
       // Set the current explore
       if (response[0] && response[0]['explore_assistant_examples.explore_id']) {
         const exploreKey = response[0]['explore_assistant_examples.explore_id']
-        const [modelName, exploreId] = exploreKey.split(':')
+        const [modelName, exploreId] = String(exploreKey).split(':')
         
         dispatch(setCurrenExplore({
           exploreKey,
@@ -227,16 +220,6 @@ export const useBigQueryExamples = () => {
 
   // get the example prompts provide completion status
   useEffect(() => {
-    const currentModelSetting = settings?.bigquery_example_looker_model_name?.value as string;
-    
-    // console.log('useBigQueryExamples useEffect triggered:', {
-    //   currentModelNameSetting: currentModelSetting,
-    //   modelNameInHook: modelName,
-    //   lastModelNameUsed: lastModelName.current,
-    //   hasFetched: hasFetched.current,
-    //   isBigQueryMetadataLoaded
-    // })
-
     // Check if model name changed since last fetch
     const modelNameChanged = lastModelName.current !== null && 
                              lastModelName.current !== modelName;
@@ -248,7 +231,7 @@ export const useBigQueryExamples = () => {
     }
 
     // Update last model name reference
-    lastModelName.current = modelName;
+    lastModelName.current = modelName || null;
     
     // Debounce to prevent multiple rapid state changes
     let activeRequest = true

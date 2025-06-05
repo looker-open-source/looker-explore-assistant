@@ -6,6 +6,8 @@ import {
   setSetting,
   AssistantState,
   resetExploreAssistant,
+  setOAuthError,
+  setOAuthAuthenticating,
 } from '../../slices/assistantSlice'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useBigQueryExamples } from '../../hooks/useBigQueryExamples'
@@ -40,10 +42,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const GOOGLE_CLIENT_ID = settings['google_oauth_client_id']?.value as string || '';
   const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/cloud-platform'
   
-  // Load user attribute values
-  const loadUserAttributeValues = async () => {
+  // Load user attribute metadata (for saving purposes)
+  const loadUserAttributeMetadata = async () => {
     try {
-      // Get user attribute values
+      // Get user attribute values (only for metadata like IDs)
       const myUserId = await core40SDK.ok(core40SDK.me());
       console.log('myUserId:', myUserId)
 
@@ -55,42 +57,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         })
       );
       
-      console.log('userAttributeValues:', userAttributeValues);
+      console.log('userAttributeValues for metadata:', userAttributeValues.length);
 
-      // Map user attribute values to their corresponding settings
-      userAttributeValues.forEach((attr: any) => {
-        if (attr.name && attr.name.toLowerCase().startsWith(`${model_application}_`)) {
-          // Use case-insensitive matching for attribute names
-          const settingKey = attr.name.toLowerCase().replace(`${model_application}_`, '');
-          const value = attr.value;
-          
-          // Only persist specific settings
-          if (
-            (settingKey === 'vertex_project' || 
-             settingKey === 'vertex_location' || 
-             settingKey === 'vertex_model' ||
-             settingKey === 'google_oauth_client_id' ||
-             settingKey === 'bigquery_example_looker_model_name') && 
-            value && 
-            settings[settingKey]
-          ) {
-            dispatch(setSetting({ id: settingKey, value }));
-            console.log(`Loaded setting from user attributes: ${settingKey}`);
-          }
-        }
-      });
+      // Only store metadata for saving, don't update settings (they're loaded globally)
       setUserAttributes(userAttributeValues.map((attr: any) => ({ 
         id: attr.user_attribute_id, 
         name: attr.name.toLowerCase(), // Ensure name is stored lowercase
         value: attr.value 
       }))) 
     } catch (error) {
-      console.error('Error loading user attribute values:', error);
+      console.error('Error loading user attribute metadata:', error);
     }
   };
 
   // Use our hook but don't trigger auto-authentication here
-  const { isAuthenticating } = useAutoOAuth()
+  const { isAuthenticating, hasValidToken, error: oauthHookError } = useAutoOAuth()
 
   // OAuth authentication - Now as a function that can be called on demand
   const doOAuth = async () => {
@@ -120,6 +101,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       const clientId = settings['google_oauth_client_id']?.value as string;
       console.log('Starting OAuth flow with client ID:', clientId);
 
+      // Clear any previous error and set authenticating state
+      dispatch(setOAuthError(null));
+      dispatch(setOAuthAuthenticating(true));
+
       const response = await extensionSDK.oauth2Authenticate(
         'https://accounts.google.com/o/oauth2/v2/auth',
         {
@@ -135,26 +120,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         console.log('OAuth token obtained successfully');
         return true;
       }
+      console.error('No access token received from OAuth flow');
+      dispatch(setOAuthError('Failed to receive access token from OAuth flow'));
       return false;
     } catch (error) {
       console.error('OAuth2 authentication failed:', error);
+      dispatch(setOAuthError(`OAuth authentication failed: ${error.message || 'Unknown error'}`));
       return false;
+    } finally {
+      dispatch(setOAuthAuthenticating(false));
     }
   }
 
   // No longer automatically running OAuth on component mount
 
-  // Load user attributes and their values when the modal opens
+  // Load user attribute metadata once when component mounts (for saving functionality)
   useEffect(() => {
-    const fetchUserAttributes = async () => {
+    const fetchUserAttributeMetadata = async () => {
       try {
-        loadUserAttributeValues();
+        await loadUserAttributeMetadata();
       } catch (error) {
-        console.error('Error fetching user attributes:', error)
+        console.error('Error fetching user attribute metadata:', error)
       }
     }
-    fetchUserAttributes()
-  }, [core40SDK, open]);
+    
+    if (core40SDK && model_application) {
+      fetchUserAttributeMetadata()
+    }
+  }, [core40SDK, model_application]);
 
   // Run tests when settings are opened
   useEffect(() => {
@@ -173,14 +166,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
-        const response = await core40SDK.ok(core40SDK.me())
-              // @ts-ignore
-      if (response.is_iam_admin) {
-        setIsAdmin(true)
-        return
-      }
+        const response: any = await core40SDK.ok(core40SDK.me())
+        
+        let adminStatus = false
+        
+        // Primary check: use is_iam_admin if it exists
+        if (typeof response.is_iam_admin === 'boolean') {
+          adminStatus = response.is_iam_admin
+          console.log('Admin status determined by is_iam_admin:', adminStatus)
+        } 
+        // Fallback check: look for role ID 2 (as number or string) in role_ids array
+        else if (Array.isArray(response.role_ids) && 
+                 (response.role_ids.includes('2') || response.role_ids.includes(2))) {
+          adminStatus = true
+          console.log('Admin status determined by role_ids containing 2:', response.role_ids)
+        }
+        else {
+          console.warn('Unable to determine admin status - neither is_iam_admin nor role_ids found')
+          console.log('Available user properties:', Object.keys(response))
+        }
+        
+        setIsAdmin(adminStatus)
       } catch (error) {
         console.error('Error checking admin status:', error)
+        setIsAdmin(false) // Default to false on error
       }
     }
     checkAdminStatus()
@@ -287,41 +296,84 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       open={open}
       onClose={onClose}
       aria-labelledby="settings-modal-title"
-      className={styles.modalContainer}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
-      <Box className={styles.modalBox}>
-        <span className="bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-violet-500">
+      <Box
+        sx={{
+          width: '90%',
+          maxWidth: 600,
+          maxHeight: '90vh',
+          bgcolor: 'background.paper',
+          border: '2px solid #000',
+          borderRadius: 2,
+          boxShadow: 24,
+          p: 4,
+          overflow: 'auto'
+        }}
+      >
+        <Typography variant="h4" component="h2" gutterBottom sx={{
+          background: 'linear-gradient(45deg, #ec4899 30%, #8b5cf6 90%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          textAlign: 'center'
+        }}>
           Settings
-        </span>
-        <ul className={styles.modalContent}>
+        </Typography>
+
+        {(oauthHookError) && (
+          <Box sx={{ mb: 2, p: 2, bgcolor: '#ffebee', border: '1px solid #f44336', borderRadius: 1 }}>
+            <Typography variant="body2" color="error">
+              {oauthHookError}
+            </Typography>
+          </Box>
+        )}
+
+        <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
           {relevantSettings.map(([id, setting]) => (
-            <li key={id} className={styles.settingItem}>
-              <div>
-                <IconButton
-                  onClick={() => handleExpandClick(id)}
-                  aria-expanded={expandedSetting === id}
-                  aria-label="show more"
-                >
-                  {setting.name} <div className='infoIcon'><InfoIcon /></div>
-                </IconButton>
+            <Box component="li" key={id} sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <IconButton
+                    onClick={() => handleExpandClick(id)}
+                    aria-expanded={expandedSetting === id}
+                    aria-label="show more"
+                    size="small"
+                  >
+                    <InfoIcon />
+                  </IconButton>
+                  <Typography variant="subtitle1" sx={{ ml: 1 }}>
+                    {setting.name}
+                  </Typography>
+                </Box>
+
                 {id === 'google_oauth_client_id' ? (
-                  <div className={styles.clientIdContainer}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <input
                       type="text"
                       value={String(setting.value)}
                       onChange={(e) => handleSaveSetting(id, e.target.value)}
-                      className={styles.inputField}
+                      style={{
+                        padding: '8px 12px',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        minWidth: '200px'
+                      }}
+                      placeholder="Enter Google OAuth Client ID"
                     />
                     <Button 
                       onClick={doOAuth} 
                       variant="contained" 
                       size="small"
-                      disabled={!setting.value}
-                      className={styles.authButton}
+                      disabled={!setting.value || isAuthenticating}
                     >
-                      Authenticate
+                      {isAuthenticating ? 'Authenticating...' : 'Authenticate'}
                     </Button>
-                  </div>
+                  </Box>
                 ) : typeof setting.value === 'boolean' ? (
                   <Switch
                     edge="end"
@@ -334,31 +386,64 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
                     type="text"
                     value={String(setting.value)}
                     onChange={(e) => handleSaveSetting(id, e.target.value)}
-                    className={styles.inputField}
+                    style={{
+                      padding: '8px 12px',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      minWidth: '200px'
+                    }}
                   />
                 )}
-              </div>
-              <div className={`${styles.collapsibleContent} ${expandedSetting === id ? styles.show : ''}`}>
-                <Typography variant="body2">
-                  {setting.description}
-                </Typography>
-              </div>
-            </li>
+              </Box>
+
+              {expandedSetting === id && (
+                <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                  <Typography variant="body2">
+                    {setting.description}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
           ))}
-        </ul>
-        <div className={styles.modalContent}>
-          <Typography variant="body2">
-            OAuth Status: {settings['oauth2_token']?.value ? <span className={styles.passed}>Authenticated</span> : <span className={styles.failed}>Not Authenticated</span>}
+        </Box>
+
+        <Box sx={{ mt: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            OAuth Status: {settings['oauth2_token']?.value ? 
+              <Box component="span" sx={{ color: '#4caf50', fontWeight: 'bold' }}>✅ Authenticated</Box> : 
+              <Box component="span" sx={{ color: '#f44336', fontWeight: 'bold' }}>❌ Not Authenticated</Box>
+            }
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            BigQuery Examples Test: {bigQueryTestResult === null ? 'Testing...' : bigQueryTestResult ? 
+              <Box component="span" sx={{ color: '#4caf50', fontWeight: 'bold' }}>✅ Passed</Box> : 
+              <Box component="span" sx={{ color: '#f44336', fontWeight: 'bold' }}>❌ Failed</Box>
+            }
           </Typography>
           <Typography variant="body2">
-            BigQuery Examples Test: {bigQueryTestResult === null ? 'Testing...' : bigQueryTestResult ? <span className={styles.passed}>Passed</span> : <span className={styles.failed}>Failed</span>}
+            Vertex AI Test: {vertexTestResult === null ? 'Testing...' : vertexTestResult ? 
+              <Box component="span" sx={{ color: '#4caf50', fontWeight: 'bold' }}>✅ Passed</Box> : 
+              <Box component="span" sx={{ color: '#f44336', fontWeight: 'bold' }}>❌ Failed</Box>
+            }
           </Typography>
-          <Typography variant="body2">
-            Vertex AI Test: {vertexTestResult === null ? 'Testing...' : vertexTestResult ? <span className={styles.passed}>Passed</span> : <span className={styles.failed}>Failed</span>}
-          </Typography>
-        </div>
-        <button onClick={handleTestAndSave} className={styles.button}>Test</button>
-        <button onClick={handleReset} className={`${styles.button} ${styles.resetButton}`}>Reset All Settings</button>
+        </Box>
+
+        <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center' }}>
+          <Button 
+            onClick={handleTestAndSave} 
+            variant="contained" 
+            color="primary"
+          >
+            Test & Save
+          </Button>
+          <Button 
+            onClick={handleReset} 
+            variant="outlined" 
+            color="secondary"
+          >
+            Reset All Settings
+          </Button>
+        </Box>
       </Box>
     </Modal>
   )

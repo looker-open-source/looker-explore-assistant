@@ -7,17 +7,19 @@ import { useLookerFields } from './hooks/useLookerFields'
 import { useBigQueryExamples } from './hooks/useBigQueryExamples'
 import useSendVertexMessage from './hooks/useSendVertexMessage'
 import { useAutoOAuth } from './hooks/useAutoOAuth'
+import { useUserAttributes } from './hooks/useUserAttributes'
+import { setInitialTestsCompleted } from './slices/assistantSlice'
 import AgentPage from './pages/AgentPage'
 import SettingsModal from './pages/AgentPage/Settings'
 import ConnectionBanner from './components/Banner/ConnectionBanner'  // Import the new banner
-import { Box, CircularProgress, Typography } from '@material-ui/core'
+import { Box, CircularProgress, Typography, Button } from '@material-ui/core'
 
 // Debug flag for OAuth flow
 const AUTH_DEBUG = true
 
 const ExploreApp = () => {
   const dispatch = useDispatch()
-  const { settings, bigQueryTestSuccessful, vertexTestSuccessful } = useSelector((state: RootState) => state.assistant) as any
+  const { settings, bigQueryTestSuccessful, vertexTestSuccessful, oauth, userAttributesLoaded, initialTestsCompleted } = useSelector((state: RootState) => state.assistant) as any
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   
   // For tracking token validation attempts
@@ -25,47 +27,52 @@ const ExploreApp = () => {
   const testsRunCounter = useRef(0)
   const lastCheckedToken = useRef('')
   
+  // Load user attributes first
+  const { isLoading: isLoadingUserAttributes, error: userAttributesError } = useUserAttributes()
+  
   // Skip auto OAuth if settings modal is open
-  const { isAuthenticating } = useAutoOAuth(isSettingsOpen)
+  const { isAuthenticating, hasValidToken, error: oauthError, validationInProgress } = useAutoOAuth(isSettingsOpen)
 
   useLookerFields()
   const { testBigQuerySettings } = useBigQueryExamples()
   const { testVertexSettings } = useSendVertexMessage()
 
+  // Add timeout for OAuth process
+  const [showFallbackUI, setShowFallbackUI] = useState(false)
+  
   useEffect(() => {
-    const missingSettings = Object.values(settings).some((setting: any) => !setting?.value)
-    if (AUTH_DEBUG) {
-      console.log('===== App Component Settings Debug =====')
-      console.log('Settings check - any missing?', missingSettings)
-      console.log('OAuth client ID setting:', settings['google_oauth_client_id']?.value ? 'Present' : 'Missing')
-      console.log('OAuth token setting:', settings['oauth2_token']?.value ? 'Present' : 'Missing')
-      if (settings['oauth2_token']?.value) {
-        const tokenFirstChars = settings['oauth2_token'].value.substr(0, 10)
-        console.log('Token first chars:', tokenFirstChars + '...')
+    const oauthTimeout = setTimeout(() => {
+      if (isAuthenticating) {
+        console.warn('OAuth taking too long, showing fallback UI')
+        setShowFallbackUI(true)
       }
-    }
+    }, 15000) // 15 second timeout
 
-    if (missingSettings) {
-      AUTH_DEBUG && console.log('Missing settings detected, opening settings modal')
-      setIsSettingsOpen(true)
-    }
-  }, [settings])
+    return () => clearTimeout(oauthTimeout)
+  }, [isAuthenticating])
 
+  // NEW INITIALIZATION FLOW: User attributes → Tests → Conditional settings modal
   useEffect(() => {
-    const runTests = async () => {
+    const runInitialTests = async () => {
+      if (!userAttributesLoaded || initialTestsCompleted) {
+        if (AUTH_DEBUG) {
+          console.log('Skipping tests: userAttributesLoaded=', userAttributesLoaded, 'initialTestsCompleted=', initialTestsCompleted)
+        }
+        return
+      }
+
       testsRunCounter.current++
+      
+      if (AUTH_DEBUG) {
+        console.log('===== Initial App Test Execution =====')
+        console.log('Tests run count:', testsRunCounter.current)
+        console.log('User attributes loaded:', userAttributesLoaded)
+        console.log('BigQuery test status:', bigQueryTestSuccessful)
+        console.log('Vertex test status:', vertexTestSuccessful)
+      }
       
       // Validate existing token before running tests
       const existingToken = settings['oauth2_token']?.value;
-      
-      if (AUTH_DEBUG) {
-        console.log('===== App Test Execution Debug =====')
-        console.log('Tests run count:', testsRunCounter.current)
-        console.log('bigQueryTestSuccessful:', bigQueryTestSuccessful)
-        console.log('vertexTestSuccessful:', vertexTestSuccessful)
-        console.log('Has OAuth token for tests:', !!existingToken)
-        console.log('Token is same as last checked:', existingToken === lastCheckedToken.current)
-      }
       
       if (existingToken) {
         lastCheckedToken.current = existingToken
@@ -82,33 +89,110 @@ const ExploreApp = () => {
           }
           
           if (!tokenInfo.ok) {
-            console.error('Existing OAuth token is invalid, triggering re-authentication');
-            setIsSettingsOpen(true);
-            return;
+            console.error('Existing OAuth token is invalid during initial tests');
+            // Don't open settings modal here - let the tests fail and then decide
           } else if (AUTH_DEBUG) {
             const tokenData = await tokenInfo.clone().json();
             console.log('Valid token expires in:', tokenData.expires_in, 'seconds')
           }
         } catch (error) {
           AUTH_DEBUG && console.log('Error validating token in App component:', error)
-          setIsSettingsOpen(true);
-          return;
+          // Don't open settings modal here - let the tests fail and then decide
         }
       } else if (AUTH_DEBUG) {
-        console.log('No token available for tests')
+        console.log('No token available for initial tests')
       }
 
-      AUTH_DEBUG && console.log('Running BQ and Vertex tests...')
-      testBigQuerySettings();
-      testVertexSettings();
+      AUTH_DEBUG && console.log('Running initial BQ and Vertex tests...')
+      await testBigQuerySettings();
+      await testVertexSettings();
+      
+      // Mark initial tests as completed
+      dispatch(setInitialTestsCompleted(true))
+      
+      if (AUTH_DEBUG) {
+        console.log('Initial tests completed. Results - BQ:', bigQueryTestSuccessful, 'Vertex:', vertexTestSuccessful)
+      }
     };
 
-    if (!bigQueryTestSuccessful || !vertexTestSuccessful) {
-      runTests();
-    } else if (AUTH_DEBUG) {
-      console.log('Tests already successful, skipping re-run')
+    runInitialTests();
+  }, [userAttributesLoaded, initialTestsCompleted, testBigQuerySettings, testVertexSettings, settings, dispatch]);
+
+  // CONDITIONAL SETTINGS MODAL: Only open if tests fail due to missing critical configuration
+  useEffect(() => {
+    if (!userAttributesLoaded || !initialTestsCompleted) {
+      return // Wait for initialization to complete
     }
-  }, [testBigQuerySettings, testVertexSettings, bigQueryTestSuccessful, vertexTestSuccessful, settings]);
+
+    // Only open settings modal if tests have failed and we're missing critical configuration
+    const hasCriticalMissingSettings = !settings['google_oauth_client_id']?.value || 
+                                      !settings['vertex_project']?.value ||
+                                      !settings['vertex_location']?.value ||
+                                      !settings['vertex_model']?.value
+
+    const testsHaveFailed = !bigQueryTestSuccessful || !vertexTestSuccessful
+
+    if (AUTH_DEBUG) {
+      console.log('===== Settings Modal Decision =====')
+      console.log('User attributes loaded:', userAttributesLoaded)
+      console.log('Initial tests completed:', initialTestsCompleted)
+      console.log('Tests have failed:', testsHaveFailed)
+      console.log('Has critical missing settings:', hasCriticalMissingSettings)
+      console.log('Current settings modal state:', isSettingsOpen)
+    }
+
+    if (testsHaveFailed && hasCriticalMissingSettings && !isSettingsOpen) {
+      AUTH_DEBUG && console.log('Opening settings modal due to failed tests and missing critical configuration')
+      setIsSettingsOpen(true)
+    }
+  }, [userAttributesLoaded, initialTestsCompleted, bigQueryTestSuccessful, vertexTestSuccessful, settings, isSettingsOpen]);
+
+  // Show error state if OAuth fails or times out
+  if (oauthError || showFallbackUI) {
+    return (
+      <>
+        <SettingsModal
+          open={isSettingsOpen}
+          onClose={() => {
+            AUTH_DEBUG && console.log('Settings modal closed')
+            setIsSettingsOpen(false)
+            setShowFallbackUI(false)
+          }}
+        />
+        <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" p={3}>
+          <Typography variant="h6" color="error" gutterBottom>
+            {oauthError || 'Authentication Error'}
+          </Typography>
+          <Typography variant="body1" gutterBottom align="center">
+            There seems to be an issue with authentication. Please check your settings and try again.
+          </Typography>
+          <Box mt={2}>
+            <Button 
+              variant="contained" 
+              color="primary"
+              onClick={() => {
+                setIsSettingsOpen(true)
+                setShowFallbackUI(false)
+              }}
+            >
+              Open Settings
+            </Button>
+          </Box>
+        </Box>
+      </>
+    )
+  }
+
+  // Show loading state while user attributes are being loaded
+  if (isLoadingUserAttributes || !userAttributesLoaded) {
+    AUTH_DEBUG && console.log('Showing user attributes loading indicator')
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <CircularProgress />
+        <Box ml={2}>Loading configuration...</Box>
+      </Box>
+    )
+  }
 
   if (isAuthenticating) {
     AUTH_DEBUG && console.log('Showing authentication progress indicator')
@@ -133,7 +217,7 @@ const ExploreApp = () => {
           setIsSettingsOpen(false)
         }}
       />
-      { bigQueryTestSuccessful && vertexTestSuccessful && (
+      {bigQueryTestSuccessful && vertexTestSuccessful ? (
         <>
           <ConnectionBanner initialVisible={bannerInitialState} />
           <Switch>
@@ -145,6 +229,33 @@ const ExploreApp = () => {
             </Route>
           </Switch>
         </>
+      ) : (
+        // Show setup UI when tests haven't passed
+        <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" p={3}>
+          <Typography variant="h5" gutterBottom>
+            Welcome to Explore Assistant
+          </Typography>
+          <Typography variant="body1" gutterBottom align="center">
+            Please complete the initial setup to get started.
+          </Typography>
+          <Box mt={2}>
+            <Button 
+              variant="contained" 
+              color="primary"
+              onClick={() => setIsSettingsOpen(true)}
+            >
+              Open Settings
+            </Button>
+          </Box>
+          <Box mt={3}>
+            <Typography variant="body2" style={{ color: bigQueryTestSuccessful ? '#4caf50' : '#f44336' }}>
+              BigQuery Test: {bigQueryTestSuccessful ? '✅ Passed' : '❌ Failed'}
+            </Typography>
+            <Typography variant="body2" style={{ color: vertexTestSuccessful ? '#4caf50' : '#f44336' }}>
+              Vertex AI Test: {vertexTestSuccessful ? '✅ Passed' : '❌ Failed'}
+            </Typography>
+          </Box>
+        </Box>
       )}
     </>
   )

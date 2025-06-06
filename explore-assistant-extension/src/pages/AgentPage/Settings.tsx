@@ -169,7 +169,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         const response: any = await core40SDK.ok(core40SDK.me())
         
         let adminStatus = false
-        
+        console.log('debugging admin status check')
+        console.log('Current user response:', response)
         // Primary check: use is_iam_admin if it exists
         if (typeof response.is_iam_admin === 'boolean') {
           adminStatus = response.is_iam_admin

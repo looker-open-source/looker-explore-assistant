@@ -171,20 +171,60 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         let adminStatus = false
         console.log('debugging admin status check')
         console.log('Current user response:', response)
-        // Primary check: use is_iam_admin if it exists
+        
+        // First, get the actual admin role ID by searching for roles with name 'admin'
+        let adminRoleId: string | null = null
+        try {
+          const adminRoles = await core40SDK.ok(core40SDK.search_roles({
+            name: 'admin'
+          }))
+          console.log('Admin roles found:', adminRoles)
+          
+          if (adminRoles && adminRoles.length > 0) {
+            adminRoleId = adminRoles[0].id || null
+            console.log('Admin role ID found:', adminRoleId)
+          }
+        } catch (roleError) {
+          console.warn('Could not fetch admin role:', roleError)
+        }
+        
+        // Enhanced admin check with multiple fallbacks
+        // 1. Check is_iam_admin if it exists and is false, but still continue to role check
         if (typeof response.is_iam_admin === 'boolean') {
           adminStatus = response.is_iam_admin
-          console.log('Admin status determined by is_iam_admin:', adminStatus)
-        } 
-        // Fallback check: look for role ID 2 (as number or string) in role_ids array
-        else if (Array.isArray(response.role_ids) && 
-                 (response.role_ids.includes('2') || response.role_ids.includes(2))) {
-          adminStatus = true
-          console.log('Admin status determined by role_ids containing 2:', response.role_ids)
+          console.log('Admin status from is_iam_admin:', adminStatus)
         }
-        else {
-          console.warn('Unable to determine admin status - neither is_iam_admin nor role_ids found')
+        
+        // 2. Always check role_ids for admin role (even if is_iam_admin is false)
+        if (Array.isArray(response.role_ids)) {
+          console.log('User role_ids:', response.role_ids)
+          
+          // Check against the dynamically fetched admin role ID
+          if (adminRoleId && (response.role_ids.includes(adminRoleId) || response.role_ids.includes(parseInt(adminRoleId)))) {
+            adminStatus = true
+            console.log('Admin status determined by role_ids containing admin role ID:', adminRoleId)
+          }
+          // Fallback: check for role ID 2 (traditional admin role)
+          else if (response.role_ids.includes('2') || response.role_ids.includes(2)) {
+            adminStatus = true
+            console.log('Admin status determined by role_ids containing role ID 2:', response.role_ids)
+          }
+        }
+        
+        // 3. Final check: if we have an admin role ID but no role_ids array, check permissions differently
+        if (!adminStatus && adminRoleId) {
+          console.log('Checking admin status via admin role ID without role_ids array')
+          // Additional check could be implemented here if needed
+        }
+        
+        if (!adminStatus) {
+          console.warn('Unable to determine admin status')
           console.log('Available user properties:', Object.keys(response))
+          console.log('is_iam_admin:', response.is_iam_admin)
+          console.log('role_ids:', response.role_ids)
+          console.log('Admin role ID found:', adminRoleId)
+        } else {
+          console.log('Final admin status:', adminStatus)
         }
         
         setIsAdmin(adminStatus)

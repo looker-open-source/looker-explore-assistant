@@ -224,6 +224,11 @@ export const initialState: AssistantState = {
       name: 'Vertex AI Model',
       description: 'Vertex AI model to use (e.g., gemini-2.0-flash)',
       value: 'gemini-2.0-flash',
+    },
+    cloud_run_service_url: {
+      name: 'Cloud Run Service URL',
+      description: 'URL of the Cloud Run service for AI processing (use http://localhost:8001 for local testing)',
+      value: '',
     }
   },
   isBigQueryMetadataLoaded: false,

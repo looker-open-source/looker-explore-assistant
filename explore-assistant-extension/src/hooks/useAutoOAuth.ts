@@ -30,7 +30,7 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
 
   const GOOGLE_CLIENT_ID = settings['google_oauth_client_id']?.value as string || ''
   const OAUTH2_TOKEN = settings['oauth2_token']?.value as string || ''
-  const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/cloud-platform'
+  const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email'
 
   // Use Redux state instead of local state
   const {
@@ -151,7 +151,8 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
                 
                 // Check if we have the required scopes
                 const hasRequiredScopes = tokenDetails.scope && 
-                  tokenDetails.scope.includes('https://www.googleapis.com/auth/cloud-platform')
+                  tokenDetails.scope.includes('https://www.googleapis.com/auth/cloud-platform') &&
+                  tokenDetails.scope.includes('https://www.googleapis.com/auth/userinfo.email')
                 
                 TOKEN_DEBUG && console.log('Has required scopes:', hasRequiredScopes)
                 

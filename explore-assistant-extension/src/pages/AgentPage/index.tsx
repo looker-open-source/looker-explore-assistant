@@ -8,7 +8,7 @@ import SamplePrompts from '../../components/SamplePrompts'
 import { ExploreEmbed } from '../../components/ExploreEmbed'
 import { RootState } from '../../store'
 import { useDispatch, useSelector } from 'react-redux'
-import useSendVertexMessage from '../../hooks/useSendVertexMessage'
+import useSendCloudRunMessage from '../../hooks/useSendCloudRunMessage'
 import {
   addMessage,
   AssistantState,
@@ -53,8 +53,7 @@ const AgentPage = () => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const dispatch = useDispatch()
   const [expanded, setExpanded] = useState(false)
-  const { generateExploreParams, isSummarizationPrompt, summarizePrompts, determineExplore } =
-    useSendVertexMessage()
+  const { processPrompt } = useSendCloudRunMessage()
 
   const {
     isChatMode,
@@ -119,174 +118,102 @@ const AgentPage = () => {
       }),
     )
     
-    // Add appropriate loading message
-    const loadingMessageId = uuidv4();
-    if (isNewConversation) {
-      // For new conversations, show we're determining the best data model
-      dispatch(
-        addMessage({
-          uuid: loadingMessageId,
-          message: "Analyzing your question to find the best data model...",
-          actor: 'system',
-          createdAt: Date.now(),
-          type: 'text',
-        }),
-      )
-    } else {
-      // For ongoing conversations, add a simple "thinking" message
-      dispatch(
-        addMessage({
-          uuid: loadingMessageId,
-          message: "Thinking...",
-          actor: 'system',
-          createdAt: Date.now(),
-          type: 'text',
-        }),
-      )
-    }
-
-    // Dynamically determine the best explore for this prompt if it's a new conversation
-    let exploreKey = currentExplore.exploreKey;
+    // Generate conversation ID
+    const conversationId = currentExploreThread?.uuid || `conversation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     
-    if (isNewConversation) {
-      console.log('New conversation - determining best explore for:', query);
-      const suggestedExploreKey = await determineExplore(query);
+    try {
+      // SINGLE CALL to Cloud Run service
+      const response = await processPrompt(query, conversationId, promptList)
       
-      if (suggestedExploreKey) {
-        console.log('AI suggested explore:', suggestedExploreKey);
-        exploreKey = suggestedExploreKey;
+      console.log('Cloud Run response:', response)
+      
+      // Handle explore determination from response
+      let exploreKey = currentExplore.exploreKey
+      if (response.explore_key && response.explore_key !== exploreKey) {
+        exploreKey = response.explore_key
+        const [modelName, exploreId] = exploreKey.split(':')
         
-        // Update the current explore in the Redux store
-        const [modelName, exploreId] = exploreKey.split(':');
         dispatch(
           setCurrenExplore({
             modelName,
             exploreId,
             exploreKey,
           })
-        );
+        )
         
-        // Replace the loading message with information about the selected data model
+        // Update thread with new explore
         dispatch(
-          addMessage({
-            uuid: loadingMessageId, // Reuse the same UUID to replace the message
-            message: `I'm using the "${exploreId}" data model to answer your question.`,
-            actor: 'system',
-            createdAt: Date.now(),
-            type: 'text',
+          updateCurrentThread({
+            exploreId: exploreId,
+            modelName: modelName,
+            exploreKey: exploreKey,
           }),
-        );
-      } else {
-        // Fallback to current explore if determination fails
-        exploreKey = currentExplore.exploreKey;
-        console.log('Falling back to current explore:', exploreKey);
-        
-        // Update the loading message to reflect we're continuing with the current explore
-        const [, exploreId] = exploreKey.split(':');
-        dispatch(
-          addMessage({
-            uuid: loadingMessageId, // Reuse the same UUID to replace the message
-            message: `Using the "${exploreId}" data model for this conversation.`,
-            actor: 'system',
-            createdAt: Date.now(),
-            type: 'text',
-          }),
-        );
+        )
       }
-    }
 
-    // set the explore in the current thread
-    dispatch(
-      updateCurrentThread({
-        exploreId: exploreKey.split(':')[1],
-        modelName: exploreKey.split(':')[0],
-        exploreKey: exploreKey,
-      }),
-    )
-
-    console.log('Prompt List: ', promptList)
-    console.log(currentExploreThread)
-    console.log(currentExplore)
-
-    const [promptSummary, isSummary] = await Promise.all([
-      summarizePrompts(promptList),
-      isSummarizationPrompt(query),
-    ])
-
-    if (!promptSummary) {
-      dispatch(setIsQuerying(false))
-      return
-    }
-
-    const { dimensions, measures } = semanticModels[exploreKey]
-    const exploreGenerationExamples =
-      examples.exploreGenerationExamples[exploreKey]
-
-    // Remove the temporary loading message
-    if (currentExploreThread) {
-      // Create a copy of the messages array without the loading message
-      const updatedMessages = currentExploreThread.messages.filter(
-        msg => msg.uuid !== loadingMessageId
-      );
-      
-      // Update the thread with the filtered messages
+      // Update thread with response data
       dispatch(
         updateCurrentThread({
-          messages: updatedMessages,
-        }),
-      );
-    }
-
-    const newExploreParams = await generateExploreParams(
-      promptSummary,
-      dimensions,
-      measures,
-      exploreKey // Now we pass the exploreKey directly instead of the pre-processed examples
-    )
-    console.log('New Explore URL: ', newExploreParams)
-    dispatch(setIsQuerying(false))
-    dispatch(setQuery(''))
-
-    dispatch(
-      updateCurrentThread({
-        exploreParams: newExploreParams,
-        summarizedPrompt: promptSummary,
-      }),
-    )
-
-    if (isSummary) {
-      dispatch(
-        addMessage({
-          exploreParams: newExploreParams,
-          uuid: uuidv4(),
-          actor: 'system',
-          createdAt: Date.now(),
-          summary: '',
-          type: 'summarize',
+          exploreParams: response.explore_params || {},
+          summarizedPrompt: response.summarized_prompt || query,
         }),
       )
-    } else {
-      dispatch(setSidePanelExploreParams(newExploreParams))
-      dispatch(openSidePanel())
 
+      // Add appropriate message based on response type
+      const messageType = response.message_type || 'explore'
+      
+      if (messageType === 'summarize') {
+        dispatch(
+          addMessage({
+            exploreParams: response.explore_params || {},
+            uuid: uuidv4(),
+            actor: 'system',
+            createdAt: Date.now(),
+            summary: response.summary || '',
+            type: 'summarize',
+          }),
+        )
+      } else {
+        // Default to explore message
+        dispatch(setSidePanelExploreParams(response.explore_params || {}))
+        dispatch(openSidePanel())
+
+        dispatch(
+          addMessage({
+            exploreParams: response.explore_params || {},
+            uuid: uuidv4(),
+            summarizedPrompt: response.summarized_prompt || query,
+            actor: 'system',
+            createdAt: Date.now(),
+            type: 'explore',
+          }),
+        )
+      }
+
+      // scroll to bottom of message thread
+      scrollIntoView()
+
+      // update the history with the current contents of the thread
+      dispatch(updateLastHistoryEntry())
+      
+    } catch (error) {
+      console.error('Error processing prompt:', error)
+      
+      // Add error message
       dispatch(
         addMessage({
-          exploreParams: newExploreParams,
           uuid: uuidv4(),
-          summarizedPrompt: promptSummary,
+          message: 'Sorry, I encountered an error processing your request. Please try again.',
           actor: 'system',
           createdAt: Date.now(),
-          type: 'explore',
+          type: 'text',
         }),
       )
+    } finally {
+      dispatch(setIsQuerying(false))
+      dispatch(setQuery(''))
     }
-
-    // scroll to bottom of message thread
-    scrollIntoView()
-
-    // update the history with the current contents of the thread
-    dispatch(updateLastHistoryEntry())
-  }, [query, semanticModels, examples, currentExplore, currentExploreThread])
+  }, [query, currentExplore, currentExploreThread, processPrompt, dispatch, scrollIntoView])
 
   const isDataLoaded = isBigQueryMetadataLoaded && isSemanticModelLoaded
 

@@ -11,7 +11,7 @@ import {
 } from '../../slices/assistantSlice'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useBigQueryExamples } from '../../hooks/useBigQueryExamples'
-import useSendVertexMessage from '../../hooks/useSendVertexMessage'
+import useSendCloudRunMessage from '../../hooks/useSendCloudRunMessage'
 import InfoIcon from '@mui/icons-material/Info'
 import { useAutoOAuth } from '../../hooks/useAutoOAuth'
 
@@ -33,14 +33,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const [userAttributes, setUserAttributes] = useState<{ id: string | undefined, name: string, value?: string }[]>([])
   const [expandedSetting, setExpandedSetting] = useState<string | null>(null)
   const [bigQueryTestResult, setBigQueryTestResult] = useState<boolean | null>(null)
-  const [vertexTestResult, setVertexTestResult] = useState<boolean | null>(null)
+  const [cloudRunTestResult, setCloudRunTestResult] = useState<boolean | null>(null)
 
   const { testBigQuerySettings } = useBigQueryExamples()
-  const { testVertexSettings } = useSendVertexMessage()
+  const { testCloudRunSettings } = useSendCloudRunMessage()
   const [isAdmin, setIsAdmin] = useState(false)
 
   const GOOGLE_CLIENT_ID = settings['google_oauth_client_id']?.value as string || '';
-  const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/cloud-platform'
+  const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/bigquery https://www.googleapis.com/auth/userinfo.email';
   
   // Load user attribute metadata (for saving purposes)
   const loadUserAttributeMetadata = async () => {
@@ -74,7 +74,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const { isAuthenticating, hasValidToken, error: oauthHookError } = useAutoOAuth()
 
   // OAuth authentication - Now as a function that can be called on demand
-  const doOAuth = async () => {
+  const doOAuth = async (forceNew = false) => {
     try {
       // Check if we have a client ID
       if (!settings['google_oauth_client_id']?.value) {
@@ -82,14 +82,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         return false;
       }
 
-      // Validate existing token if present
-      const existingToken = settings['oauth2_token']?.value;
-      if (existingToken) {
-        const tokenInfo = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + existingToken);
-        if (tokenInfo.ok) {
-          console.log('Existing OAuth token is valid');
-          return true;
+      // Only validate existing token if NOT forcing new authentication
+      if (!forceNew) {
+        const existingToken = settings['oauth2_token']?.value;
+        if (existingToken) {
+          const tokenInfo = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + existingToken);
+          if (tokenInfo.ok) {
+            console.log('Existing OAuth token is valid');
+            return true;
+          }
         }
+      } else {
+        console.log('Forcing new OAuth flow - bypassing existing token validation');
       }
 
       // Skip if already authenticating
@@ -105,12 +109,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       dispatch(setOAuthError(null));
       dispatch(setOAuthAuthenticating(true));
 
+      // Clear existing token before starting new flow (when forcing new)
+      if (forceNew && settings['oauth2_token']?.value) {
+        console.log('Clearing existing token before new OAuth flow');
+        dispatch(setSetting({ id: 'oauth2_token', value: '' }));
+      }
+
       const response = await extensionSDK.oauth2Authenticate(
         'https://accounts.google.com/o/oauth2/v2/auth',
         {
           client_id: clientId,
           scope: GOOGLE_SCOPES,
           response_type: 'token',
+          // Force consent screen to ensure fresh token
+          prompt: forceNew ? 'consent' : undefined,
         }
       );
 
@@ -155,8 +167,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       const runTests = async () => {
         const bigQueryResult = await testBigQuerySettings()
         setBigQueryTestResult(bigQueryResult)
-        const vertexResult = await testVertexSettings()
-        setVertexTestResult(vertexResult)
+        const cloudRunResult = await testCloudRunSettings()
+        setCloudRunTestResult(cloudRunResult)
       }
       runTests()
     }
@@ -251,7 +263,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   // Handle saving settings to user attributes
   const handleSaveSetting = async (id: string, value: string) => {
     // Only persist specific settings
-    if (!['vertex_project', 'vertex_location', 'vertex_model', 'google_oauth_client_id', 'bigquery_example_looker_model_name'].includes(id)) {
+    if (!['google_oauth_client_id', 'bigquery_example_looker_model_name', 'cloud_run_service_url'].includes(id)) {
       dispatch(setSetting({ id, value }));
       return;
     }
@@ -298,15 +310,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
   // Run tests and save settings
   const handleTestAndSave = async () => {
-    // Run OAuth first if we have a client ID but no token
-    if (settings['google_oauth_client_id']?.value && !settings['oauth2_token']?.value) {
-      await doOAuth();
-    }
+    console.log('=== Test & Save Button Clicked ===');
     
-    const bigQueryResult = await testBigQuerySettings()
-    setBigQueryTestResult(bigQueryResult)
-    const vertexResult = await testVertexSettings()
-    setVertexTestResult(vertexResult)
+    try {
+      // Run OAuth first if we have a client ID but no token (don't force new here)
+      if (settings['google_oauth_client_id']?.value && !settings['oauth2_token']?.value) {
+        console.log('Running OAuth first...');
+        const oauthSuccess = await doOAuth(false); // Don't force new on test & save
+        if (!oauthSuccess) {
+          console.log('OAuth failed, skipping tests');
+          return;
+        }
+      }
+      
+      console.log('Starting BigQuery test...');
+      const bigQueryResult = await testBigQuerySettings();
+      console.log('BigQuery test result:', bigQueryResult);
+      setBigQueryTestResult(bigQueryResult);
+      
+      console.log('Starting Cloud Run test...');
+      console.log('Cloud Run URL:', settings['cloud_run_service_url']?.value);
+      console.log('OAuth Token available:', !!settings['oauth2_token']?.value);
+      
+      const cloudRunResult = await testCloudRunSettings();
+      console.log('Cloud Run test result:', cloudRunResult);
+      setCloudRunTestResult(cloudRunResult);
+      
+      console.log('=== Tests Complete ===');
+    } catch (error) {
+      console.error('Error in handleTestAndSave:', error);
+    }
   }
 
   // Reset all settings
@@ -322,14 +355,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     setExpandedSetting(expandedSetting === id ? null : id)
   }
 
-  // Only show the "show_explore_data" toggle setting and vertex settings
+  // Only show the "show_explore_data" toggle setting and Cloud Run settings
   const relevantSettings = Object.entries(settings).filter(
     ([id]) => id === 'show_explore_data' || 
-    id === 'vertex_project' || 
-    id === 'vertex_location' || 
-    id === 'vertex_model' ||
     id === 'google_oauth_client_id' ||
-    id === 'bigquery_example_looker_model_name'
+    id === 'bigquery_example_looker_model_name' ||
+    id === 'cloud_run_service_url'
   )
 
   return (
@@ -407,7 +438,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
                       placeholder="Enter Google OAuth Client ID"
                     />
                     <Button 
-                      onClick={doOAuth} 
+                      onClick={() => doOAuth(true)} // Force new OAuth flow
                       variant="contained" 
                       size="small"
                       disabled={!setting.value || isAuthenticating}
@@ -462,7 +493,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
             }
           </Typography>
           <Typography variant="body2">
-            Vertex AI Test: {vertexTestResult === null ? 'Testing...' : vertexTestResult ? 
+            Cloud Run Test: {cloudRunTestResult === null ? 'Testing...' : cloudRunTestResult ? 
               <Box component="span" sx={{ color: '#4caf50', fontWeight: 'bold' }}>✅ Passed</Box> : 
               <Box component="span" sx={{ color: '#f44336', fontWeight: 'bold' }}>❌ Failed</Box>
             }

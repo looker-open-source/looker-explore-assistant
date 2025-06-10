@@ -1,7 +1,7 @@
 import { Chip, Section, Spinner } from '@looker/components'
 import React, { useEffect } from 'react'
 import Message from './Message'
-import useSendVertexMessage from '../../hooks/useSendVertexMessage'
+import useSendCloudRunMessage from '../../hooks/useSendCloudRunMessage'
 import MarkdownText from './MarkdownText'
 import { ExploreParams, SummarizeMesage, updateLastHistoryEntry, updateSummaryMessage } from '../../slices/assistantSlice'
 import { useDispatch } from 'react-redux'
@@ -16,7 +16,7 @@ const SummaryMessage = ({ message, onSummaryComplete }: SummaryMessageProps) => 
   const [loading, setLoading] = React.useState<boolean>(true)
   const [summary, setSummary] = React.useState<string>('')
 
-  const { summarizeExplore } = useSendVertexMessage()
+  const { summarizeData } = useSendCloudRunMessage()
 
   useEffect(() => {
     let isMounted = true
@@ -28,7 +28,8 @@ const SummaryMessage = ({ message, onSummaryComplete }: SummaryMessageProps) => 
     }
 
     const fetchSummary = async () => {
-      const response = await summarizeExplore(message.exploreParams)
+      const conversationId = `summary_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const response = await summarizeData(message.exploreParams, conversationId)
       if (!response) {
         setSummary('There was an error summarizing the data')
       } else {

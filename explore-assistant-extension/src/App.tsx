@@ -5,7 +5,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from './store'
 import { useLookerFields } from './hooks/useLookerFields'
 import { useBigQueryExamples } from './hooks/useBigQueryExamples'
-import useSendVertexMessage from './hooks/useSendVertexMessage'
+import useSendCloudRunMessage from './hooks/useSendCloudRunMessage'
 import { useAutoOAuth } from './hooks/useAutoOAuth'
 import { useUserAttributes } from './hooks/useUserAttributes'
 import { setInitialTestsCompleted } from './slices/assistantSlice'
@@ -35,7 +35,7 @@ const ExploreApp = () => {
 
   useLookerFields()
   const { testBigQuerySettings } = useBigQueryExamples()
-  const { testVertexSettings } = useSendVertexMessage()
+  const { testCloudRunSettings } = useSendCloudRunMessage()
 
   // Add timeout for OAuth process
   const [showFallbackUI, setShowFallbackUI] = useState(false)
@@ -103,9 +103,9 @@ const ExploreApp = () => {
         console.log('No token available for initial tests')
       }
 
-      AUTH_DEBUG && console.log('Running initial BQ and Vertex tests...')
+      AUTH_DEBUG && console.log('Running initial BQ and Cloud Run tests...')
       await testBigQuerySettings();
-      await testVertexSettings();
+      await testCloudRunSettings();
       
       // Mark initial tests as completed
       dispatch(setInitialTestsCompleted(true))
@@ -115,8 +115,7 @@ const ExploreApp = () => {
       }
     };
 
-    runInitialTests();
-  }, [userAttributesLoaded, initialTestsCompleted, testBigQuerySettings, testVertexSettings, settings, dispatch]);
+    runInitialTests();    }, [userAttributesLoaded, initialTestsCompleted, testBigQuerySettings, testCloudRunSettings, settings, dispatch]);
 
   // CONDITIONAL SETTINGS MODAL: Only open if tests fail due to missing critical configuration
   useEffect(() => {
@@ -126,9 +125,7 @@ const ExploreApp = () => {
 
     // Only open settings modal if tests have failed and we're missing critical configuration
     const hasCriticalMissingSettings = !settings['google_oauth_client_id']?.value || 
-                                      !settings['vertex_project']?.value ||
-                                      !settings['vertex_location']?.value ||
-                                      !settings['vertex_model']?.value
+                                      !settings['cloud_run_service_url']?.value
 
     const testsHaveFailed = !bigQueryTestSuccessful || !vertexTestSuccessful
 
@@ -252,7 +249,7 @@ const ExploreApp = () => {
               BigQuery Test: {bigQueryTestSuccessful ? '✅ Passed' : '❌ Failed'}
             </Typography>
             <Typography variant="body2" style={{ color: vertexTestSuccessful ? '#4caf50' : '#f44336' }}>
-              Vertex AI Test: {vertexTestSuccessful ? '✅ Passed' : '❌ Failed'}
+              Cloud Run Test: {vertexTestSuccessful ? '✅ Passed' : '❌ Failed'}
             </Typography>
           </Box>
         </Box>

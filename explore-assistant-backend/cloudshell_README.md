@@ -31,9 +31,10 @@ gcloud services enable serviceusage.googleapis.com \
 bq --location=$REGION mk --dataset $PROJECT_ID:$DATASET_ID
 
 bq query --use_legacy_sql=false --location=$REGION \
-    "CREATE OR REPLACE TABLE \`${DATASET_ID}.explore_assistant_examples\` (
+    "CREATE OR REPLACE TABLE \`${DATASET_ID}.golden_queries\` (
         explore_id STRING OPTIONS (description = 'Explore id of the explore to pull examples for in a format of -> lookml_model:lookml_explore'),
-        examples STRING OPTIONS (description = 'Examples for Explore Assistant training. JSON document with list hashes each with input and output keys.')
+        input STRING OPTIONS (description = 'Natural language input question for the example'),
+        output STRING OPTIONS (description = 'Looker query URL parameters as output for the example')
     )"
 
 bq query --use_legacy_sql=false --location=$REGION \

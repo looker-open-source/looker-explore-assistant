@@ -16,13 +16,14 @@ resource "google_project_iam_member" "iam_permission_bq_job_user" {
   member  = format("serviceAccount:%s", google_service_account.explore-assistant-bq-sa.email)
 }
 
-resource "google_bigquery_job" "create_explore_assistant_examples_table" {
-  job_id = "create_explore_assistant_examples_table-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+resource "google_bigquery_job" "create_golden_queries_table" {
+  job_id = "create_golden_queries_table-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   query {
     query              = <<EOF
-    CREATE OR REPLACE TABLE `${google_bigquery_dataset.dataset.dataset_id}.explore_assistant_examples` (
+    CREATE OR REPLACE TABLE `${google_bigquery_dataset.dataset.dataset_id}.golden_queries` (
         explore_id STRING OPTIONS (description = 'Explore id of the explore to pull examples for in a format of -> lookml_model:lookml_explore'),
-        examples STRING OPTIONS (description = 'Examples for Explore Assistant training. JSON document with list hashes each with input and output keys.')
+        input STRING OPTIONS (description = 'Natural language input question for the example'),
+        output STRING OPTIONS (description = 'Looker query URL parameters as output for the example')
     )
   EOF  
     create_disposition = ""

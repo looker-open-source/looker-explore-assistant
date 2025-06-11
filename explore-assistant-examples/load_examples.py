@@ -7,7 +7,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Load data into BigQuery')
     parser.add_argument('--project_id', type=str, required=True, help='Google Cloud project ID')
     parser.add_argument('--dataset_id', type=str, help='BigQuery dataset ID', default='explore_assistant')
-    parser.add_argument('--table_id', type=str, help='BigQuery table ID', default='explore_assistant_examples')
+    parser.add_argument('--table_id', type=str, help='BigQuery table ID', default='golden_queries')
     parser.add_argument('--column_name', type=str, help='Column name, if different than "examples"', default='examples')
     parser.add_argument('--explore_id', type=str, required=True, help='The name of the explore in the model:explore_name format')
     parser.add_argument('--json_file', '--file', type=str, help='Path to the JSON file containing the data', default='examples.json')

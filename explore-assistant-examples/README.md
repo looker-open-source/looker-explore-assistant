@@ -5,6 +5,23 @@ The first script (generate_examples.py) will create input/output example pairs f
 
 The loading script (load_examples.py) facilitates the loading of JSON data into Google BigQuery while managing data freshness by ensuring existing rows related to an `explore_id` are deleted before new data is inserted. The script employs a temporary table mechanism to circumvent limitations related to immediate updates or deletions in BigQuery's streaming buffer.
 
+## Table Structure
+
+The `golden_queries` table (formerly `explore_assistant_examples`) uses individual columns for better performance and easier querying:
+
+- `explore_id` (STRING): Identifier in format `"model:explore"` (e.g., `"thelook:order_items"`)
+- `input` (STRING): Natural language question 
+- `output` (STRING): Looker query URL parameters
+
+**Note**: This replaces the previous JSON format where examples were stored as a JSON array in a single column. Each input/output pair is now stored as a separate row.
+
+## Loading Methods
+
+Two loading approaches are available:
+
+1. **Individual Rows (Recommended)**: Use `load_examples_individual_rows.py` for the new table structure
+2. **Legacy JSON**: Use `load_examples.py` for backward compatibility with the old JSON format
+
 ## Prerequisites
 
 Before you run this script, you need to ensure that your environment is set up with the following requirements:
@@ -36,7 +53,7 @@ The script accepts several command line arguments to specify the details require
 
 - `--project_id`: **Required.** The Google Cloud project ID where your BigQuery dataset resides.
 - `--dataset_id`: The ID of the BigQuery dataset. Defaults to `explore_assistant`.
-- `--table_id`: The ID of the BigQuery table where the data will be inserted. Defaults to `explore_assistant_examples`.
+- `--table_id`: The ID of the BigQuery table where the data will be inserted. Defaults to `golden_queries`.
 - `--explore_id`: **Required.** A unique identifier formatted as `{lookml_model_name}:{explore_name}` for the dataset rows related to a specific use case or query (used in deletion and insertion).
 - `--json_file`: The path to the JSON file containing the data to be loaded. Defaults to `examples.json`.
 

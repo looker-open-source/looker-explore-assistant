@@ -19,10 +19,10 @@ if [ -z "$EXPLORE_ID" ]; then
     exit 1
 fi
 
-TABLE_ID="golden_queries"       ##The ID of the BigQuery table where the data will be inserted. Set to golden_queries.
-JSON_FILE="nabc_examples.json"                   ##The path to the JSON file containing the data to be loaded. Set to examples.json.
+TABLE_ID="golden_queries"       ##The ID of the BigQuery table where the data will be inserted
+JSON_FILE="examples.json"                   ##The path to the JSON file containing the data to be loaded
 
-python load_examples.py \
+python load_examples_individual_rows.py \
 --project_id "$PROJECT_ID" \
 --dataset_id "$DATASET_ID" \
 --explore_id "$EXPLORE_ID" \

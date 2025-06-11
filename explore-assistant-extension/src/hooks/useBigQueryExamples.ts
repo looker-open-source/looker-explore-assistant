@@ -34,8 +34,8 @@ export const useBigQueryExamples = () => {
           result_format: 'json',
           body: {
             model: modelName || "explore_assistant",
-            view: "explore_assistant_examples",
-            fields: [`explore_assistant_examples.explore_id`, `explore_assistant_examples.input`, `explore_assistant_examples.output`, `explore_assistant_refinement_examples.examples`, `explore_assistant_samples.samples`],
+            view: "golden_queries",
+            fields: [`golden_queries.explore_id`, `golden_queries.input`, `golden_queries.output`, `explore_assistant_refinement_examples.examples`, `explore_assistant_samples.samples`],
           }
         })
       )
@@ -99,7 +99,7 @@ export const useBigQueryExamples = () => {
       // First pass: group all examples by explore ID and collect refinement examples and samples
       response.forEach((row: any) => {
         try {
-          const exploreId = row['explore_assistant_examples.explore_id'];
+          const exploreId = row['golden_queries.explore_id'];
           console.log(`Processing row for explore: ${exploreId}`);
           
           if (!exploreId) {
@@ -113,8 +113,8 @@ export const useBigQueryExamples = () => {
           }
           
           // Add the individual input/output example
-          const input = row['explore_assistant_examples.input'];
-          const output = row['explore_assistant_examples.output'];
+          const input = row['golden_queries.input'];
+          const output = row['golden_queries.output'];
           
           if (input && output) {
             exploreExamples[exploreId].push({
@@ -157,8 +157,8 @@ export const useBigQueryExamples = () => {
       dispatch(setExploreSamples(generationExamples.samples))
       
       // Set the current explore
-      if (response[0] && response[0]['explore_assistant_examples.explore_id']) {
-        const exploreKey = response[0]['explore_assistant_examples.explore_id']
+      if (response[0] && response[0]['golden_queries.explore_id']) {
+        const exploreKey = response[0]['golden_queries.explore_id']
         const [modelName, exploreId] = String(exploreKey).split(':')
         
         dispatch(setCurrenExplore({

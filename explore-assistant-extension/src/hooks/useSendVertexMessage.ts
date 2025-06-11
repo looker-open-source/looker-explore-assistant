@@ -799,16 +799,16 @@ ${exploreRefinementExamples &&
       
       // Filter the raw entries to get examples for the specific explore
       const filteredExamples = entries
-        .filter(entry => entry['explore_assistant_examples.explore_id'] === exploreKey)
+        .filter(entry => entry['golden_queries.explore_id'] === exploreKey)
         .map(entry => ({
-          input: entry['explore_assistant_examples.input'],
-          output: entry['explore_assistant_examples.output']
+          input: entry['golden_queries.input'],
+          output: entry['golden_queries.output']
         }))
         .filter(ex => ex.input && ex.output);
       
       // Get refinement examples from the first matching entry
       const refinementEntry = entries.find(entry => 
-        entry['explore_assistant_examples.explore_id'] === exploreKey && 
+        entry['golden_queries.explore_id'] === exploreKey && 
         entry['explore_assistant_refinement_examples.examples']
       );
       
@@ -818,7 +818,7 @@ ${exploreRefinementExamples &&
       
       // Similarly get samples
       const samplesEntry = entries.find(entry => 
-        entry['explore_assistant_examples.explore_id'] === exploreKey && 
+        entry['golden_queries.explore_id'] === exploreKey && 
         entry['explore_assistant_samples.samples']
       );
       
@@ -843,7 +843,7 @@ ${exploreRefinementExamples &&
       // Get unique explore_ids from the raw entries
       const uniqueExploreIds = [...new Set(
         (examples.exploreEntries || [])
-          .map(entry => entry['explore_assistant_examples.explore_id'])
+          .map(entry => entry['golden_queries.explore_id'])
           .filter(Boolean)
       )];
       

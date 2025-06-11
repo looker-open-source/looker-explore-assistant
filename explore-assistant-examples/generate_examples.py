@@ -309,7 +309,7 @@ def create_example_files(model, explore, project_id, location, chain_load):
     # Optionally call load_examples.py
     if chain_load:
         json_file = f"./generated_examples/{model}:{explore}.inputs.txt"
-        load_examples(project_id, "explore_assistant", "explore_assistant_examples", "examples", f"{model}:{explore}", json_file)
+        load_examples(project_id, "explore_assistant", "golden_queries", "examples", f"{model}:{explore}", json_file)
 
 # Command-line argument parsing
 if __name__ == "__main__":

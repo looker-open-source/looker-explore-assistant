@@ -5,7 +5,7 @@ import json
 
 # Test the local MCP server
 def test_mcp_server():
-    base_url = "http://localhost:8001"
+    base_url = "https://looker-explore-assistant-mcp-rchq2jmtba-uc.a.run.app"
     
     print("Testing MCP Server...")
     print(f"Base URL: {base_url}")

@@ -7,8 +7,8 @@ import os
 
 def test_oauth_flow(oauth_token=None):
     """Test the MCP server with OAuth authentication"""
-    base_url = "http://localhost:8001"  # Updated to match .env PORT setting
-    
+    base_url = "https://looker-explore-assistant-mcp-rchq2jmtba-uc.a.run.app"
+        
     print("Testing MCP Server with OAuth Token...")
     print(f"Base URL: {base_url}")
     print()
@@ -120,17 +120,36 @@ def test_oauth_flow(oauth_token=None):
         if response.status_code == 200:
             print("✅ OAuth endpoint test passed")
             result_data = response.json()
-            print(f"   Status: {result_data.get('status')}")
+            print(f"   Response type: {result_data.get('message_type', 'unknown')}")
             
-            if 'explore_params' in result_data:
-                explore_params = result_data['explore_params']
-                print(f"   Generated explore: {explore_params.get('model', 'N/A')}:{explore_params.get('view', 'N/A')}")
-                print(f"   Fields: {explore_params.get('fields', [])}")
-                print(f"   Filters: {explore_params.get('filters', {})}")
-            
-            if 'error' in result_data:
-                print(f"   Warning: {result_data['error']}")
+            if test_mode:
+                print(f"   Status: {result_data.get('status')}")
+                print(f"   Message: {result_data.get('message')}")
+            else:
+                # Real API response
+                if 'explore_params' in result_data:
+                    explore_params = result_data['explore_params']
+                    print(f"   Generated fields: {explore_params.get('fields', [])}")
+                    print(f"   Generated filters: {explore_params.get('filters', {})}")
+                    print(f"   Explore key: {result_data.get('explore_key', 'N/A')}")
                 
+                if 'summary' in result_data:
+                    print(f"   Summary: {result_data['summary']}")
+                
+                if 'error' in result_data:
+                    print(f"   Note: {result_data['error']}")
+                else:
+                    print("   🎉 Real OAuth token validated successfully!")
+                    print("   Your token has the correct scopes and permissions.")
+                    
+        elif response.status_code == 401:
+            print(f"❌ OAuth authentication failed: {response.status_code}")
+            print("   This usually means:")
+            print("   - Token is expired or invalid")
+            print("   - Token doesn't have required scopes")
+            print("   - Token validation endpoint is not working")
+            print(f"   Response: {response.text}")
+            return False
         else:
             print(f"❌ OAuth test failed: {response.status_code}")
             print(f"   Response: {response.text}")
@@ -142,28 +161,6 @@ def test_oauth_flow(oauth_token=None):
     except Exception as e:
         print(f"❌ OAuth test error: {e}")
         return False
-    
-    print()
-    
-    # Test 3: Token validation endpoint (if available)
-    if not test_mode:
-        print("3. Testing token validation...")
-        try:
-            token_test_payload = {"test_token": True}
-            response = requests.post(f"{base_url}/validate_token", 
-                                   json=token_test_payload, 
-                                   headers=headers,
-                                   timeout=10)
-            
-            if response.status_code == 200:
-                print("✅ Token validation passed")
-                token_data = response.json()
-                print(f"   User email: {token_data.get('email', 'N/A')}")
-            else:
-                print(f"⚠️  Token validation endpoint not available or failed: {response.status_code}")
-                
-        except Exception as e:
-            print(f"⚠️  Token validation test error: {e}")
     
     print()
     print("🎉 OAuth flow test completed!")

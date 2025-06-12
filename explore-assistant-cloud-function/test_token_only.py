@@ -55,7 +55,7 @@ def test_token_validation_only(oauth_token):
     # Test minimal request to our server
     print("2. Testing minimal request to MCP server...")
     try:
-        base_url = "http://localhost:8001"
+        base_url = "https://looker-explore-assistant-mcp-rchq2jmtba-uc.a.run.app"
         
         # Minimal test payload
         test_payload = {

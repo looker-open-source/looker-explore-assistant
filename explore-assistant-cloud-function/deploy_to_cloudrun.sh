@@ -6,7 +6,7 @@
 set -e  # Exit on any error
 
 # Configuration variables - Modify these before running
-PROJECT_ID="YOUR_PROJECT_ID"  # Replace with your GCP project ID
+PROJECT_ID="combined-genai-bi"  # Replace with your GCP project ID
 REGION="us-central1"  # Replace with your preferred region
 SERVICE_NAME="looker-explore-assistant-mcp"
 IMAGE_NAME="looker-explore-assistant-mcp"
@@ -94,7 +94,6 @@ gcloud run deploy $SERVICE_NAME \
     --set-env-vars "PROJECT=$PROJECT_ID" \
     --set-env-vars "REGION=$REGION" \
     --set-env-vars "VERTEX_MODEL=gemini-2.0-flash-001" \
-    --set-env-vars "PORT=8080" \
     --set-env-vars "LOG_LEVEL=INFO" \
     --set-env-vars "FLASK_ENV=production" \
     --set-env-vars "MCP_SHARED_SECRET=PLACEHOLDER_REPLACE_WITH_SECURE_SECRET" \

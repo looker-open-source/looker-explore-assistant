@@ -14,8 +14,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Make port 8080 available to the world outside this container
 EXPOSE 8080
 
-# Set environment variable for Flask to run on Cloud Run
-ENV PORT=8080
+# Cloud Run will automatically set the PORT environment variable
+# Set Flask environment for production
 ENV FLASK_ENV=production
 
 # Run the application

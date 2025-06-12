@@ -103,7 +103,6 @@ gcloud run deploy $SERVICE_NAME \
     --set-env-vars "LOOKERSDK_CLIENT_ID=PLACEHOLDER_YOUR_LOOKER_CLIENT_ID" \
     --set-env-vars "LOOKERSDK_CLIENT_SECRET=PLACEHOLDER_YOUR_LOOKER_CLIENT_SECRET" \
     --set-env-vars "LOOKERSDK_VERIFY_SSL=true" \
-    --set-env-vars "GOOGLE_SERVICE_ACCOUNT_JSON=" \
     --quiet
 
 # Get the service URL

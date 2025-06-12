@@ -28,7 +28,6 @@ vertex_model = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash-001")
 looker_api_client_id = os.environ.get("LOOKER_API_CLIENT_ID")
 looker_api_client_secret = os.environ.get("LOOKER_API_CLIENT_SECRET")
 looker_base_url = os.environ.get("LOOKER_BASE_URL")
-service_account_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
 
 def get_response_headers():
     return {

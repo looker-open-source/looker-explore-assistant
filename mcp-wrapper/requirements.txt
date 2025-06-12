@@ -1,0 +1,18 @@
+Flask==2.1.1
+requests>=2.28.0
+pytest>=7.0.0
+python-dotenv>=1.0.0
+
+# MCP Server dependencies
+mcp>=1.0.0
+pydantic>=2.0.0
+asyncio-mqtt>=0.11.0
+
+# HTTP client for calling your existing service
+aiohttp>=3.8.0
+
+# Development and testing
+pytest-asyncio>=0.21.0
+
+# Logging
+structlog>=23.0.0

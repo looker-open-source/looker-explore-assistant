@@ -40,13 +40,19 @@ def get_response_headers():
 def validate_oauth_token(bearer_token: str) -> Optional[Dict[str, Any]]:
     """Validate OAuth token using GCP token_info endpoint"""
     try:
+        logging.info("Starting OAuth token validation")
+        
         # Remove 'Bearer ' prefix if present
         if bearer_token.startswith('Bearer '):
             bearer_token = bearer_token[7:]
         
+        logging.info(f"Token length: {len(bearer_token)}")
+        
         # Call Google's token info endpoint
         token_info_url = f"https://oauth2.googleapis.com/tokeninfo?access_token={bearer_token}"
-        response = requests.get(token_info_url)
+        logging.info("Calling Google token info endpoint")
+        
+        response = requests.get(token_info_url, timeout=10)
         
         logging.info(f"Token validation status: {response.status_code}")
 
@@ -55,27 +61,33 @@ def validate_oauth_token(bearer_token: str) -> Optional[Dict[str, Any]]:
             return None
         
         token_info = response.json()
+        logging.info(f"Token info received: {list(token_info.keys())}")
         
-        # Check if token has required scope
+        # Check if token has required scopes
         scopes = token_info.get('scope', '').split()
-        # add user email scope
-        required_scope = 'https://www.googleapis.com/auth/cloud-platform'
-        if required_scope not in scopes:
-            logging.error(f"Token missing required scope: {scopes} not {required_scope} ")
+        logging.info(f"Token scopes: {scopes}")
+        
+        # Check for required scopes
+        required_scopes = [
+            'https://www.googleapis.com/auth/cloud-platform',
+            'https://www.googleapis.com/auth/userinfo.email'
+        ]
+        
+        missing_scopes = []
+        for required_scope in required_scopes:
+            if required_scope not in scopes:
+                missing_scopes.append(required_scope)
+        
+        if missing_scopes:
+            logging.error(f"Token missing required scopes: {missing_scopes}")
+            logging.error(f"Available scopes: {scopes}")
             return None
 
         # Extract user information
         email = token_info.get('email')
         if not email:
-            logging.error("No email found in token info:")
-            logging.error(token_info)
-            return None
-
-        # Extract user information
-        email = token_info.get('email')
-        if not email:
-            logging.error("No email found in token info:")
-            logging.error(token_info)
+            logging.error("No email found in token info")
+            logging.error(f"Available token fields: {list(token_info.keys())}")
             return None
 
         logging.info(f"Token validated for user: {email}")
@@ -87,6 +99,9 @@ def validate_oauth_token(bearer_token: str) -> Optional[Dict[str, Any]]:
         
     except Exception as e:
         logging.error(f"Error validating OAuth token: {e}")
+        logging.error(f"Error type: {type(e)}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
         return None
 
 def call_vertex_ai_api(oauth_token: str, request_body: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -331,6 +346,8 @@ User prompt: {prompt}"""
 def process_explore_assistant_request(oauth_token: str, request_data: Dict[str, Any]) -> Dict[str, Any]:
     """Process the explore assistant request and handle single or dual Vertex AI calls"""
     try:
+        logging.info("Starting process_explore_assistant_request")
+        
         # Extract data from the Cloud Run request
         prompt = request_data.get('prompt', '')
         conversation_id = request_data.get('conversation_id', '')
@@ -342,8 +359,11 @@ def process_explore_assistant_request(oauth_token: str, request_data: Dict[str, 
         data_to_summarize = request_data.get('data_to_summarize', '')
         test_mode = request_data.get('test_mode', False)
         
+        logging.info(f"Extracted request data - prompt: '{prompt[:50]}...', test_mode: {test_mode}")
+        
         # Handle test mode
         if test_mode:
+            logging.info("Returning test mode response")
             return {
                 'status': 'ok',
                 'message': 'Vertex AI connection test successful',
@@ -400,6 +420,9 @@ def process_explore_assistant_request(oauth_token: str, request_data: Dict[str, 
         
     except Exception as e:
         logging.error(f"Error processing explore assistant request: {e}")
+        logging.error(f"Error type: {type(e)}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
         return {
             'error': f'Internal processing error: {str(e)}',
             'message_type': 'error'
@@ -416,33 +439,65 @@ def create_mcp_flask_app():
     @app.route("/", methods=["POST", "OPTIONS"])
     def vertex_ai_proxy():
         """Main endpoint for Vertex AI processing"""
+        logging.info(f"Received {request.method} request to main endpoint")
+        
         if request.method == "OPTIONS":
+            logging.info("Handling OPTIONS request")
             return "", 204, get_response_headers()
         
         try:
+            logging.info("Processing POST request...")
+            
             # Get Bearer token from Authorization header
             auth_header = request.headers.get("Authorization")
+            logging.info(f"Authorization header present: {bool(auth_header)}")
+            
             if not auth_header or not auth_header.startswith("Bearer "):
+                logging.error("Missing or invalid Authorization header")
                 return jsonify({'error': 'Missing or invalid Authorization header'}), 401, get_response_headers()
             
+            logging.info("Validating OAuth token...")
             # Validate OAuth token
             oauth_token_info = validate_oauth_token(auth_header)
             if not oauth_token_info:
+                logging.error("OAuth token validation failed")
                 return jsonify({'error': 'Invalid OAuth token'}), 401, get_response_headers()
             
+            logging.info(f"OAuth token validated for user: {oauth_token_info.get('email')}")
+            
             # Get the request body
+            logging.info("Getting request body...")
             request_data = request.get_json()
             if not request_data:
+                logging.error("Missing request body")
                 return jsonify({'error': 'Missing request body'}), 400, get_response_headers()
             
+            logging.info(f"Request data keys: {list(request_data.keys())}")
+            logging.info(f"Test mode: {request_data.get('test_mode', False)}")
+            
             # Process the explore assistant request
+            logging.info("Processing explore assistant request...")
             result = process_explore_assistant_request(auth_header, request_data)
             
-            return jsonify(result), 200, get_response_headers()
+            logging.info(f"Request processing completed, result type: {type(result)}")
+            logging.info(f"Result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
+            
+            response = jsonify(result), 200, get_response_headers()
+            logging.info("Sending response...")
+            return response
             
         except Exception as e:
             logging.error(f"Vertex AI proxy error: {e}")
-            return jsonify({'error': 'Internal server error'}), 500, get_response_headers()
+            logging.error(f"Error type: {type(e)}")
+            logging.error(f"Error args: {e.args}")
+            import traceback
+            logging.error(f"Traceback: {traceback.format_exc()}")
+            
+            try:
+                return jsonify({'error': f'Internal server error: {str(e)}'}), 500, get_response_headers()
+            except Exception as json_error:
+                logging.error(f"Failed to send JSON error response: {json_error}")
+                return f"Internal server error: {str(e)}", 500, get_response_headers()
     
     logging.info("Registered endpoint: / (POST)")
     

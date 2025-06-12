@@ -1,0 +1,86 @@
+# Git and version control
+.git
+.gitignore
+*.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Development files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Cache directories
+cache/
+.cache/
+
+# Development scripts
+run_local.sh
+restart_server.sh
+get_oauth_token.sh
+test_*.py
+testing/
+testing copy/
+
+# Development utilities
+scripts/
+scripts copy/
+utils/
+utils copy/
+nodes/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Deployment scripts (these are for local use)
+deploy_to_cloudrun.sh
+update_env_vars.sh

@@ -18,6 +18,7 @@ import requests
 from google.auth import default
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
+import looker_sdk
 
 logging.basicConfig(level=logging.INFO)
 
@@ -136,6 +137,62 @@ def call_vertex_ai_api(oauth_token: str, request_body: Dict[str, Any]) -> Option
         
     except Exception as e:
         logging.error(f"Error calling Vertex AI API: {e}")
+        return None
+
+def get_looker_sdk():
+    """Initialize and return Looker SDK instance"""
+    try:
+        # Configure Looker SDK settings
+        config = {
+            'base_url': looker_base_url,
+            'client_id': looker_api_client_id,
+            'client_secret': looker_api_client_secret,
+            'verify_ssl': True
+        }
+        
+        # Initialize SDK
+        sdk = looker_sdk.init40(**config)
+        logging.info("Looker SDK initialized successfully")
+        return sdk
+        
+    except Exception as e:
+        logging.error(f"Error initializing Looker SDK: {e}")
+        return None
+
+def find_looker_user_by_email(email: str) -> Optional[Dict[str, Any]]:
+    """Find Looker user by email address using Looker SDK"""
+    try:
+        # Initialize Looker SDK
+        sdk = get_looker_sdk()
+        if not sdk:
+            logging.error("Failed to initialize Looker SDK")
+            return None
+        
+        # Search for user by email using SDK
+        users = sdk.search_users(email=email)
+        
+        if not users:
+            logging.error(f"No Looker user found with email: {email}")
+            return None
+        
+        # Convert the first user object to dict
+        user = users[0]
+        user_dict = {
+            'id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'is_disabled': user.is_disabled,
+            'role_ids': user.role_ids
+        }
+        
+        logging.info(f"Found Looker user: {user_dict['id']} - {user_dict['email']}")
+        return user_dict
+        
+    except Exception as e:
+        logging.error(f"Error finding Looker user: {e}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
         return None
 
 def extract_vertex_response_text(vertex_response: Dict[str, Any]) -> Optional[str]:

@@ -169,41 +169,57 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     dispatch(setSetting({ id, value }));
     
     // Only persist specific settings to extension context
-    if (['google_oauth_client_id', 'bigquery_example_looker_model_name', 'cloud_run_service_url', 'vertex_project', 'vertex_location', 'vertex_model'].includes(id)) {
+    const persistableSettings = ['google_oauth_client_id', 'bigquery_example_looker_model_name', 'cloud_run_service_url', 'vertex_project', 'vertex_location', 'vertex_model']
+    
+    if (persistableSettings.includes(id)) {
       try {
-        await saveExtensionContext({ [id]: value })
-        console.log(`Successfully saved ${id} to extension context`)
+        // Get all current persistable settings from Redux to save as a complete set
+        const allSettingsToSave: Record<string, any> = {}
+        
+        persistableSettings.forEach(settingKey => {
+          const setting = settings[settingKey]
+          if (setting) {
+            // Use the new value for the setting being updated, current value for others
+            allSettingsToSave[settingKey] = settingKey === id ? value : setting.value
+          }
+        })
+        
+        await saveExtensionContext(allSettingsToSave)
       } catch (error) {
-        console.error('Error saving to extension context:', error)
+        console.error(`Error saving ${id} to extension context:`, error)
       }
     }
   }
 
   // Run tests and save settings
   const handleTestAndSave = async () => {
-    console.log('=== Test & Save Button Clicked ===');
-    
     try {
-      // Run OAuth first if we have a client ID but no token (don't force new here)
+      // Save all persistable settings to context as a complete set
+      const persistableSettings = ['google_oauth_client_id', 'bigquery_example_looker_model_name', 'cloud_run_service_url', 'vertex_project', 'vertex_location', 'vertex_model']
+      const allSettingsToSave: Record<string, any> = {}
+      
+      persistableSettings.forEach(settingId => {
+        const setting = settings[settingId]
+        if (setting) {
+          allSettingsToSave[settingId] = setting.value
+        }
+      })
+      
+      if (Object.keys(allSettingsToSave).length > 0) {
+        await saveExtensionContext(allSettingsToSave)
+      }
+      
+      // Run OAuth first if we have a client ID but no token
       if (settings['google_oauth_client_id']?.value && !settings['oauth2_token']?.value) {
-        console.log('Running OAuth before tests...');
         await doOAuth();
       }
       
-      console.log('Starting BigQuery test...');
       const bigQueryResult = await testBigQuerySettings();
-      console.log('BigQuery test result:', bigQueryResult);
       setBigQueryTestResult(bigQueryResult);
       
-      console.log('Starting Cloud Run test...');
-      console.log('Cloud Run URL:', settings['cloud_run_service_url']?.value);
-      console.log('OAuth Token available:', !!settings['oauth2_token']?.value);
-      
       const cloudRunResult = await testCloudRunSettings();
-      console.log('Cloud Run test result:', cloudRunResult);
       setCloudRunTestResult(cloudRunResult);
       
-      console.log('=== Tests Complete ===');
     } catch (error) {
       console.error('Error in handleTestAndSave:', error);
     }

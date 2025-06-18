@@ -140,6 +140,51 @@ ${measures.map(formatRow).join('\n')}
     [formatTableContext, examples, currentExplore, semanticModels, modelName, currentExploreKey, CLOUD_RUN_URL, oauth2Token],
   )
 
+  // Add the missing testCloudRunSettings function
+  const testCloudRunSettings = useCallback(async () => {
+    try {
+      if (!CLOUD_RUN_URL) {
+        console.log('Cloud Run test failed: No service URL configured')
+        return false
+      }
+      
+      if (!oauth2Token) {
+        console.log('Cloud Run test failed: No OAuth token available')
+        return false
+      }
+
+      console.log('Testing Cloud Run connection...')
+      
+      // Simple test payload
+      const testPayload = {
+        prompt: "test connection",
+        explore_key: "test",
+        model_name: "test",
+        conversation_id: "test"
+      }
+
+      const response = await fetch(CLOUD_RUN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${oauth2Token}`
+        },
+        body: JSON.stringify(testPayload)
+      })
+
+      if (response.ok) {
+        console.log('Cloud Run test successful')
+        return true
+      } else {
+        console.log('Cloud Run test failed:', response.status, response.statusText)
+        return false
+      }
+    } catch (error) {
+      console.error('Cloud Run test error:', error)
+      return false
+    }
+  }, [CLOUD_RUN_URL, oauth2Token])
+
   // Data summarization function (separate since it needs to run Looker queries first)
   const summarizeData = useCallback(
     async (exploreParams: any, conversationId: string) => {
@@ -211,58 +256,12 @@ ${measures.map(formatRow).join('\n')}
     [currentExplore, semanticModels, currentExploreKey, formatTableContext, modelName, core40SDK],
   )
 
-  const testCloudRunSettings = async () => {
-    if (!CLOUD_RUN_URL) {
-      console.error('Cloud Run service URL is required');
-      dispatch(setVertexTestSuccessful(false));
-      return false;
-    }
-    
-    if (!oauth2Token) {
-      console.error('OAuth token is required');
-      dispatch(setVertexTestSuccessful(false));
-      return false;
-    }
-    
-    console.log('Testing Cloud Run service:', CLOUD_RUN_URL);
-    
-    try {
-      const testPayload = {
-        prompt: 'test connection',
-        conversation_id: `test_${Date.now()}`,
-        table_context: 'test context',
-        current_explore: currentExplore,
-        model_name: modelName,
-        timestamp: new Date().toISOString(),
-        test_mode: true,
-      }
-      
-      const response = await callCloudRunAPI(testPayload)
-      
-      console.log('Test response received:', Boolean(response));
-      
-      if (response) {
-        dispatch(setVertexTestSuccessful(true));
-        return true;
-      } else {
-        console.error('Empty response from test');
-        dispatch(setVertexTestSuccessful(false));
-        return false;
-      }
-    } catch (error) {
-      console.error('Error testing Cloud Run service:', error);
-      dispatch(setVertexTestSuccessful(false));
-      return false;
-    }
-  }
-
   const isAvailable = () => {
     return !!(CLOUD_RUN_URL && oauth2Token)
   }
 
   return {
     processPrompt,     // Main function for processing user prompts
-    summarizeData,     // For summarizing Looker query results
     testCloudRunSettings, // For testing the service
     isAvailable,       // Check if service is configured
   }

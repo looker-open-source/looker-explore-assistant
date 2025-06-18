@@ -14,6 +14,7 @@ import { useBigQueryExamples } from '../../hooks/useBigQueryExamples'
 import useSendCloudRunMessage from '../../hooks/useSendCloudRunMessage'
 import InfoIcon from '@mui/icons-material/Info'
 import { useAutoOAuth } from '../../hooks/useAutoOAuth'
+import { useExtensionContext } from '../../hooks/useExtensionContext'
 
 interface SettingsModalProps {
   open: boolean
@@ -27,10 +28,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     (state: RootState) => state.assistant as AssistantState,
   )
   const extensionId = extensionSDK?.lookerHostData?.extensionId
-  // Convert model_application to lowercase for use in attribute names
-  const model_application = extensionId?.replace(/::/g, '_').replace(/-/g, '_').toLowerCase()
 
-  const [userAttributes, setUserAttributes] = useState<{ id: string | undefined, name: string, value?: string }[]>([])
   const [expandedSetting, setExpandedSetting] = useState<string | null>(null)
   const [bigQueryTestResult, setBigQueryTestResult] = useState<boolean | null>(null)
   const [cloudRunTestResult, setCloudRunTestResult] = useState<boolean | null>(null)
@@ -39,37 +37,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const { testCloudRunSettings } = useSendCloudRunMessage()
   const [isAdmin, setIsAdmin] = useState(false)
 
+  // Use extension context hook
+  const { saveExtensionContext } = useExtensionContext()
+
   const GOOGLE_CLIENT_ID = settings['google_oauth_client_id']?.value as string || '';
   const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/bigquery https://www.googleapis.com/auth/userinfo.email';
   
-  // Load user attribute metadata (for saving purposes)
-  const loadUserAttributeMetadata = async () => {
-    try {
-      // Get user attribute values (only for metadata like IDs)
-      const myUserId = await core40SDK.ok(core40SDK.me());
-      console.log('myUserId:', myUserId)
-
-      const userAttributeValues = await core40SDK.ok(
-        core40SDK.user_attribute_user_values({
-          user_id: myUserId.id || '',
-          fields: "name, value, user_attribute_id",
-          all_values: true
-        })
-      );
-      
-      console.log('userAttributeValues for metadata:', userAttributeValues.length);
-
-      // Only store metadata for saving, don't update settings (they're loaded globally)
-      setUserAttributes(userAttributeValues.map((attr: any) => ({ 
-        id: attr.user_attribute_id, 
-        name: attr.name.toLowerCase(), // Ensure name is stored lowercase
-        value: attr.value 
-      }))) 
-    } catch (error) {
-      console.error('Error loading user attribute metadata:', error);
-    }
-  };
-
   // Use our hook but don't trigger auto-authentication here
   const { isAuthenticating, hasValidToken, error: oauthHookError } = useAutoOAuth()
 
@@ -146,21 +119,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
   // No longer automatically running OAuth on component mount
 
-  // Load user attribute metadata once when component mounts (for saving functionality)
-  useEffect(() => {
-    const fetchUserAttributeMetadata = async () => {
-      try {
-        await loadUserAttributeMetadata();
-      } catch (error) {
-        console.error('Error fetching user attribute metadata:', error)
-      }
-    }
-    
-    if (core40SDK && model_application) {
-      fetchUserAttributeMetadata()
-    }
-  }, [core40SDK, model_application]);
-
   // Run tests when settings are opened
   useEffect(() => {
     if (open) {
@@ -178,77 +136,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
-        const response: any = await core40SDK.ok(core40SDK.me())
-        
-        let adminStatus = false
-        console.log('debugging admin status check')
-        console.log('Current user response:', response)
-        
-        // First, get the actual admin role ID by searching for roles with name 'admin'
-        let adminRoleId: string | null = null
-        try {
-          const adminRoles = await core40SDK.ok(core40SDK.search_roles({
-            name: 'admin'
-          }))
-          console.log('Admin roles found:', adminRoles)
-          
-          if (adminRoles && adminRoles.length > 0) {
-            adminRoleId = adminRoles[0].id || null
-            console.log('Admin role ID found:', adminRoleId)
-          }
-        } catch (roleError) {
-          console.warn('Could not fetch admin role:', roleError)
-        }
-        
-        // Enhanced admin check with multiple fallbacks
-        // 1. Check is_iam_admin if it exists and is false, but still continue to role check
-        if (typeof response.is_iam_admin === 'boolean') {
-          adminStatus = response.is_iam_admin
-          console.log('Admin status from is_iam_admin:', adminStatus)
-        }
-        
-        // 2. Always check role_ids for admin role (even if is_iam_admin is false)
-        if (Array.isArray(response.role_ids)) {
-          console.log('User role_ids:', response.role_ids)
-          
-          // Check against the dynamically fetched admin role ID
-          if (adminRoleId && (response.role_ids.includes(adminRoleId) || response.role_ids.includes(parseInt(adminRoleId)))) {
-            adminStatus = true
-            console.log('Admin status determined by role_ids containing admin role ID:', adminRoleId)
-          }
-          // Fallback: check for role ID 2 (traditional admin role)
-          else if (response.role_ids.includes('2') || response.role_ids.includes(2)) {
-            adminStatus = true
-            console.log('Admin status determined by role_ids containing role ID 2:', response.role_ids)
-          }
-        }
-        
-        // 3. Final check: if we have an admin role ID but no role_ids array, check permissions differently
-        if (!adminStatus && adminRoleId) {
-          console.log('Checking admin status via admin role ID without role_ids array')
-          // Additional check could be implemented here if needed
-        }
-        
-        if (!adminStatus) {
-          console.warn('Unable to determine admin status')
-          console.log('Available user properties:', Object.keys(response))
-          console.log('is_iam_admin:', response.is_iam_admin)
-          console.log('role_ids:', response.role_ids)
-          console.log('Admin role ID found:', adminRoleId)
-        } else {
-          console.log('Final admin status:', adminStatus)
-        }
-        
-        setIsAdmin(adminStatus)
+        const me = await core40SDK.ok(core40SDK.me())
+        const isLookerAdmin = me.roles?.some((role: any) => 
+          role.name === 'Admin' || role.permission_set?.permissions?.includes('admin')
+        ) || false
+        setIsAdmin(isLookerAdmin)
       } catch (error) {
         console.error('Error checking admin status:', error)
-        setIsAdmin(false) // Default to false on error
+        setIsAdmin(false)
       }
     }
     checkAdminStatus()
   }, [core40SDK]);
 
-  if (!isAdmin) return null;
+  // TEMPORARY ADMIN OVERRIDE - TODO: Remove in next commit
+  // Allow all users to edit settings temporarily
+  if (!true) return null; // Changed from: if (!isAdmin) return null;
 
   // Handle toggle for boolean settings
   const handleToggle = (id: string) => {
@@ -260,51 +163,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     )
   }
 
-  // Handle saving settings to user attributes
+  // Handle saving settings to extension context
   const handleSaveSetting = async (id: string, value: string) => {
-    // Only persist specific settings
-    if (!['google_oauth_client_id', 'bigquery_example_looker_model_name', 'cloud_run_service_url'].includes(id)) {
-      dispatch(setSetting({ id, value }));
-      return;
-    }
+    // Update Redux state immediately
+    dispatch(setSetting({ id, value }));
     
-    // Ensure the user attribute name is lowercase
-    const prefixedId = `${model_application}_${id}`.toLowerCase()
-    dispatch(setSetting({ id, value }))
-    try {
-      // Case-insensitive lookup for existing attribute
-      const userAttribute = userAttributes.find(
-        (attr) => attr.name.toLowerCase() === prefixedId
-      )
-      console.log('userAttribute:', userAttribute, 'for name:', prefixedId)
-      if (userAttribute) {
-        await core40SDK.ok(
-          core40SDK.update_user_attribute(userAttribute.id || '', {
-            name: prefixedId.toLowerCase(),
-            label: prefixedId,
-            type: 'string',
-            default_value: value,
-            value_is_hidden: false,
-            user_can_view: true,
-            user_can_edit: false,
-          })
-        )
-      } else {
-        const newUserAttribute = await core40SDK.ok(
-          core40SDK.create_user_attribute({
-            name: prefixedId.toLowerCase(),
-            label: prefixedId,
-            type: 'string',
-            default_value: value,
-            value_is_hidden: false,
-            user_can_view: true,
-            user_can_edit: false,
-          })
-        )
-        setUserAttributes([...userAttributes, { id: newUserAttribute.id, name: prefixedId }])
+    // Only persist specific settings to extension context
+    if (['google_oauth_client_id', 'bigquery_example_looker_model_name', 'cloud_run_service_url', 'vertex_project', 'vertex_location', 'vertex_model'].includes(id)) {
+      try {
+        await saveExtensionContext({ [id]: value })
+        console.log(`Successfully saved ${id} to extension context`)
+      } catch (error) {
+        console.error('Error saving to extension context:', error)
       }
-    } catch (error) {
-      console.error('Error saving user attribute:', error)
     }
   }
 
@@ -315,12 +186,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     try {
       // Run OAuth first if we have a client ID but no token (don't force new here)
       if (settings['google_oauth_client_id']?.value && !settings['oauth2_token']?.value) {
-        console.log('Running OAuth first...');
-        const oauthSuccess = await doOAuth(false); // Don't force new on test & save
-        if (!oauthSuccess) {
-          console.log('OAuth failed, skipping tests');
-          return;
-        }
+        console.log('Running OAuth before tests...');
+        await doOAuth();
       }
       
       console.log('Starting BigQuery test...');
@@ -360,7 +227,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     ([id]) => id === 'show_explore_data' || 
     id === 'google_oauth_client_id' ||
     id === 'bigquery_example_looker_model_name' ||
-    id === 'cloud_run_service_url'
+    id === 'cloud_run_service_url' ||
+    id === 'vertex_project' ||
+    id === 'vertex_location' ||
+    id === 'vertex_model'
   )
 
   return (

@@ -7,7 +7,7 @@ import { useLookerFields } from './hooks/useLookerFields'
 import { useBigQueryExamples } from './hooks/useBigQueryExamples'
 import useSendCloudRunMessage from './hooks/useSendCloudRunMessage'
 import { useAutoOAuth } from './hooks/useAutoOAuth'
-import { useUserAttributes } from './hooks/useUserAttributes'
+import { useExtensionContext } from './hooks/useExtensionContext'
 import { setInitialTestsCompleted } from './slices/assistantSlice'
 import AgentPage from './pages/AgentPage'
 import SettingsModal from './pages/AgentPage/Settings'
@@ -27,8 +27,8 @@ const ExploreApp = () => {
   const testsRunCounter = useRef(0)
   const lastCheckedToken = useRef('')
   
-  // Load user attributes first
-  const { isLoading: isLoadingUserAttributes, error: userAttributesError } = useUserAttributes()
+  // Load extension context first (renamed for clarity but keeping same interface)
+  const { isLoading: isLoadingExtensionContext, error: extensionContextError } = useExtensionContext()
   
   // Skip auto OAuth if settings modal is open
   const { isAuthenticating, hasValidToken, error: oauthError, validationInProgress } = useAutoOAuth(isSettingsOpen)
@@ -180,9 +180,9 @@ const ExploreApp = () => {
     )
   }
 
-  // Show loading state while user attributes are being loaded
-  if (isLoadingUserAttributes || !userAttributesLoaded) {
-    AUTH_DEBUG && console.log('Showing user attributes loading indicator')
+  // Show loading state while extension context is being loaded
+  if (isLoadingExtensionContext || !userAttributesLoaded) {
+    AUTH_DEBUG && console.log('Showing extension context loading indicator')
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
         <CircularProgress />

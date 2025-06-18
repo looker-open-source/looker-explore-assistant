@@ -68,7 +68,7 @@ ${measures.map(formatRow).join('\n')}
     }
 
     try {
-      const response = await extensionSDK.fetchProxy(
+      const response = await extensionSDK.serverProxy(
         CLOUD_RUN_URL,
         {
           method: 'POST',

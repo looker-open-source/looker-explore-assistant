@@ -497,20 +497,27 @@ def create_mcp_flask_app():
         """Main endpoint for Vertex AI processing"""
         logging.info(f"Received {request.method} request to main endpoint")
         
+        # Handle OPTIONS requests first, without authentication
         if request.method == "OPTIONS":
-            logging.info("Handling OPTIONS request")
-            return "", 204, get_response_headers()
+            logging.info("Handling OPTIONS preflight request")
+            response = Response()
+            response.headers.update(get_response_headers())
+            response.status_code = 200
+            return response
         
         try:
             logging.info("Processing POST request...")
             
-            # Get Bearer token from Authorization header
+            # Get Bearer token from Authorization header (only for POST requests)
             auth_header = request.headers.get("Authorization")
             logging.info(f"Authorization header present: {bool(auth_header)}")
             
             if not auth_header or not auth_header.startswith("Bearer "):
                 logging.error("Missing or invalid Authorization header")
-                return jsonify({'error': 'Missing or invalid Authorization header'}), 401, get_response_headers()
+                response = jsonify({'error': 'Missing or invalid Authorization header'})
+                response.headers.update(get_response_headers())
+                response.status_code = 401
+                return response
             
             logging.info("Validating OAuth token...")
             # Validate OAuth token
@@ -582,8 +589,14 @@ def create_mcp_flask_app():
 @functions_framework.http
 def mcp_cloud_function_entrypoint(request):
     """Cloud Function entry point for MCP server"""
+    
+    # Handle OPTIONS requests first, without authentication
     if request.method == "OPTIONS":
-        return "", 204, get_response_headers()
+        logging.info("Handling OPTIONS preflight request")
+        response = Response()
+        response.headers.update(get_response_headers())
+        response.status_code = 200
+        return response
     
     path = request.path
     
@@ -592,29 +605,47 @@ def mcp_cloud_function_entrypoint(request):
             # Get Bearer token from Authorization header
             auth_header = request.headers.get("Authorization")
             if not auth_header or not auth_header.startswith("Bearer "):
-                return jsonify({'error': 'Missing or invalid Authorization header'}), 401, get_response_headers()
+                logging.error("Missing or invalid Authorization header")
+                response = jsonify({'error': 'Missing or invalid Authorization header'})
+                response.headers.update(get_response_headers())
+                response.status_code = 401
+                return response
             
             # Validate OAuth token
             oauth_token_info = validate_oauth_token(auth_header)
             if not oauth_token_info:
-                return jsonify({'error': 'Invalid OAuth token'}), 401, get_response_headers()
+                logging.error("OAuth token validation failed")
+                response = jsonify({'error': 'Invalid OAuth token'})
+                response.headers.update(get_response_headers())
+                response.status_code = 401
+                return response
             
             # Get the request body
             request_data = request.get_json()
             if not request_data:
-                return jsonify({'error': 'Missing request body'}), 400, get_response_headers()
+                logging.error("Missing request body")
+                response = jsonify({'error': 'Missing request body'})
+                response.headers.update(get_response_headers())
+                response.status_code = 400
+                return response
             
             # Process the explore assistant request
             result = process_explore_assistant_request(auth_header, request_data)
             
-            return jsonify(result), 200, get_response_headers()
+            response = jsonify(result)
+            response.headers.update(get_response_headers())
+            response.status_code = 200
+            return response
             
         except Exception as e:
             logging.error(f"Vertex AI proxy error: {e}")
-            return jsonify({'error': 'Internal server error'}), 500, get_response_headers()
+            response = jsonify({'error': f'Internal server error: {str(e)}'})
+            response.headers.update(get_response_headers())
+            response.status_code = 500
+            return response
     
     elif path == "/health":
-        return jsonify({
+        response = jsonify({
             'status': 'healthy',
             'service': 'vertex-ai-proxy',
             'timestamp': time.time(),
@@ -622,27 +653,12 @@ def mcp_cloud_function_entrypoint(request):
             'location': location,
             'model': vertex_model,
             'endpoints': ['/ (POST)', '/health (GET)']
-        }), 200, get_response_headers()
+        })
+        response.headers.update(get_response_headers())
+        return response
     
     else:
-        return jsonify({'error': 'Endpoint not found'}), 404, get_response_headers()
-
-if __name__ == "__main__":
-    # For local development
-    if os.environ.get("FUNCTIONS_FRAMEWORK"):
-        # Cloud Function mode
-        pass
-    else:
-        # Local Flask mode
-        app = create_mcp_flask_app()
-        port = int(os.environ.get("PORT", 8001))
-        
-        logging.info(f"Starting Vertex AI Proxy Server on port {port}")
-        logging.info("Available endpoints:")
-        logging.info("  - POST /")
-        logging.info("  - GET  /health")
-        logging.info(f"Using Vertex AI model: {vertex_model}")
-        logging.info(f"Project: {project}, Location: {location}")
-        
-        app.run(debug=True, host="0.0.0.0", port=port)
-        print(f"Vertex AI Proxy Server running on port {port}")
+        response = jsonify({'error': 'Endpoint not found'})
+        response.headers.update(get_response_headers())
+        response.status_code = 404
+        return response

@@ -137,7 +137,7 @@ const AgentPage = () => {
     
     try {
       // SINGLE CALL to Cloud Run service
-      const response = await processPrompt(query, conversationId, promptList)
+      const response = await processPrompt(query, conversationId, promptList, currentExploreThread?.messages || [])
       
       console.log('Cloud Run response:', response)
       

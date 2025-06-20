@@ -28,13 +28,14 @@ def test_bigquery_integration():
         "vis_config": {"type": "table"}
     }
     user_email = "test@example.com"
+    prompt_history = ["Show me sales data by region", "This is wrong, fix it", "Perfect, thanks!"]
     
     try:
         # This will fail due to no credentials, but will test the structure
         result = save_suggested_golden_query(
             "fake_oauth_token",
             explore_key,
-            original_prompt,
+            prompt_history,  # Pass prompt history instead of single prompt
             explore_params,
             user_email
         )

@@ -718,24 +718,26 @@ def process_explore_assistant_request(oauth_token: str, request_data: Dict[str, 
         result['prompt_added_to_history'] = prompt
         
         # Check for feedback pattern and save suggested golden query if detected
-        has_feedback, _ = detect_feedback_pattern(prompt_history, thread_messages, prompt)
-        if has_feedback and result.get('explore_params'):
+        has_feedback, approved_explore_params = detect_feedback_pattern(prompt_history, thread_messages, prompt)
+        if has_feedback and approved_explore_params:
             # Extract user email from user_info
             user_email = user_info.get('email', 'anonymous') if user_info else 'anonymous'
             
-            # Save the suggested golden query with complete prompt history
+            # Save the suggested golden query with the APPROVED explore_params (not the current confirmation params)
             save_success = save_suggested_golden_query(
                 oauth_token, 
                 result.get('explore_key', ''), 
                 prompt_history,  # Pass entire prompt history instead of just original prompt
-                result.get('explore_params', {}),
+                approved_explore_params,  # Use the approved params, not the current result params
                 user_email
             )
             
             if save_success:
                 # Add feedback message to response (but don't change the main result)
                 result['feedback_message'] = "Thank you for your feedback. This is being saved as an improved example."
-                logging.info("Successfully saved suggested golden query based on user feedback")
+                logging.info("Successfully saved suggested golden query with approved explore_params")
+        elif has_feedback:
+            logging.warning("Feedback pattern detected but could not extract approved explore_params")
         
         return result
         
@@ -781,6 +783,38 @@ def build_conversation_context(prompt_history: list, thread_messages: list) -> s
     except Exception as e:
         logging.error(f"Error building conversation context: {e}")
         return ""
+
+def extract_approved_explore_params(thread_messages: list) -> Optional[Dict[str, Any]]:
+    """
+    Extract the explore_params from the last assistant response that the user is confirming.
+    This should be the explore_params that were actually approved by the user.
+    """
+    try:
+        logging.info("🔍 Extracting approved explore_params from thread messages")
+        
+        if not thread_messages:
+            logging.warning("❌ No thread messages available")
+            return None
+        
+        # Look for the last system/assistant message with explore_params
+        # Go backwards through messages to find the most recent assistant response
+        for i in range(len(thread_messages) - 1, -1, -1):
+            msg = thread_messages[i]
+            
+            # Check if this is a system/assistant message
+            if msg.get('actor') == 'system' and msg.get('type') == 'explore':
+                explore_params = msg.get('exploreParams')
+                if explore_params:
+                    logging.info(f"✅ Found approved explore_params from message at index {i}")
+                    logging.info(f"📊 Approved params preview: {json.dumps(explore_params, indent=2)[:200]}...")
+                    return explore_params
+        
+        logging.warning("❌ No explore_params found in thread messages")
+        return None
+        
+    except Exception as e:
+        logging.error(f"Error extracting approved explore_params: {e}")
+        return None
 
 def detect_feedback_pattern(prompt_history: list, thread_messages: list, current_prompt: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
     """
@@ -845,7 +879,10 @@ def detect_feedback_pattern(prompt_history: list, thread_messages: list, current
         
         if has_feedback and is_confirmation:
             logging.info("🎉 DETECTED SUCCESSFUL FEEDBACK PATTERN - user confirmed correction")
-            return True, None  # We'll get the explore params from the previous successful response
+            
+            # Extract the approved explore_params from thread messages
+            approved_params = extract_approved_explore_params(thread_messages)
+            return True, approved_params
             
         logging.info("❌ No feedback pattern detected")
         return False, None

@@ -65,15 +65,14 @@ const useSendCloudRunMessage = () => {
 
   // SINGLE MAIN FUNCTION - One call to process any prompt
   const processPrompt = useCallback(
-    async (prompt: string, conversationId: string, promptHistory: string[] = []) => {
+    async (prompt: string, conversationId: string, promptHistory: string[] = [], threadMessages: any[] = []) => {
       try {
-        // Note: We'll need to pass thread data from the component since we can't use useSelector in callback
         // Build the payload for the Cloud Run service with conversation context
         const payload = {
           prompt,
           conversation_id: conversationId,
           prompt_history: promptHistory,
-          thread_messages: [], // Will be passed by component if needed
+          thread_messages: threadMessages,
           current_explore: currentExplore,
           golden_queries: examples,
           semantic_models: semanticModels,

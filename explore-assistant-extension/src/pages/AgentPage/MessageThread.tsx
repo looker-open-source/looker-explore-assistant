@@ -16,6 +16,8 @@ const MessageThread = ({ endOfMessageRef }: MessageThreadProps) => {
     (state: RootState) => state.assistant as AssistantState,
   )
 
+  const autoOpenTriggered = useRef(false); // Ref to track if autoOpen has been triggered
+
   const scrollIntoView = useCallback(() => {
     endOfMessageRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [endOfMessageRef])
@@ -33,7 +35,6 @@ const MessageThread = ({ endOfMessageRef }: MessageThreadProps) => {
   }
 
   const messages = currentExploreThread.messages as ChatMessage[]
-  const autoOpenTriggered = useRef(false); // Ref to track if autoOpen has been triggered
 
   return (
     <div className="">

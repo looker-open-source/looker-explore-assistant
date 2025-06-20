@@ -2,12 +2,14 @@ import React, { useContext, useEffect, useState } from 'react'
 import { Modal, Box, Typography, Switch, IconButton, Button } from '@mui/material'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store'
-import {
-  setSetting,
-  AssistantState,
+import { 
+  AssistantState, 
+  setSetting, 
   resetExploreAssistant,
+  setBigQueryTestSuccessful,
+  setVertexTestSuccessful,
   setOAuthError,
-  setOAuthAuthenticating,
+  setOAuthAuthenticating
 } from '../../slices/assistantSlice'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useBigQueryExamples } from '../../hooks/useBigQueryExamples'
@@ -123,14 +125,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   useEffect(() => {
     if (open) {
       const runTests = async () => {
+        console.log('Running tests in settings modal...')
         const bigQueryResult = await testBigQuerySettings()
+        console.log('Settings modal BQ test result:', bigQueryResult)
         setBigQueryTestResult(bigQueryResult)
+        
+        // Update Redux state with BigQuery test result
+        dispatch(setBigQueryTestSuccessful(bigQueryResult))
+        
         const cloudRunResult = await testCloudRunSettings()
+        console.log('Settings modal Cloud Run test result:', cloudRunResult)
         setCloudRunTestResult(cloudRunResult)
+        
+        // Update Redux state with Cloud Run test result
+        dispatch(setVertexTestSuccessful(cloudRunResult))
       }
       runTests()
     }
-  }, [open]);
+  }, [open, testBigQuerySettings, testCloudRunSettings, dispatch]);
 
   // Check admin status
   useEffect(() => {
@@ -216,9 +228,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       
       const bigQueryResult = await testBigQuerySettings();
       setBigQueryTestResult(bigQueryResult);
+      // Update Redux state with BigQuery test result
+      dispatch(setBigQueryTestSuccessful(bigQueryResult))
       
       const cloudRunResult = await testCloudRunSettings();
       setCloudRunTestResult(cloudRunResult);
+      // Update Redux state with Cloud Run test result
+      dispatch(setVertexTestSuccessful(cloudRunResult))
       
     } catch (error) {
       console.error('Error in handleTestAndSave:', error);

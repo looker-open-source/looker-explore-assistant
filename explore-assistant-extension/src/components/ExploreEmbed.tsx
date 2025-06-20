@@ -44,7 +44,15 @@ export const ExploreEmbed = ({
   exploreId,
   exploreParams,
 }: ExploreEmbedProps) => {
+  console.log('ExploreEmbed component props:', { modelName, exploreId, exploreParams })
+  
   if (!modelName || !exploreId || !exploreParams) {
+    console.log('ExploreEmbed returning empty - missing props:', { 
+      hasModelName: !!modelName, 
+      hasExploreId: !!exploreId, 
+      hasExploreParams: !!exploreParams,
+      exploreParamsKeys: exploreParams ? Object.keys(exploreParams) : 'null'
+    })
     return <></>
   }
 
@@ -93,6 +101,8 @@ export const ExploreEmbed = ({
       }
 
       console.log('Explore Embed - Params', paramsObj)
+      console.log('Explore Embed - About to initialize LookerEmbedSDK with hostUrl:', hostUrl)
+      console.log('Explore Embed - Creating explore with ID:', modelName + '/' + exploreId)
 
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
@@ -110,20 +120,39 @@ export const ExploreEmbed = ({
         .on('explore:run:complete', () => setExploreRunStart(false))
         .build()
         .connect()
-        .then((explore) => setExploreLoading(explore))
+        .then((explore) => {
+          console.log('ExploreEmbed - Successfully connected to explore:', explore)
+          console.log('ExploreEmbed - Container element:', el)
+          console.log('ExploreEmbed - Container innerHTML:', el.innerHTML)
+          setExploreLoading(explore)
+        })
         .catch((error: Error) => {
           // @TODO - This should probably throw a visible error
           // eslint-disable-next-line no-console
-          console.error('Connection error', error)
+          console.error('ExploreEmbed - Connection error', error)
+          console.error('ExploreEmbed - Error details:', {
+            message: error.message,
+            stack: error.stack,
+            hostUrl,
+            modelName,
+            exploreId,
+            exploreParams
+          })
         })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exploreParams])
 
   if (!exploreParams || Object.keys(exploreParams).length === 0) {
+    console.log('ExploreEmbed final check - returning empty due to no exploreParams:', {
+      exploreParams,
+      hasExploreParams: !!exploreParams,
+      keysLength: exploreParams ? Object.keys(exploreParams).length : 'null'
+    })
     return <></>
   }
 
+  console.log('ExploreEmbed - About to render EmbedContainer')
   return (
     <>
       <EmbedContainer id="embedcontainer" ref={ref} />

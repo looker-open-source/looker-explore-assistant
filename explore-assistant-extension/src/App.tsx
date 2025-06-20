@@ -8,14 +8,19 @@ import { useBigQueryExamples } from './hooks/useBigQueryExamples'
 import useSendCloudRunMessage from './hooks/useSendCloudRunMessage'
 import { useAutoOAuth } from './hooks/useAutoOAuth'
 import { useExtensionContext } from './hooks/useExtensionContext'
-import { setInitialTestsCompleted } from './slices/assistantSlice'
+import {
+  resetExploreAssistant,
+  setBigQueryTestSuccessful,
+  setVertexTestSuccessful,  // Add this import
+  setInitialTestsCompleted,
+} from './slices/assistantSlice'
 import AgentPage from './pages/AgentPage'
 import SettingsModal from './pages/AgentPage/Settings'
 import ConnectionBanner from './components/Banner/ConnectionBanner'  // Import the new banner
 import { Box, CircularProgress, Typography, Button } from '@material-ui/core'
 
 // Debug flag for OAuth flow
-const AUTH_DEBUG = true
+const AUTH_DEBUG = false
 
 const ExploreApp = () => {
   const dispatch = useDispatch()
@@ -69,6 +74,7 @@ const ExploreApp = () => {
         console.log('User attributes loaded:', userAttributesLoaded)
         console.log('BigQuery test status:', bigQueryTestSuccessful)
         console.log('Vertex test status:', vertexTestSuccessful)
+        console.log('Cloud Run URL configured:', !!settings['cloud_run_service_url']?.value)
       }
       
       // Validate existing token before running tests
@@ -103,19 +109,50 @@ const ExploreApp = () => {
         console.log('No token available for initial tests')
       }
 
-      AUTH_DEBUG && console.log('Running initial BQ and Cloud Run tests...')
-      await testBigQuerySettings();
-      await testCloudRunSettings();
+      AUTH_DEBUG && console.log('Running initial tests...')
       
-      // Mark initial tests as completed
+      // Run BigQuery test
+      console.log('Starting BigQuery test...')
+      const bqResult = await testBigQuerySettings();
+      console.log('BigQuery test result:', bqResult)
+      
+      // Run Cloud Run test only if URL is configured
+      let cloudRunResult = true; // Default to true if no URL configured
+      const cloudRunUrl = settings['cloud_run_service_url']?.value
+      const hasOAuthToken = !!settings['oauth2_token']?.value
+      
+      console.log('Cloud Run URL check:', cloudRunUrl || 'NOT SET')
+      console.log('OAuth token check:', hasOAuthToken ? 'AVAILABLE' : 'NOT AVAILABLE')
+      
+      if (cloudRunUrl) {
+        console.log('Starting Cloud Run test...')
+        console.log('Will test URL:', cloudRunUrl)
+        console.log('Using OAuth token:', hasOAuthToken)
+        
+        cloudRunResult = await testCloudRunSettings();
+        console.log('Cloud Run test result:', cloudRunResult)
+        
+        // Update Redux state with Cloud Run test result
+        dispatch(setVertexTestSuccessful(cloudRunResult))
+        console.log('Dispatched setVertexTestSuccessful:', cloudRunResult)
+      } else {
+        console.log('Cloud Run URL not configured, skipping Cloud Run test')
+        // If no URL configured, consider it as "passed" since it's optional
+        dispatch(setVertexTestSuccessful(true))
+        console.log('Dispatched setVertexTestSuccessful: true (no URL configured)')
+      }
+      
+      // ONLY mark initial tests as completed AFTER both tests are done
       dispatch(setInitialTestsCompleted(true))
       
       if (AUTH_DEBUG) {
-        console.log('Initial tests completed. Results - BQ:', bigQueryTestSuccessful, 'Vertex:', vertexTestSuccessful)
+        console.log('Initial tests completed. Results - BQ:', bqResult, 'Cloud Run:', cloudRunResult)
+        console.log('Redux state - BQ:', bigQueryTestSuccessful, 'Vertex:', vertexTestSuccessful)
       }
     };
 
-    runInitialTests();    }, [userAttributesLoaded, initialTestsCompleted, testBigQuerySettings, testCloudRunSettings, settings, dispatch]);
+    runInitialTests();
+  }, [userAttributesLoaded, initialTestsCompleted, testBigQuerySettings, testCloudRunSettings, settings['cloud_run_service_url']?.value, settings['oauth2_token']?.value, dispatch]);
 
   // CONDITIONAL SETTINGS MODAL: Only open if tests fail due to missing critical configuration
   useEffect(() => {
@@ -127,12 +164,15 @@ const ExploreApp = () => {
     const hasCriticalMissingSettings = !settings['google_oauth_client_id']?.value || 
                                       !settings['cloud_run_service_url']?.value
 
-    const testsHaveFailed = !bigQueryTestSuccessful || !vertexTestSuccessful
+    // Check if tests have failed - include Cloud Run test only if URL is configured
+    const cloudRunUrlConfigured = !!settings['cloud_run_service_url']?.value
+    const testsHaveFailed = !bigQueryTestSuccessful || (cloudRunUrlConfigured && !vertexTestSuccessful)
 
     if (AUTH_DEBUG) {
       console.log('===== Settings Modal Decision =====')
       console.log('User attributes loaded:', userAttributesLoaded)
       console.log('Initial tests completed:', initialTestsCompleted)
+      console.log('Cloud Run URL configured:', cloudRunUrlConfigured)
       console.log('Tests have failed:', testsHaveFailed)
       console.log('Has critical missing settings:', hasCriticalMissingSettings)
       console.log('Current settings modal state:', isSettingsOpen)
@@ -142,7 +182,7 @@ const ExploreApp = () => {
       AUTH_DEBUG && console.log('Opening settings modal due to failed tests and missing critical configuration')
       setIsSettingsOpen(true)
     }
-  }, [userAttributesLoaded, initialTestsCompleted, bigQueryTestSuccessful, vertexTestSuccessful, settings, isSettingsOpen]);
+  }, [userAttributesLoaded, initialTestsCompleted, bigQueryTestSuccessful, vertexTestSuccessful, settings['google_oauth_client_id']?.value, settings['cloud_run_service_url']?.value, isSettingsOpen]);
 
   // Show error state if OAuth fails or times out
   if (oauthError || showFallbackUI) {
@@ -214,7 +254,7 @@ const ExploreApp = () => {
           setIsSettingsOpen(false)
         }}
       />
-      {bigQueryTestSuccessful && vertexTestSuccessful ? (
+      {bigQueryTestSuccessful && (settings['cloud_run_service_url']?.value ? vertexTestSuccessful : true) ? (
         <>
           <ConnectionBanner initialVisible={bannerInitialState} />
           <Switch>
@@ -248,9 +288,16 @@ const ExploreApp = () => {
             <Typography variant="body2" style={{ color: bigQueryTestSuccessful ? '#4caf50' : '#f44336' }}>
               BigQuery Test: {bigQueryTestSuccessful ? '✅ Passed' : '❌ Failed'}
             </Typography>
-            <Typography variant="body2" style={{ color: vertexTestSuccessful ? '#4caf50' : '#f44336' }}>
-              Cloud Run Test: {vertexTestSuccessful ? '✅ Passed' : '❌ Failed'}
-            </Typography>
+            {settings['cloud_run_service_url']?.value && (
+              <Typography variant="body2" style={{ color: vertexTestSuccessful ? '#4caf50' : '#f44336' }}>
+                Cloud Run Test: {vertexTestSuccessful ? '✅ Passed' : '❌ Failed'}
+              </Typography>
+            )}
+            {!settings['cloud_run_service_url']?.value && (
+              <Typography variant="body2" style={{ color: '#ff9800' }}>
+                Cloud Run Test: ⚠️ Not configured
+              </Typography>
+            )}
           </Box>
         </Box>
       )}

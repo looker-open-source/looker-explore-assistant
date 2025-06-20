@@ -9,8 +9,9 @@
 import os
 import time
 import json
+import uuid
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
 import functions_framework
@@ -19,6 +20,7 @@ from google.auth import default
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 import looker_sdk
+from google.cloud import bigquery
 
 logging.basicConfig(level=logging.INFO)
 
@@ -28,6 +30,12 @@ location = os.environ.get("REGION", "us-central1")
 vertex_model = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash-001")
 looker_api_client_id = os.environ.get("LOOKER_API_CLIENT_ID")
 looker_api_client_secret = os.environ.get("LOOKER_API_CLIENT_SECRET")
+looker_base_url = os.environ.get("LOOKER_BASE_URL")
+
+# BigQuery configuration for suggested golden queries
+bq_project_id = os.environ.get("BQ_PROJECT_ID", "ml-accelerator-dbarr")
+bq_dataset_id = os.environ.get("BQ_DATASET_ID", "explore_assistant")
+bq_suggested_table = os.environ.get("BQ_SUGGESTED_TABLE", "suggested_golden_queries")
 looker_base_url = os.environ.get("LOOKER_BASE_URL")
 
 def get_response_headers():
@@ -209,23 +217,27 @@ def extract_vertex_response_text(vertex_response: Dict[str, Any]) -> Optional[st
         logging.error(f"Error extracting Vertex AI response: {e}")
         return None
 
-def determine_explore_from_prompt(oauth_token: str, prompt: str, golden_queries: Dict[str, Any]) -> Optional[str]:
-    """First Vertex AI call: Determine which explore to use based on the prompt and all golden queries"""
+def determine_explore_from_prompt(oauth_token: str, prompt: str, golden_queries: Dict[str, Any], 
+                                 conversation_context: str = "") -> Optional[str]:
+    """Enhanced explore determination with conversation context"""
     try:
-        # Build system prompt for explore determination
+        # Build system prompt with conversation context
+        newline_char = "\n"
         system_prompt = f"""You are a Looker Explore Assistant. Your job is to determine which Looker explore is most appropriate for answering a user's question.
 
 Available Explores and Examples:
 {json.dumps(golden_queries, indent=2)}
 
-Instructions:
-1. Analyze the user's prompt: "{prompt}"
-2. Compare it against all available explores and their examples
-3. Determine which explore would be best suited to answer this question
-4. Return ONLY the explore key (e.g., "order_items", "events", etc.) as a single string
-5. If no explore seems appropriate, return the first available explore key
+{f"Conversation Context:{newline_char}{conversation_context}{newline_char}" if conversation_context else ""}
 
-User prompt: {prompt}
+Instructions:
+1. Analyze the user's current prompt: "{prompt}"
+2. Consider the conversation context to understand what the user has been asking about
+3. Compare against all available explores and their examples
+4. Determine which explore would be best suited to answer this question
+5. Return ONLY the explore key (e.g., "order_items", "events", etc.) as a single string
+
+Current user prompt: {prompt}
 
 Response format: Return only the explore key as plain text (no JSON, no explanation)"""
 
@@ -234,11 +246,7 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
             "contents": [
                 {
                     "role": "user",
-                    "parts": [
-                        {
-                            "text": system_prompt
-                        }
-                    ]
+                    "parts": [{"text": system_prompt}]
                 }
             ],
             "generationConfig": {
@@ -259,7 +267,7 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
         if response_text:
             # Clean up the response - remove any extra whitespace or formatting
             explore_key = response_text.strip().replace('"', '').replace('\n', '')
-            logging.info(f"Determined explore: {explore_key}")
+            logging.info(f"Determined explore with context: {explore_key}")
             return explore_key
         
         return None
@@ -270,8 +278,119 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
 
 def generate_explore_params(oauth_token: str, prompt: str, explore_key: str, 
                           golden_queries: Dict[str, Any], semantic_models: Dict[str, Any],
-                          current_explore: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Second Vertex AI call: Generate explore parameters for the chosen explore"""
+                          current_explore: Dict[str, Any], conversation_context: str = "") -> Optional[Dict[str, Any]]:
+    """Enhanced parameter generation with two-step LLM approach for better conversation context handling"""
+    try:
+        logging.info(f"=== GENERATE_EXPLORE_PARAMS START ===")
+        logging.info(f"Original prompt: {prompt}")
+        logging.info(f"Has conversation context: {bool(conversation_context)}")
+        
+        # Step 1: Synthesize conversation context into a clear, standalone query
+        synthesized_query = synthesize_conversation_context(oauth_token, prompt, conversation_context)
+        if not synthesized_query:
+            logging.warning("❌ SYNTHESIS FAILED - Using original prompt")
+            synthesized_query = prompt
+        else:
+            logging.info(f"✅ SYNTHESIS SUCCESS - Original: '{prompt}' -> Synthesized: '{synthesized_query}'")
+        
+        logging.info(f"Using query for explore params: {synthesized_query}")
+        
+        # Step 2: Generate explore parameters using the synthesized query
+        result = generate_explore_params_from_query(oauth_token, synthesized_query, explore_key, 
+                                                golden_queries, semantic_models, current_explore)
+        
+        logging.info(f"=== GENERATE_EXPLORE_PARAMS RESULT ===")
+        if result:
+            logging.info(f"Result keys: {list(result.keys())}")
+            if 'explore_params' in result:
+                logging.info(f"Explore params fields: {result['explore_params'].get('fields', [])}")
+        else:
+            logging.warning("No result from generate_explore_params_from_query")
+            
+        return result
+        
+    except Exception as e:
+        logging.error(f"Error in generate_explore_params: {e}")
+        return None
+
+def synthesize_conversation_context(oauth_token: str, current_prompt: str, conversation_context: str) -> Optional[str]:
+    """First LLM call: Synthesize conversation history and current prompt into a clear, standalone query"""
+    try:
+        logging.info(f"=== SYNTHESIS STEP ===")
+        logging.info(f"Current prompt: {current_prompt}")
+        logging.info(f"Conversation context: {conversation_context}")
+        
+        # If there's no conversation context, just return the original prompt
+        if not conversation_context or conversation_context.strip() == "":
+            logging.info("No conversation context, returning original prompt")
+            return current_prompt
+            
+        synthesis_prompt = f"""You are an expert at understanding user conversations about data analysis. Your task is to synthesize a conversation history and the current user prompt into a single, clear, comprehensive query that captures the user's complete intent.
+
+CONVERSATION HISTORY:
+{conversation_context}
+
+CURRENT USER PROMPT:
+{current_prompt}
+
+Your task:
+1. Analyze the conversation history to understand what the user has been working on
+2. Interpret the current prompt in the context of the conversation
+3. Combine them into a single, clear, standalone query that fully captures what the user wants
+
+Rules:
+- If the current prompt is a refinement (like "use a table", "make it a chart", "show top 10"), incorporate the context from previous queries
+- The output should be a complete, standalone question that someone could understand without seeing the conversation history
+- Focus on the data analysis intent, not the visualization preferences
+- Be specific about what data fields, time periods, filters, etc. the user wants
+
+Output only the synthesized query, nothing else."""
+
+        # Format request for Vertex AI
+        vertex_request = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": synthesis_prompt
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.1,
+                "topP": 0.8,
+                "topK": 40,
+                "maxOutputTokens": 512,
+                "responseMimeType": "text/plain"
+            }
+        }
+        
+        # Call Vertex AI
+        vertex_response = call_vertex_ai_api(oauth_token, vertex_request)
+        if not vertex_response:
+            return None
+        
+        # Extract the synthesized query
+        synthesized_query = extract_vertex_response_text(vertex_response)
+        if synthesized_query:
+            synthesized_query = synthesized_query.strip()
+            logging.info(f"=== SYNTHESIS RESULT ===")
+            logging.info(f"Synthesized query: {synthesized_query}")
+            return synthesized_query
+        
+        logging.warning("Failed to extract synthesized query from Vertex AI response")
+        return None
+        
+    except Exception as e:
+        logging.error(f"Error synthesizing conversation context: {e}")
+        return None
+
+def generate_explore_params_from_query(oauth_token: str, query: str, explore_key: str, 
+                                     golden_queries: Dict[str, Any], semantic_models: Dict[str, Any],
+                                     current_explore: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Second LLM call: Generate explore parameters from a clear, synthesized query"""
     try:
         # Get relevant golden queries for this specific explore
         relevant_examples = {}
@@ -326,24 +445,40 @@ Relevant Examples for this explore:
 {json.dumps(relevant_examples, indent=2)}
 
 Instructions:
-1. Analyze the user's prompt: "{prompt}"
+1. Analyze the user's query: "{query}"
 2. Generate appropriate Looker query parameters using the available fields
-3. Return a JSON object with the explore parameters
+3. Return a JSON object with the following structure:
 
-Required JSON format:
 {{
+  "explore_key": "{explore_key}",
   "explore_params": {{
-    "fields": ["dimension1", "measure1"],
-    "filters": {{"dimension1": "value"}},
-    "sorts": ["dimension1 desc"],
-    "limit": "500"
+    "fields": ["field1", "field2"],
+    "filters": {{}},
+    "sorts": ["field1"],
+    "limit": "500",
+    "vis_config": {{
+      "type": "table"
+    }}
   }},
   "message_type": "explore",
-  "explore_key": "{explore_key}",
-  "summary": "Brief description of what this explore shows"
+  "summary": "Description of what this explore shows"
 }}
 
-User prompt: {prompt}"""
+VALID VIS_CONFIG TYPES:
+- Single Number: single_value
+- Tables: table, looker_grid, looker_single_record
+- Charts: looker_column, looker_bar, looker_scatter, looker_line, looker_area, looker_pie, looker_donut_multiples, looker_funnel, looker_timeline, looker_waterfall, looker_boxplot
+- Maps: looker_map, looker_google_map, looker_geo_coordinates, looker_geo_choropleth
+
+IMPORTANT: 
+- Always include relevant fields that answer the user's question
+- For table requests, use "table" or "looker_grid" as the vis_config type
+- For chart requests, choose the most appropriate chart type from the valid options above
+- For geographic data, use appropriate map visualizations
+- The query has already been processed to be clear and standalone
+
+User query: "{query}"
+"""
 
         # Format request for Vertex AI
         vertex_request = {
@@ -376,113 +511,407 @@ User prompt: {prompt}"""
         if response_text:
             try:
                 result = json.loads(response_text)
-                logging.info(f"Generated explore params for {explore_key}")
+                logging.info(f"Generated explore params for {explore_key} from synthesized query")
+                logging.info(f"Response structure: {list(result.keys())}")
+                
+                # Ensure the response has the expected structure
+                if 'explore_params' not in result:
+                    # If the AI returned explore parameters directly, wrap them
+                    if 'fields' in result or 'filters' in result:
+                        result = {
+                            "explore_key": explore_key,
+                            "explore_params": result,
+                            "message_type": "explore",
+                            "summary": f"Generated query for: {query}"
+                        }
+                    else:
+                        # Create a minimal response with context understanding
+                        logging.warning(f"Unexpected response structure, creating fallback")
+                        result = create_context_aware_fallback(query, explore_key, "", semantic_models)
+                
+                # Check if explore_params is empty and use fallback if needed
+                explore_params = result.get('explore_params', {})
+                if not explore_params or not explore_params.get('fields'):
+                    logging.warning(f"Empty explore_params detected, using context-aware fallback")
+                    logging.info(f"Original response: {result}")
+                    fallback_result = create_context_aware_fallback(query, explore_key, "", semantic_models)
+                    # Preserve the original summary if it exists and is meaningful
+                    if result.get('summary') and 'unable' not in result.get('summary', '').lower():
+                        fallback_result['summary'] = result.get('summary')
+                    result = fallback_result
+                
                 return result
+                
             except json.JSONDecodeError as e:
                 logging.error(f"Failed to parse JSON response: {e}")
-                # Return a fallback response
-                return {
-                    "explore_params": {
-                        "fields": [],
-                        "filters": {},
-                        "sorts": [],
-                        "limit": "500"
-                    },
-                    "message_type": "explore",
-                    "explore_key": explore_key,
-                    "summary": f"Unable to generate specific parameters for: {prompt}"
-                }
+                logging.error(f"Raw response: {response_text}")
+                # Create a context-aware fallback response
+                return create_context_aware_fallback(query, explore_key, "", semantic_models)
         
         return None
         
     except Exception as e:
-        logging.error(f"Error generating explore params: {e}")
+        logging.error(f"Error generating explore params from query: {e}")
         return None
 
-def process_explore_assistant_request(oauth_token: str, request_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Process the explore assistant request and handle single or dual Vertex AI calls"""
+def create_context_aware_fallback(prompt: str, explore_key: str, conversation_context: str, semantic_models: Dict[str, Any]) -> Dict[str, Any]:
+    """Create a context-aware fallback response when AI parsing fails"""
+    try:
+        # Get available fields for this explore
+        explore_semantic_model = semantic_models.get(explore_key, {})
+        dimensions = explore_semantic_model.get('dimensions', [])
+        measures = explore_semantic_model.get('measures', [])
+        
+        # Try to find relevant fields based on conversation context and prompt
+        relevant_fields = []
+        
+        # Look for common patterns
+        context_and_prompt = f"{conversation_context} {prompt}".lower()
+        
+        # Look for sales/revenue related fields
+        if any(word in context_and_prompt for word in ['sales', 'revenue', 'arr', 'total']):
+            sales_measures = [m.get('name') for m in measures if m.get('name') and any(term in m.get('name', '').lower() for term in ['sale', 'revenue', 'total', 'arr', 'price'])]
+            relevant_fields.extend(sales_measures[:2])  # Take first 2 relevant measures
+        
+        # Look for time/date related fields for trends
+        if any(word in context_and_prompt for word in ['month', 'quarter', 'year', 'date', 'time', 'trend']):
+            date_dimensions = [d.get('name') for d in dimensions if d.get('name') and any(term in d.get('name', '').lower() for term in ['date', 'month', 'quarter', 'year', 'time', 'created'])]
+            relevant_fields.extend(date_dimensions[:1])  # Take first relevant date dimension
+        
+        # If no specific fields found, but we have context about sales by month, make educated guesses
+        if not relevant_fields and 'sales' in context_and_prompt and 'month' in context_and_prompt:
+            # Look for common sales and date field patterns
+            for measure in measures:
+                measure_name = measure.get('name', '').lower()
+                if any(term in measure_name for term in ['sale', 'price', 'total', 'revenue']):
+                    relevant_fields.append(measure.get('name'))
+                    break
+            
+            for dimension in dimensions:
+                dim_name = dimension.get('name', '').lower()
+                if any(term in dim_name for term in ['month', 'date', 'created']):
+                    relevant_fields.append(dimension.get('name'))
+                    break
+        
+        # If still no specific fields found, use some defaults
+        if not relevant_fields:
+            if measures:
+                relevant_fields.append(measures[0].get('name', ''))
+            if dimensions:
+                relevant_fields.append(dimensions[0].get('name', ''))
+        
+        # Remove empty fields
+        relevant_fields = [f for f in relevant_fields if f]
+        
+        # Determine visualization type
+        vis_config = {"type": "table"}  # Default to table
+        if any(word in context_and_prompt for word in ['chart', 'line', 'bar', 'graph']):
+            vis_config = {"type": "looker_line"}
+        elif any(word in context_and_prompt for word in ['table']):
+            vis_config = {"type": "table"}
+        
+        logging.info(f"Context-aware fallback generated fields: {relevant_fields}")
+        logging.info(f"Based on context: {context_and_prompt}")
+        
+        return {
+            "explore_key": explore_key,
+            "explore_params": {
+                "fields": relevant_fields,
+                "filters": {},
+                "sorts": relevant_fields[:1] if relevant_fields else [],
+                "limit": "500",
+                "vis_config": vis_config
+            },
+            "message_type": "explore",
+            "summary": f"Generated query based on conversation context: {prompt}"
+        }
+        
+    except Exception as e:
+        logging.error(f"Error creating context-aware fallback: {e}")
+        return {
+            "explore_key": explore_key,
+            "explore_params": {
+                "fields": [],
+                "filters": {},
+                "sorts": [],
+                "limit": "500"
+            },
+            "message_type": "explore",
+            "summary": f"Unable to generate specific parameters for: {prompt}"
+        }
+
+def process_explore_assistant_request(oauth_token: str, request_data: Dict[str, Any], user_info: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Process the explore assistant request with conversation context"""
     try:
         logging.info("Starting process_explore_assistant_request")
         
-        # Extract data from the Cloud Run request
+        # Extract conversation data from the request
         prompt = request_data.get('prompt', '')
         conversation_id = request_data.get('conversation_id', '')
+        prompt_history = request_data.get('prompt_history', [])
         current_explore = request_data.get('current_explore', {})
         golden_queries = request_data.get('golden_queries', {})
         semantic_models = request_data.get('semantic_models', {})
         model_name = request_data.get('model_name', '')
-        prompt_history = request_data.get('prompt_history', [])
         data_to_summarize = request_data.get('data_to_summarize', '')
         test_mode = request_data.get('test_mode', False)
         
-        logging.info(f"Extracted request data - prompt: '{prompt[:50]}...', test_mode: {test_mode}")
+        # NEW: Handle conversation context
+        thread_messages = request_data.get('thread_messages', [])
+        
+        logging.info(f"Conversation ID: {conversation_id}")
+        logging.info(f"Prompt history length: {len(prompt_history)}")
+        logging.info(f"Thread messages length: {len(thread_messages)}")
         
         # Handle test mode
         if test_mode:
-            logging.info("Returning test mode response")
             return {
                 'status': 'ok',
                 'message': 'Vertex AI connection test successful',
                 'timestamp': time.time()
             }
         
+        # Build conversation context for the AI
+        conversation_context = build_conversation_context(prompt_history, thread_messages)
+        logging.info(f"Built conversation context: {conversation_context[:200]}..." if len(conversation_context) > 200 else f"Built conversation context: {conversation_context}")
+        
         # Check if current explore is null/empty
         current_explore_key = current_explore.get('exploreKey') if current_explore else None
         
         if not current_explore_key or current_explore_key == '' or current_explore_key == 'null':
-            logging.info("Current explore is null - performing two-step process")
+            # Two-step process with conversation context
+            determined_explore_key = determine_explore_from_prompt(
+                oauth_token, prompt, golden_queries, conversation_context
+            )
             
-            # Step 1: Determine which explore to use
-            determined_explore_key = determine_explore_from_prompt(oauth_token, prompt, golden_queries)
             if not determined_explore_key:
                 return {
                     'error': 'Failed to determine appropriate explore',
                     'message_type': 'error'
                 }
             
-            # Update current_explore with the determined explore
             current_explore = {
                 'exploreKey': determined_explore_key,
                 'exploreId': determined_explore_key,
                 'modelName': model_name
             }
             
-            # Step 2: Generate explore parameters for the determined explore
-            result = generate_explore_params(oauth_token, prompt, determined_explore_key, 
-                                           golden_queries, semantic_models, current_explore)
-            if not result:
-                return {
-                    'error': 'Failed to generate explore parameters',
-                    'message_type': 'error'
-                }
-            
-            # Ensure the explore_key is set in the response
-            result['explore_key'] = determined_explore_key
-            return result
-            
+            result = generate_explore_params(
+                oauth_token, prompt, determined_explore_key, 
+                golden_queries, semantic_models, current_explore, conversation_context
+            )
         else:
-            # Current explore exists - single call to generate parameters
-            logging.info(f"Using current explore: {current_explore_key}")
+            # Single call with conversation context
+            result = generate_explore_params(
+                oauth_token, prompt, current_explore_key, 
+                golden_queries, semantic_models, current_explore, conversation_context
+            )
+        
+        if not result:
+            return {
+                'error': 'Failed to generate explore parameters',
+                'message_type': 'error'
+            }
+        
+        # Add conversation tracking to response
+        result['conversation_id'] = conversation_id
+        result['prompt_added_to_history'] = prompt
+        
+        # Check for feedback pattern and save suggested golden query if detected
+        has_feedback, _ = detect_feedback_pattern(prompt_history, thread_messages, prompt)
+        if has_feedback and result.get('explore_params'):
+            # Extract user email from user_info
+            user_email = user_info.get('email', 'anonymous') if user_info else 'anonymous'
             
-            result = generate_explore_params(oauth_token, prompt, current_explore_key, 
-                                           golden_queries, semantic_models, current_explore)
-            if not result:
-                return {
-                    'error': 'Failed to generate explore parameters',
-                    'message_type': 'error'
-                }
+            # Save the suggested golden query with complete prompt history
+            save_success = save_suggested_golden_query(
+                oauth_token, 
+                result.get('explore_key', ''), 
+                prompt_history,  # Pass entire prompt history instead of just original prompt
+                result.get('explore_params', {}),
+                user_email
+            )
             
-            return result
+            if save_success:
+                # Add feedback message to response (but don't change the main result)
+                result['feedback_message'] = "Thank you for your feedback. This is being saved as an improved example."
+                logging.info("Successfully saved suggested golden query based on user feedback")
+        
+        return result
         
     except Exception as e:
         logging.error(f"Error processing explore assistant request: {e}")
-        logging.error(f"Error type: {type(e)}")
-        import traceback
-        logging.error(f"Traceback: {traceback.format_exc()}")
         return {
             'error': f'Internal processing error: {str(e)}',
             'message_type': 'error'
         }
+
+def build_conversation_context(prompt_history: list, thread_messages: list) -> str:
+    """Build conversation context string from history"""
+    try:
+        if not prompt_history and not thread_messages:
+            return ""
+        
+        context_parts = []
+        
+        if prompt_history:
+            context_parts.append("Previous prompts in this conversation:")
+            # Show all prompts except the last one (which is the current prompt)
+            for i, prev_prompt in enumerate(prompt_history[:-1], 1):
+                context_parts.append(f"{i}. {prev_prompt}")
+            
+            # If there are multiple prompts, add context about the conversation flow
+            if len(prompt_history) > 1:
+                context_parts.append(f"\nCurrent prompt is a follow-up to the above questions.")
+                context_parts.append(f"The user's current request should be interpreted in the context of these previous questions.")
+        
+        if thread_messages:
+            context_parts.append("\nRecent conversation messages:")
+            for msg in thread_messages[-5:]:  # Last 5 messages
+                msg_type = msg.get('type', 'message')
+                content = msg.get('message', msg.get('content', ''))
+                actor = msg.get('actor', 'unknown')
+                if actor == 'user':
+                    context_parts.append(f"User: {content}")
+                elif actor == 'system':
+                    context_parts.append(f"Assistant: {content}")
+        
+        return "\n".join(context_parts)
+        
+    except Exception as e:
+        logging.error(f"Error building conversation context: {e}")
+        return ""
+
+def detect_feedback_pattern(prompt_history: list, thread_messages: list, current_prompt: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    """
+    Detect if the conversation contains a feedback pattern:
+    1. Initial request -> visualization generated
+    2. User feedback indicating the visualization is incorrect 
+    3. Corrected visualization generated
+    4. User confirmation that the correction is successful
+    
+    Returns: (has_feedback_pattern, corrected_explore_params)
+    """
+    try:
+        logging.info("🔍 FEEDBACK DETECTION START")
+        logging.info(f"📜 Prompt history ({len(prompt_history)}): {prompt_history}")
+        logging.info(f"💬 Thread messages ({len(thread_messages)}): {thread_messages}")
+        logging.info(f"🎯 Current prompt: '{current_prompt}'")
+        
+        # Need at least 3 interactions for a complete feedback cycle (reduced from 4)
+        total_interactions = len(prompt_history) + len(thread_messages)
+        logging.info(f"📊 Total interactions: {total_interactions}")
+        
+        if total_interactions < 3:
+            logging.info("❌ Not enough interactions for feedback pattern")
+            return False, None
+            
+        # Look for feedback indicators in the current prompt and recent history
+        feedback_indicators = [
+            'wrong', 'incorrect', 'not right', 'fix', 'correct', 'change',
+            'should be', 'instead', 'better', 'improve', 'adjust'
+        ]
+        
+        confirmation_indicators = [
+            'perfect', 'exactly', 'correct', 'right', 'good', 'thanks', 'thank you',
+            'that works', 'looks good', 'much better', 'yes', 'great'
+        ]
+        
+        # Check if current prompt is a confirmation
+        current_lower = current_prompt.lower()
+        is_confirmation = any(indicator in current_lower for indicator in confirmation_indicators)
+        logging.info(f"✅ Current prompt is confirmation: {is_confirmation}")
+        
+        if not is_confirmation:
+            logging.info("❌ Current prompt is not a confirmation")
+            return False, None
+            
+        # Look back in conversation for feedback pattern
+        recent_prompts = prompt_history[-3:] if len(prompt_history) >= 3 else prompt_history
+        recent_messages = [msg.get('message', msg.get('content', '')) for msg in thread_messages[-3:]]
+        
+        logging.info(f"🔍 Checking recent prompts for feedback: {recent_prompts}")
+        logging.info(f"🔍 Checking recent messages for feedback: {recent_messages}")
+        
+        # Check if there was feedback in recent interactions
+        has_feedback = False
+        for text in recent_prompts + recent_messages:
+            if text and any(indicator in text.lower() for indicator in feedback_indicators):
+                logging.info(f"✅ Found feedback in: '{text}'")
+                has_feedback = True
+                break
+                
+        logging.info(f"🎯 Has feedback: {has_feedback}, Is confirmation: {is_confirmation}")
+        
+        if has_feedback and is_confirmation:
+            logging.info("🎉 DETECTED SUCCESSFUL FEEDBACK PATTERN - user confirmed correction")
+            return True, None  # We'll get the explore params from the previous successful response
+            
+        logging.info("❌ No feedback pattern detected")
+        return False, None
+        
+    except Exception as e:
+        logging.error(f"Error detecting feedback pattern: {e}")
+        return False, None
+
+def save_suggested_golden_query(oauth_token: str, explore_key: str, prompt_history: list, 
+                               explore_params: Dict[str, Any], user_email: str) -> bool:
+    """
+    Save a suggested golden query to the BigQuery suggested_golden_queries table
+    Now stores the complete prompt history for better context
+    """
+    try:
+        # Create BigQuery client using default credentials (Cloud Run service account)
+        client = bigquery.Client(project=bq_project_id)
+        
+        # Prepare the record to insert
+        current_time = time.time()
+        suggested_query = {
+            'explore_key': explore_key,
+            'prompt': json.dumps(prompt_history),  # Store complete prompt history as JSON string
+            'explore_params': json.dumps(explore_params),  # Store as JSON string
+            'user_id': user_email,
+            'timestamp': current_time,
+            'created_at': time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(current_time)),
+            'approved': False,  
+            'feedback_type': 'user_correction',
+            'id': str(uuid.uuid4()),  # Generate UUID for the id field
+            'created_date': time.strftime('%Y-%m-%d', time.gmtime(current_time))  # Date for partitioning
+        }
+        
+        logging.info(f"Saving suggested golden query to BigQuery: {explore_key} for user {user_email}")
+        
+        # Reference to the table
+        table_id = f"{bq_project_id}.{bq_dataset_id}.{bq_suggested_table}"
+        table = client.get_table(table_id)
+        
+        # Insert the row
+        rows_to_insert = [suggested_query]
+        errors = client.insert_rows_json(table, rows_to_insert)
+        
+        if errors:
+            logging.error(f"BigQuery insertion errors: {errors}")
+            return False
+        else:
+            logging.info(f"Successfully saved suggested golden query to BigQuery table {table_id}")
+            return True
+        
+    except Exception as e:
+        logging.error(f"Error saving suggested golden query to BigQuery: {e}")
+        # Still log the data for debugging even if BigQuery fails
+        fallback_data = {
+            'explore_key': explore_key,
+            'prompt_history': prompt_history,  # Use prompt_history instead of original_prompt
+            'explore_params': explore_params,
+            'user_id': user_email,
+            'timestamp': time.time(),
+            'feedback_type': 'user_correction'
+        }
+        logging.info(f"FALLBACK LOG - Suggested query data: {json.dumps(fallback_data, indent=2)}")
+        return False
+        return False
+
+# ...existing code...
 
 def create_mcp_flask_app():
     """Create Flask app with MCP endpoints"""
@@ -540,7 +969,7 @@ def create_mcp_flask_app():
             
             # Process the explore assistant request
             logging.info("Processing explore assistant request...")
-            result = process_explore_assistant_request(auth_header, request_data)
+            result = process_explore_assistant_request(auth_header, request_data, oauth_token_info)
             
             logging.info(f"Request processing completed, result type: {type(result)}")
             logging.info(f"Result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
@@ -630,7 +1059,7 @@ def mcp_cloud_function_entrypoint(request):
                 return response
             
             # Process the explore assistant request
-            result = process_explore_assistant_request(auth_header, request_data)
+            result = process_explore_assistant_request(auth_header, request_data, oauth_token_info)
             
             response = jsonify(result)
             response.headers.update(get_response_headers())
@@ -662,3 +1091,10 @@ def mcp_cloud_function_entrypoint(request):
         response.headers.update(get_response_headers())
         response.status_code = 404
         return response
+
+# Create the Flask app for Cloud Run deployment
+app = create_mcp_flask_app()
+
+if __name__ == "__main__":
+    # For local development
+    app.run(host='0.0.0.0', port=8080, debug=False)

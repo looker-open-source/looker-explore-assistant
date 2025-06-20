@@ -1,13 +1,11 @@
 import { useContext, useCallback } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import { useSelector } from 'react-redux'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { RootState } from '../store'
 import { AssistantState } from '../slices/assistantSlice'
 
 const useSendCloudRunMessage = () => {
-  const dispatch = useDispatch()
-
-  const { core40SDK, lookerHostData, extensionSDK } = useContext(ExtensionContext)
+  const { lookerHostData, extensionSDK } = useContext(ExtensionContext)
 
   const { settings, examples, currentExplore, semanticModels } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
@@ -17,42 +15,7 @@ const useSendCloudRunMessage = () => {
   const CLOUD_RUN_URL = settings['cloud_run_service_url']?.value as string || ''
   const oauth2Token = settings['oauth2_token']?.value as string || ''
 
-  const currentExploreKey = currentExplore.exploreKey
   const modelName = lookerHostData?.extensionId.split('::')[0]
-
-  // Helper function to format table context
-  const formatTableContext = useCallback((dimensions: any[], measures: any[]) => {
-    const formatRow = (field: {
-      name?: string
-      type?: string
-      label?: string
-      description?: string
-      tags?: string[]
-    }) => {
-      const name = field.name || ''
-      const type = field.type || ''
-      const label = field.label || ''
-      const description = field.description || ''
-      const tags = field.tags ? field.tags.join(', ') : ''
-      return `| ${name} | ${type} | ${label} | ${description} | ${tags} |`
-    }
-
-    return `
-# Looker Explore Metadata
-Model: ${currentExplore.modelName}
-Explore: ${currentExplore.exploreId}
-
-## Dimensions (for grouping data):
-| Field Id | Field Type | Label | Description | Tags |
-|----------|------------|-------|-------------|------|
-${dimensions.map(formatRow).join('\n')}
-
-## Measures (for calculations):
-| Field Id | Field Type | Label | Description | Tags |
-|----------|------------|-------|-------------|------|
-${measures.map(formatRow).join('\n')}
-`
-  }, [currentExplore])
 
   const callCloudRunAPI = async (payload: any) => {
     if (!extensionSDK) {
@@ -68,7 +31,7 @@ ${measures.map(formatRow).join('\n')}
     }
 
     try {
-      const response = await extensionSDK.serverProxy(
+      const response = await extensionSDK.fetchProxy(
         CLOUD_RUN_URL,
         {
           method: 'POST',
@@ -81,10 +44,19 @@ ${measures.map(formatRow).join('\n')}
       )
 
       if (!response.ok) {
+        console.error('Cloud Run API error:', response.status, response.statusText)
+        console.error('Response body:', response.body)
         throw new Error(`Cloud Run API error: ${response.status} ${response.statusText}`)
       }
 
-      return await response.json()
+      console.log('Cloud Run API success - response status:', response.status)
+      console.log('Cloud Run API success - response body type:', typeof response.body)
+      console.log('Cloud Run API success - response body:', JSON.stringify(response.body, null, 2))
+      
+      // Ensure we return the body directly as it should already be parsed JSON
+      const result = response.body
+      console.log('Returning result:', result)
+      return result
     } catch (error) {
       console.error('Cloud Run API call failed:', error)
       throw error
@@ -95,52 +67,56 @@ ${measures.map(formatRow).join('\n')}
   const processPrompt = useCallback(
     async (prompt: string, conversationId: string, promptHistory: string[] = []) => {
       try {
-        // Build the payload for the Cloud Run service
+        // Note: We'll need to pass thread data from the component since we can't use useSelector in callback
+        // Build the payload for the Cloud Run service with conversation context
         const payload = {
           prompt,
           conversation_id: conversationId,
           prompt_history: promptHistory,
-          explore_key: currentExploreKey,
+          thread_messages: [], // Will be passed by component if needed
+          current_explore: currentExplore,
+          golden_queries: examples,
+          semantic_models: semanticModels,
           model_name: modelName,
-          // Add other necessary data...
+          test_mode: false
         }
 
+        console.log('Sending payload to Cloud Run:', payload)
         const result = await callCloudRunAPI(payload)
+        console.log('Received result from Cloud Run:', result)
+        console.log('Result type:', typeof result)
+        console.log('Result explore_params:', result?.explore_params)
         return result
       } catch (error) {
         console.error('Error processing prompt:', error)
         throw error
       }
     },
-    [formatTableContext, examples, currentExplore, semanticModels, modelName, currentExploreKey, CLOUD_RUN_URL, oauth2Token, extensionSDK],
+    [currentExplore, examples, semanticModels, modelName, CLOUD_RUN_URL, oauth2Token, extensionSDK],
   )
 
   // Test function for Cloud Run settings
   const testCloudRunSettings = useCallback(async () => {
     try {
       if (!CLOUD_RUN_URL) {
-        console.log('Cloud Run test failed: No service URL configured')
-        return false
-      }
-      
-      if (!oauth2Token) {
-        console.log('Cloud Run test failed: No OAuth token available')
         return false
       }
 
       if (!extensionSDK) {
-        console.log('Cloud Run test failed: Extension SDK not available')
         return false
       }
 
-      console.log('Testing Cloud Run connection via extension proxy...')
+      if (!oauth2Token) {
+        return false
+      }
       
-      // Simple test payload
+      // Simple test payload with test_mode flag
       const testPayload = {
         prompt: "test connection",
         explore_key: "test",
         model_name: "test",
-        conversation_id: "test"
+        conversation_id: "test",
+        test_mode: true  // Add test mode flag
       }
 
       const response = await extensionSDK.fetchProxy(
@@ -156,22 +132,71 @@ ${measures.map(formatRow).join('\n')}
       )
 
       if (response.ok) {
-        console.log('Cloud Run test successful via extension proxy')
         return true
       } else {
-        console.log('Cloud Run test failed:', response.status, response.statusText)
         return false
       }
     } catch (error) {
-      console.error('Cloud Run test error:', error)
       return false
     }
   }, [CLOUD_RUN_URL, oauth2Token, extensionSDK])
 
+  // Data summarization function
+  const summarizeData = useCallback(async (exploreParams: any, conversationId: string) => {
+    try {
+      if (!CLOUD_RUN_URL) {
+        return null
+      }
+
+      if (!oauth2Token) {
+        return null
+      }
+
+      if (!extensionSDK) {
+        return null
+      }
+      
+      const payload = {
+        prompt: "Please summarize this data",
+        conversation_id: conversationId,
+        explore_params: exploreParams,
+        data_to_summarize: true, // Flag to indicate this is a summarization request
+        model_name: modelName,
+        current_explore: currentExplore
+      }
+
+      const response = await extensionSDK.fetchProxy(
+        CLOUD_RUN_URL,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${oauth2Token}`
+          },
+          body: JSON.stringify(payload)
+        }
+      )
+
+      if (response.ok) {
+        try {
+          const responseData = response.body
+          return responseData.summary || responseData.message || 'Summarization completed'
+        } catch (jsonError) {
+          return 'Data summarization completed but response format was unexpected'
+        }
+      } else {
+        return null
+      }
+    } catch (error) {
+      return null
+    }
+  }, [CLOUD_RUN_URL, oauth2Token, extensionSDK, modelName, currentExplore])
+
   return {
     processPrompt,
     testCloudRunSettings,
-    callCloudRunAPI
+    callCloudRunAPI,
+    summarizeData
   }
 }
 

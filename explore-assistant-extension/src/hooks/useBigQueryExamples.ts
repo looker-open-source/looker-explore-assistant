@@ -68,12 +68,8 @@ export const useBigQueryExamples = () => {
     try {
       const response = await runExampleQuery()
       
-      // Add better logging
-      console.log('BQ response:', response)
-      
       // Better check for empty responses
       if (!response || !Array.isArray(response) || response.length === 0) {
-        console.error('Empty or invalid response from BigQuery')
         dispatch(setisBigQueryMetadataLoaded(false))
         dispatch(setBigQueryTestSuccessful(false))
         return
@@ -197,8 +193,6 @@ export const useBigQueryExamples = () => {
   }
 
   const testBigQuerySettings = async () => {
-
-    console.log('testBigQuerySettings')
     try {
       const response = await runExampleQuery()
       if (response.length > 0) {
@@ -238,7 +232,7 @@ export const useBigQueryExamples = () => {
     
     // Skip if we've already fetched AND the data is loaded
     if (hasFetched.current || isBigQueryMetadataLoaded) {
-      console.log('Already fetching or metadata loaded, skipping')
+      // console.log('Already fetching or metadata loaded, skipping')
       return
     }
     hasFetched.current = true

@@ -103,6 +103,9 @@ gcloud run deploy $SERVICE_NAME \
     --set-env-vars "LOOKERSDK_CLIENT_ID=PLACEHOLDER_YOUR_LOOKER_CLIENT_ID" \
     --set-env-vars "LOOKERSDK_CLIENT_SECRET=PLACEHOLDER_YOUR_LOOKER_CLIENT_SECRET" \
     --set-env-vars "LOOKERSDK_VERIFY_SSL=true" \
+    --set-env-vars "BQ_PROJECT_ID=ml-accelerator-dbarr" \
+    --set-env-vars "BQ_DATASET_ID=explore_assistant" \
+    --set-env-vars "BQ_SUGGESTED_TABLE=suggested_golden_queries" \
     --quiet
 
 # Get the service URL

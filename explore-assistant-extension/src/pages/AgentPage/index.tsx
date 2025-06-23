@@ -13,6 +13,7 @@ import {
   addMessage,
   AssistantState,
   closeSidePanel,
+  ensureValidExploreContext,
   openSidePanel,
   resetChat,
   setCurrenExplore,
@@ -81,6 +82,17 @@ const AgentPage = () => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [endOfMessagesRef])
 
+  // Ensure we have a valid explore context when examples are loaded
+  useEffect(() => {
+    console.log('Checking explore context. Examples keys:', Object.keys(examples.exploreSamples))
+    console.log('Current explore:', currentExplore)
+    
+    if (Object.keys(examples.exploreSamples).length > 0 && (!currentExplore.exploreKey || !currentExplore.modelName || !currentExplore.exploreId)) {
+      console.log('No valid explore context, ensuring valid context...')
+      dispatch(ensureValidExploreContext())
+    }
+  }, [examples.exploreSamples, currentExplore.exploreKey, currentExplore.modelName, currentExplore.exploreId, dispatch])
+
   useEffect(() => {
     scrollIntoView()
   }, [currentExploreThread, query, isQuerying])
@@ -129,26 +141,51 @@ const AgentPage = () => {
       
       // Handle explore determination from response
       let exploreKey = currentExplore.exploreKey
-      if (response.explore_key && response.explore_key !== exploreKey) {
+      console.log('Current explore before processing:', currentExplore)
+      console.log('Response explore_key:', response.explore_key)
+      
+      const needsExploreUpdate = response.explore_key && (
+        response.explore_key !== exploreKey || 
+        !currentExplore.modelName || 
+        !currentExplore.exploreId
+      )
+      
+      console.log('Needs explore update?', needsExploreUpdate)
+      
+      if (needsExploreUpdate) {
         exploreKey = response.explore_key
-        const [modelName, exploreId] = exploreKey.split(':')
+        console.log('Setting new explore from response.explore_key:', exploreKey)
+        console.log('Current explore state before update:', currentExplore)
         
-        dispatch(
-          setCurrenExplore({
-            modelName,
-            exploreId,
-            exploreKey,
-          })
-        )
+        const parts = exploreKey.split(':')
+        console.log('Split parts:', parts)
         
-        // Update thread with new explore
-        dispatch(
-          updateCurrentThread({
-            exploreId: exploreId,
-            modelName: modelName,
-            exploreKey: exploreKey,
-          }),
-        )
+        if (parts.length >= 2) {
+          const [modelName, exploreId] = parts
+          console.log('Parsed modelName:', modelName, 'exploreId:', exploreId)
+          
+          // Dispatch the explore update immediately
+          dispatch(
+            setCurrenExplore({
+              modelName,
+              exploreId,
+              exploreKey,
+            })
+          )
+          
+          console.log('Dispatched setCurrenExplore with:', { modelName, exploreId, exploreKey })
+          
+          // Update thread with new explore
+          dispatch(
+            updateCurrentThread({
+              exploreId: exploreId,
+              modelName: modelName,
+              exploreKey: exploreKey,
+            }),
+          )
+        } else {
+          console.error('Invalid explore_key format:', exploreKey, 'Expected format: modelName:exploreId')
+        }
       }
 
       // Update thread with response data

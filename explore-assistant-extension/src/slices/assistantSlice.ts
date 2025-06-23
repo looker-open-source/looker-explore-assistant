@@ -337,8 +337,19 @@ export const assistantSlice = createSlice({
       state.query = action.payload
     },
     resetChat: (state) => {
-      state.currentExploreThread = newThreadState()
-      state.currentExploreThread.uuid = uuidv4()
+      // Preserve the current explore context when resetting chat
+      const currentExplore = state.currentExplore
+      const newThread = newThreadState()
+      newThread.uuid = uuidv4()
+      
+      // Set the new thread's explore info to match current explore
+      if (currentExplore.exploreKey) {
+        newThread.exploreKey = currentExplore.exploreKey
+        newThread.exploreId = currentExplore.exploreId
+        newThread.modelName = currentExplore.modelName
+      }
+      
+      state.currentExploreThread = newThread
       state.query = ''
       state.isChatMode = false
       state.isQuerying = false
@@ -444,6 +455,28 @@ export const assistantSlice = createSlice({
     resetOAuthState: (state) => {
       state.oauth = initialState.oauth
     },
+    ensureValidExploreContext: (state) => {
+      // If we don't have a valid explore context, try to set one from available samples
+      if (!state.currentExplore.exploreKey || !state.currentExplore.modelName || !state.currentExplore.exploreId) {
+        const availableExplores = Object.keys(state.examples.exploreSamples)
+        if (availableExplores.length > 0) {
+          const firstExplore = availableExplores[0]
+          const [modelName, exploreId] = firstExplore.split(':')
+          state.currentExplore = {
+            exploreKey: firstExplore,
+            modelName,
+            exploreId
+          }
+          
+          // Also update the current thread to match
+          if (state.currentExploreThread) {
+            state.currentExploreThread.exploreKey = firstExplore
+            state.currentExploreThread.modelName = modelName
+            state.currentExploreThread.exploreId = exploreId
+          }
+        }
+      }
+    },
   },
 })
 
@@ -499,6 +532,7 @@ export const {
   setOAuthSkipAutoAuth,
   setOAuthHasValidToken,
   resetOAuthState,
+  ensureValidExploreContext,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

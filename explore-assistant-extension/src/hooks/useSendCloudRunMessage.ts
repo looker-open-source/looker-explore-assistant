@@ -1,15 +1,13 @@
 import { useContext, useCallback } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import { useSelector } from 'react-redux'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { RootState } from '../store'
 import { AssistantState } from '../slices/assistantSlice'
 
 const useSendCloudRunMessage = () => {
-  const dispatch = useDispatch()
+  const { extensionSDK } = useContext(ExtensionContext)
 
-  const { core40SDK, lookerHostData, extensionSDK } = useContext(ExtensionContext)
-
-  const { settings, examples, currentExplore, semanticModels } = useSelector(
+  const { settings, examples, currentExplore, semanticModels, currentExploreThread, history } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
   
@@ -17,42 +15,12 @@ const useSendCloudRunMessage = () => {
   const CLOUD_RUN_URL = settings['cloud_run_service_url']?.value as string || ''
   const oauth2Token = settings['oauth2_token']?.value as string || ''
 
-  const currentExploreKey = currentExplore.exploreKey
-  const modelName = lookerHostData?.extensionId.split('::')[0]
-
-  // Helper function to format table context
-  const formatTableContext = useCallback((dimensions: any[], measures: any[]) => {
-    const formatRow = (field: {
-      name?: string
-      type?: string
-      label?: string
-      description?: string
-      tags?: string[]
-    }) => {
-      const name = field.name || ''
-      const type = field.type || ''
-      const label = field.label || ''
-      const description = field.description || ''
-      const tags = field.tags ? field.tags.join(', ') : ''
-      return `| ${name} | ${type} | ${label} | ${description} | ${tags} |`
-    }
-
-    return `
-# Looker Explore Metadata
-Model: ${currentExplore.modelName}
-Explore: ${currentExplore.exploreId}
-
-## Dimensions (for grouping data):
-| Field Id | Field Type | Label | Description | Tags |
-|----------|------------|-------|-------------|------|
-${dimensions.map(formatRow).join('\n')}
-
-## Measures (for calculations):
-| Field Id | Field Type | Label | Description | Tags |
-|----------|------------|-------|-------------|------|
-${measures.map(formatRow).join('\n')}
-`
-  }, [currentExplore])
+  // Use the model name from the current explore context
+  // If not available, log a warning as this indicates a state issue
+  const modelName = currentExplore.modelName
+  if (!modelName) {
+    console.warn('No model name in current explore context. This may cause issues with the Cloud Run API.')
+  }
 
   const callCloudRunAPI = async (payload: any) => {
     if (!extensionSDK) {
@@ -84,7 +52,7 @@ ${measures.map(formatRow).join('\n')}
         throw new Error(`Cloud Run API error: ${response.status} ${response.statusText}`)
       }
 
-      return await response.json()
+      return response.body
     } catch (error) {
       console.error('Cloud Run API call failed:', error)
       throw error
@@ -95,17 +63,15 @@ ${measures.map(formatRow).join('\n')}
   const processPrompt = useCallback(
     async (prompt: string, conversationId: string, promptHistory: string[] = []) => {
       try {
-        // Get current thread and its messages from Redux state
-        const currentThread = useSelector((state: RootState) => 
-          state.assistant.currentThread || state.assistant.threads?.find(t => t.uuid === conversationId)
-        )
+        // Get current thread and its messages - use currentExploreThread or find from history
+        const threadToUse = currentExploreThread || history?.find((t: any) => t.uuid === conversationId)
         
         // Build the payload for the Cloud Run service with conversation context
         const payload = {
           prompt,
           conversation_id: conversationId,
           prompt_history: promptHistory,
-          thread_messages: currentThread?.messages || [],
+          thread_messages: threadToUse?.messages || [],
           current_explore: currentExplore,
           golden_queries: examples,
           semantic_models: semanticModels,
@@ -113,14 +79,25 @@ ${measures.map(formatRow).join('\n')}
           test_mode: false
         }
 
+        console.log('Sending payload to Cloud Run:', {
+          prompt: payload.prompt,
+          conversation_id: payload.conversation_id,
+          current_explore: payload.current_explore,
+          model_name: payload.model_name,
+          // Don't log the entire examples and semantic_models objects as they're large
+          golden_queries_keys: Object.keys(payload.golden_queries?.exploreSamples || {}),
+          semantic_models_keys: Object.keys(payload.semantic_models || {}),
+        })
+
         const result = await callCloudRunAPI(payload)
+        console.log('Received result from Cloud Run:', result)
         return result
       } catch (error) {
         console.error('Error processing prompt:', error)
         throw error
       }
     },
-    [currentExplore, examples, semanticModels, modelName, CLOUD_RUN_URL, oauth2Token, extensionSDK],
+    [currentExplore, examples, semanticModels, modelName, CLOUD_RUN_URL, oauth2Token, extensionSDK, currentExploreThread, history],
   )
 
   // Test function for Cloud Run settings

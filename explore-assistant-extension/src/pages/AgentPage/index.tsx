@@ -95,23 +95,6 @@ const AgentPage = () => {
     // Check if this is a new conversation
     const isNewConversation = !currentExploreThread || currentExploreThread.messages.length === 0;
     
-    // Ensure we have a thread with a UUID for consistent conversation ID
-    let conversationId: string
-    if (currentExploreThread?.uuid) {
-      conversationId = currentExploreThread.uuid
-    } else {
-      // Create a new thread if one doesn't exist
-      conversationId = uuidv4()
-      dispatch(
-        updateCurrentThread({
-          uuid: conversationId,
-        }),
-      )
-    }
-    
-    console.log('Current thread:', currentExploreThread?.uuid ? 'exists' : 'none')
-    console.log('Using conversation ID:', conversationId, 'isNewConversation:', isNewConversation)
-    
     // update the prompt list
     let promptList = [query]
     if (currentExploreThread && currentExploreThread.promptList) {
@@ -135,22 +118,20 @@ const AgentPage = () => {
       }),
     )
     
+    // Generate conversation ID
+    const conversationId = currentExploreThread?.uuid || `conversation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
     try {
       // SINGLE CALL to Cloud Run service
-      const response = await processPrompt(query, conversationId, promptList, currentExploreThread?.messages || [])
+      const response = await processPrompt(query, conversationId, promptList)
       
       console.log('Cloud Run response:', response)
       
       // Handle explore determination from response
       let exploreKey = currentExplore.exploreKey
-      let modelName = currentExplore.modelName
-      let exploreId = currentExplore.exploreId
-      
       if (response.explore_key && response.explore_key !== exploreKey) {
         exploreKey = response.explore_key
-        const [newModelName, newExploreId] = exploreKey.split(':')
-        modelName = newModelName
-        exploreId = newExploreId
+        const [modelName, exploreId] = exploreKey.split(':')
         
         dispatch(
           setCurrenExplore({
@@ -159,20 +140,18 @@ const AgentPage = () => {
             exploreKey,
           })
         )
+        
+        // Update thread with new explore
+        dispatch(
+          updateCurrentThread({
+            exploreId: exploreId,
+            modelName: modelName,
+            exploreKey: exploreKey,
+          }),
+        )
       }
 
-      // Always update thread with current explore info
-      console.log('Updating thread with modelName:', modelName, 'exploreId:', exploreId)
-      dispatch(
-        updateCurrentThread({
-          exploreId: exploreId,
-          modelName: modelName,
-          exploreKey: exploreKey,
-        }),
-      )
-
       // Update thread with response data
-      console.log('Updating thread with explore params:', response.explore_params)
       dispatch(
         updateCurrentThread({
           exploreParams: response.explore_params || {},
@@ -196,28 +175,12 @@ const AgentPage = () => {
         )
       } else {
         // Default to explore message
-        console.log('Setting side panel explore params:', response.explore_params)
-        console.log('Explore params type:', typeof response.explore_params)
-        console.log('Explore params JSON:', JSON.stringify(response.explore_params, null, 2))
-        
         dispatch(setSidePanelExploreParams(response.explore_params || {}))
         dispatch(openSidePanel())
 
-        const messageExploreParams = response.explore_params || {}
-        console.log('Adding message with explore params:', messageExploreParams)
-        
-
-        // export interface ExploreMessage {
-        //   uuid: string
-        //   exploreParams: ExploreParams
-        //   actor: 'system'
-        //   createdAt: number
-        //   type: 'explore'
-        //   summarizedPrompt: string
-        // }
         dispatch(
           addMessage({
-            exploreParams: messageExploreParams,
+            exploreParams: response.explore_params || {},
             uuid: uuidv4(),
             summarizedPrompt: response.summarized_prompt || query,
             actor: 'system',
@@ -426,11 +389,6 @@ const AgentPage = () => {
                   </div>
                 </div>
                 <div className="bg-gray-200 border-l-2 border-r-2 border-gray-400 flex-grow">
-                  {console.log('Side panel rendering ExploreEmbed with:')}
-                  {console.log('modelName:', currentExploreThread?.modelName)}
-                  {console.log('exploreId:', currentExploreThread?.exploreId)}
-                  {console.log('sidePanel.exploreParams:', sidePanel.exploreParams)}
-                  {console.log('sidePanel.isSidePanelOpen:', sidePanel.isSidePanelOpen)}
                   <ExploreEmbed
                     modelName={currentExploreThread?.modelName}
                     exploreId={currentExploreThread?.exploreId}

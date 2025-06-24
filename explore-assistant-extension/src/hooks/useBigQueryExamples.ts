@@ -26,7 +26,25 @@ export const useBigQueryExamples = () => {
   const modelName = settings?.bigquery_example_looker_model_name?.value 
     ? String(settings.bigquery_example_looker_model_name.value)
     : defaultModelName
+
+  const findOAuthConnections = async () => {
+    if (!core40SDK) {
+      console.error('Core40 SDK is not available')
+      return
+    } 
+
+    console.log('Available lookerHostData:', lookerHostData)
+    const sdkConnections = await core40SDK.ok(
+      core40SDK.all_connections()
+    ) 
+    console.log('Available SDK connections:', sdkConnections)
+    const userAcct = await core40SDK.ok(
+      core40SDK.me()
+    )
+    console.log('Current user account:', userAcct)
    
+  }
+
   const runExampleQuery = async () => {
     try {
       const query = await core40SDK.ok(
@@ -214,6 +232,9 @@ export const useBigQueryExamples = () => {
 
   // get the example prompts provide completion status
   useEffect(() => {
+    // temporary for debugging
+    findOAuthConnections()
+
     // Check if model name changed since last fetch
     const modelNameChanged = lastModelName.current !== null && 
                              lastModelName.current !== modelName;

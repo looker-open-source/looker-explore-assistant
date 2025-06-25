@@ -17,7 +17,6 @@ import {
 } from './slices/assistantSlice'
 import AgentPage from './pages/AgentPage'
 import SettingsModal from './pages/AgentPage/Settings'
-import ConnectionBanner from './components/Banner/ConnectionBanner'  // Import the new banner
 import { Box, CircularProgress, Typography, Button } from '@material-ui/core'
 
 // Debug flag for OAuth flow
@@ -246,9 +245,6 @@ const ExploreApp = () => {
   }
   AUTH_DEBUG && console.log('Rendering main app view. Settings open:', isSettingsOpen, 'BQ/Vertex tests successful:', bigQueryTestSuccessful, vertexTestSuccessful)
 
-  // Always show banner initially since we're not using localStorage anymore
-  const bannerInitialState = true
-
   return (
     <>
       <SettingsModal
@@ -260,7 +256,6 @@ const ExploreApp = () => {
       />
       {bigQueryTestSuccessful && (settings['cloud_run_service_url']?.value ? vertexTestSuccessful : true) ? (
         <>
-          <ConnectionBanner initialVisible={bannerInitialState} />
           <Switch>
             <Route path="/index" exact>
               <AgentPage />

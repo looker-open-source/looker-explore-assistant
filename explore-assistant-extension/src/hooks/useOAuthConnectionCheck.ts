@@ -33,9 +33,10 @@ export const useOAuthConnectionCheck = () => {
         try {
           console.log(`Getting detailed info for connection: ${conn.name}`)
           const detailedConn = await core40SDK.ok(
-            core40SDK.connection(conn.name!, 'name,database,dialect_name,oauth_application_id,oauth_application_name,oauth_client_id')
+            core40SDK.connection(conn.name!)
+            // core40SDK.connection(conn.name!, 'name,database,dialect_name,oauth_application_id,oauth_application_name,oauth_client_id')
           )
-          
+          console.log(`Detailed info for connection ${conn.name}:`, detailedConn)
           // Only consider it a real OAuth connection if it has an oauth_application_id
           if (detailedConn.oauth_application_id && detailedConn.oauth_application_id !== null) {
             const oauthId = detailedConn.oauth_application_id

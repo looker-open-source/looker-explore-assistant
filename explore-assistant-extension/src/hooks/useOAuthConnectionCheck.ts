@@ -24,22 +24,34 @@ export const useOAuthConnectionCheck = () => {
       )
       console.log('Standard SDK connections:', sdkConnections)
       
-      // Identify OAuth connections directly from all_connections() response
-      console.log('Identifying OAuth connections from all_connections() data...')
+      // Identify OAuth connections by getting detailed info for each connection
+      console.log('Getting detailed connection info to identify OAuth connections...')
       const oauthConnectionsToTest = new Map<string, any>() // Map of oauth_application_id -> connection
       
-      // Filter connections that have oauth_application_id (real OAuth connections)
+      // Get detailed info for each connection to check for OAuth configuration
       for (const conn of sdkConnections) {
-        if (conn.oauth_application_id && conn.oauth_application_id !== null) {
-          const oauthId = conn.oauth_application_id
+        try {
+          console.log(`Getting detailed info for connection: ${conn.name}`)
+          const detailedConn = await core40SDK.ok(
+            core40SDK.connection(conn.name!, 'name,database,dialect_name,oauth_application_id,oauth_application_name,oauth_client_id')
+          )
           
-          // Only keep the first connection for each unique OAuth application ID to avoid duplicates
-          if (!oauthConnectionsToTest.has(oauthId)) {
-            oauthConnectionsToTest.set(oauthId, conn)
-            console.log(`Found OAuth connection: ${conn.name} with OAuth App ID: ${oauthId}`)
+          // Only consider it a real OAuth connection if it has an oauth_application_id
+          if (detailedConn.oauth_application_id && detailedConn.oauth_application_id !== null) {
+            const oauthId = detailedConn.oauth_application_id
+            
+            // Only keep the first connection for each unique OAuth application ID to avoid duplicates
+            if (!oauthConnectionsToTest.has(oauthId)) {
+              oauthConnectionsToTest.set(oauthId, detailedConn)
+              console.log(`Found OAuth connection: ${conn.name} with OAuth App ID: ${oauthId}`)
+            } else {
+              console.log(`Skipping duplicate OAuth App ID ${oauthId} for connection: ${conn.name}`)
+            }
           } else {
-            console.log(`Skipping duplicate OAuth App ID ${oauthId} for connection: ${conn.name}`)
+            console.log(`Connection ${conn.name} has no oauth_application_id, skipping`)
           }
+        } catch (connError) {
+          console.log(`Failed to get detailed info for connection ${conn.name}:`, connError)
         }
       }
       
@@ -53,22 +65,22 @@ export const useOAuthConnectionCheck = () => {
       if (oauthConnectionsToTest.size > 0) {
         console.log(`Testing ${oauthConnectionsToTest.size} unique OAuth connections...`)
         
-        for (const [oauthAppId, conn] of oauthConnectionsToTest) {
+        for (const [oauthAppId, detailedConn] of oauthConnectionsToTest) {
           try {
-            console.log(`Testing OAuth connection: ${conn.name} (OAuth App ID: ${oauthAppId})`)
+            console.log(`Testing OAuth connection: ${detailedConn.name} (OAuth App ID: ${oauthAppId})`)
             const testResult = await core40SDK.ok(
-              core40SDK.test_connection(conn.name!)
+              core40SDK.test_connection(detailedConn.name!)
             )
             
             // test_connection returns an array, so get the first result
             const firstResult = Array.isArray(testResult) ? testResult[0] : testResult
             
             const connectionResult = {
-              name: conn.name,
-              dialect: conn.dialect_name,
-              database: conn.database,
+              name: detailedConn.name,
+              dialect: detailedConn.dialect_name,
+              database: detailedConn.database,
               oauthAppId: oauthAppId,
-              oauthAppName: conn.oauth_application_name,
+              oauthAppName: detailedConn.oauth_application_name,
               testStatus: firstResult?.status || 'unknown',
               message: firstResult?.message || 'No message',
               needsAuth: firstResult?.status === 'error' && 
@@ -81,10 +93,10 @@ export const useOAuthConnectionCheck = () => {
             }
             
             connectionTestResults.push(connectionResult)
-            console.log(`OAuth connection ${conn.name} test result:`, connectionResult)
+            console.log(`OAuth connection ${detailedConn.name} test result:`, connectionResult)
             
           } catch (testError: any) {
-            console.log(`Failed to test OAuth connection ${conn.name}:`, testError?.message || testError)
+            console.log(`Failed to test OAuth connection ${detailedConn.name}:`, testError?.message || testError)
             
             // Some test failures might indicate auth issues
             const authRelatedError = testError?.message && (
@@ -96,11 +108,11 @@ export const useOAuthConnectionCheck = () => {
             )
             
             connectionTestResults.push({
-              name: conn.name,
-              dialect: conn.dialect_name,
-              database: conn.database,
+              name: detailedConn.name,
+              dialect: detailedConn.dialect_name,
+              database: detailedConn.database,
               oauthAppId: oauthAppId,
-              oauthAppName: conn.oauth_application_name,
+              oauthAppName: detailedConn.oauth_application_name,
               testStatus: 'error',
               message: testError?.message || 'Test failed',
               needsAuth: authRelatedError,

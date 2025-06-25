@@ -8,6 +8,7 @@ import { useBigQueryExamples } from './hooks/useBigQueryExamples'
 import useSendCloudRunMessage from './hooks/useSendCloudRunMessage'
 import { useAutoOAuth } from './hooks/useAutoOAuth'
 import { useExtensionContext } from './hooks/useExtensionContext'
+import { useOAuthConnectionCheck } from './hooks/useOAuthConnectionCheck'
 import {
   resetExploreAssistant,
   setBigQueryTestSuccessful,
@@ -37,6 +38,9 @@ const ExploreApp = () => {
   
   // Skip auto OAuth if settings modal is open
   const { isAuthenticating, hasValidToken, error: oauthError, validationInProgress } = useAutoOAuth(isSettingsOpen)
+
+  // Check OAuth connections once per app session
+  useOAuthConnectionCheck()
 
   useLookerFields()
   const { testBigQuerySettings } = useBigQueryExamples()

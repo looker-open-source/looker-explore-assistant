@@ -35,28 +35,95 @@ const useSendCloudRunMessage = () => {
       throw new Error('OAuth token not available')
     }
 
-    try {
-      const response = await extensionSDK.serverProxy(
-        CLOUD_RUN_URL,
-        {
+    // Try extension SDK proxies first (bypass CORS), then fallback to direct fetch
+    const methods = [
+      // Method 1: Extension fetchProxy (recommended for authenticated Cloud Run)
+      async () => {
+        console.log('Trying extension fetchProxy...')
+        const response = await extensionSDK.fetchProxy(
+          CLOUD_RUN_URL,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${oauth2Token}`,
+            },
+            body: JSON.stringify(payload),
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error(`fetchProxy error: ${response.status} ${response.statusText}`)
+        }
+
+        // fetchProxy returns the parsed response body directly
+        return response.body
+      },
+      
+      // Method 2: Extension serverProxy
+      async () => {
+        console.log('Trying extension serverProxy...')
+        const response = await extensionSDK.serverProxy(
+          CLOUD_RUN_URL,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${oauth2Token}`,
+            },
+            body: JSON.stringify(payload),
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error(`serverProxy error: ${response.status} ${response.statusText}`)
+        }
+
+        // serverProxy returns the parsed response body directly
+        return response.body
+      },
+      
+      // Method 3: Direct fetch (will likely fail with authenticated Cloud Run due to CORS)
+      async () => {
+        console.log('Trying direct fetch as fallback (may fail due to CORS with authenticated Cloud Run)...')
+        const response = await fetch(CLOUD_RUN_URL, {
           method: 'POST',
+          mode: 'cors',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${oauth2Token}`,
           },
           body: JSON.stringify(payload),
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Direct fetch error: ${response.status} ${response.statusText}`)
         }
-      )
-
-      if (!response.ok) {
-        throw new Error(`Cloud Run API error: ${response.status} ${response.statusText}`)
+        
+        return await response.json()
       }
+    ]
 
-      return response.body
-    } catch (error) {
-      console.error('Cloud Run API call failed:', error)
-      throw error
+    let lastError: Error | null = null
+    
+    for (const method of methods) {
+      try {
+        console.log('Attempting API call method...')
+        const result = await method()
+        console.log('API call successful, result:', result)
+        return result
+      } catch (error) {
+        console.error('Method failed with error:', error)
+        if (error instanceof Error) {
+          console.error('Error message:', error.message)
+          console.error('Error stack:', error.stack)
+        }
+        lastError = error as Error
+        continue
+      }
     }
+
+    throw lastError || new Error('All API call methods failed')
   }
 
   // SINGLE MAIN FUNCTION - One call to process any prompt

@@ -24,7 +24,7 @@ SOFTWARE.
 
 */
 
-import React, { useContext, useRef, useEffect } from 'react'
+import React, { useContext, useRef, useEffect, useCallback } from 'react'
 import styled from 'styled-components'
 import { LookerEmbedSDK } from '@looker/embed-sdk'
 import { ExtensionContext } from '@looker/extension-sdk-react'
@@ -32,6 +32,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../store'
 import { ExploreHelper } from '../utils/ExploreHelper'
 import { ExploreParams } from '../slices/assistantSlice'
+import { useCheckForConnectionFailure } from '../hooks/useCheckForConnectionFailure'
 
 export interface ExploreEmbedProps {
   modelName: string | null | undefined
@@ -60,6 +61,28 @@ export const ExploreEmbed = ({
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
   const { settings } = useSelector((state: RootState) => state.assistant)
 
+  // Initialize connection failure detection hook
+  const {
+    isConnecting,
+    connectionError,
+    retryCount,
+    hasReachedMaxRetries,
+    handleError,
+    handleConnectionSuccess,
+    setConnecting,
+    resetConnectionState,
+    isDatabaseConnectionError,
+  } = useCheckForConnectionFailure({
+    maxRetries: 3,
+    retryDelay: 2000,
+    openAccountsPageOnFailure: true,
+    customFailureHandler: (info) => {
+      console.warn('ExploreEmbed: Connection failure detected', info)
+      // Could dispatch to Redux store or show toast notification here
+    },
+    enableLogging: true,
+  })
+
   const canceller = (event: any) => {
     return { cancel: !event.modal }
   }
@@ -76,37 +99,52 @@ export const ExploreEmbed = ({
 
   const setExploreLoading = (_explore: any) => {}
 
-  useEffect(() => {
+  // Enhanced connection function with retry logic
+  const connectToExplore = useCallback(async (retryAttempt = 0) => {
     const hostUrl = extensionSDK?.lookerHostData?.hostUrl
     const el = ref.current
-    if (el && hostUrl && exploreParams) {
-      const paramsObj: any = {
-        // For Looker Original use window.origin for Looker Core use hostUrl
-        embed_domain: hostUrl, //window.origin, //hostUrl,
-        sdk: '2',
-        _theme: JSON.stringify({
-          key_color: '#174ea6',
-          background_color: '#f4f6fa',
-        }),
-        toggle: 'pik,vis,dat',
-      }
+    
+    if (!el || !hostUrl || !exploreParams) {
+      console.warn('ExploreEmbed: Missing required elements for connection', {
+        hasElement: !!el,
+        hasHostUrl: !!hostUrl,
+        hasExploreParams: !!exploreParams
+      })
+      return
+    }
 
-      if (settings['show_explore_data'].value) {
-        paramsObj['toggle'] = 'pik,vis'
-      }
+    setConnecting(true)
 
-      const encodedParams = ExploreHelper.encodeExploreParams(exploreParams)
-      for (const key in encodedParams) {
-        paramsObj[key] = encodedParams[key]
-      }
+    const paramsObj: any = {
+      // For Looker Original use window.origin for Looker Core use hostUrl
+      embed_domain: hostUrl, //window.origin, //hostUrl,
+      sdk: '2',
+      _theme: JSON.stringify({
+        key_color: '#174ea6',
+        background_color: '#f4f6fa',
+      }),
+      toggle: 'pik,vis,dat',
+    }
 
-      console.log('Explore Embed - Params', paramsObj)
-      console.log('Explore Embed - About to initialize LookerEmbedSDK with hostUrl:', hostUrl)
-      console.log('Explore Embed - Creating explore with ID:', modelName + '/' + exploreId)
+    if (settings['show_explore_data'].value) {
+      paramsObj['toggle'] = 'pik,vis'
+    }
 
+    const encodedParams = ExploreHelper.encodeExploreParams(exploreParams)
+    for (const key in encodedParams) {
+      paramsObj[key] = encodedParams[key]
+    }
+
+    console.log('Explore Embed - Params', paramsObj)
+    console.log('Explore Embed - About to initialize LookerEmbedSDK with hostUrl:', hostUrl)
+    console.log('Explore Embed - Creating explore with ID:', modelName + '/' + exploreId)
+    console.log('Explore Embed - Connection attempt:', retryAttempt + 1)
+
+    try {
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
-      LookerEmbedSDK.createExploreWithId(modelName + '/' + exploreId)
+      
+      const explore = await LookerEmbedSDK.createExploreWithId(modelName + '/' + exploreId)
         .appendTo(el)
         .withClassName('looker-embed')
         .withParams(paramsObj)
@@ -120,26 +158,60 @@ export const ExploreEmbed = ({
         .on('explore:run:complete', () => setExploreRunStart(false))
         .build()
         .connect()
-        .then((explore) => {
-          console.log('ExploreEmbed - Successfully connected to explore:', explore)
-          console.log('ExploreEmbed - Container element:', el)
-          console.log('ExploreEmbed - Container innerHTML:', el.innerHTML)
-          setExploreLoading(explore)
-        })
-        .catch((error: Error) => {
-          // @TODO - This should probably throw a visible error
-          // eslint-disable-next-line no-console
-          console.error('ExploreEmbed - Connection error', error)
-          console.error('ExploreEmbed - Error details:', {
-            message: error.message,
-            stack: error.stack,
-            hostUrl,
-            modelName,
-            exploreId,
-            exploreParams
-          })
-        })
+
+      console.log('ExploreEmbed - Successfully connected to explore:', explore)
+      console.log('ExploreEmbed - Container element:', el)
+      console.log('ExploreEmbed - Container innerHTML:', el.innerHTML)
+      
+      handleConnectionSuccess()
+      setExploreLoading(explore)
+      
+    } catch (error: any) {
+      console.error('ExploreEmbed - Connection error', error)
+      console.error('ExploreEmbed - Error details:', {
+        message: error.message,
+        stack: error.stack,
+        hostUrl,
+        modelName,
+        exploreId,
+        exploreParams,
+        retryAttempt
+      })
+
+      const shouldRetry = handleError(error, {
+        modelName: modelName || undefined,
+        exploreId: exploreId || undefined,
+        hostUrl,
+        queryUrl: `${hostUrl}/embed/explore/${modelName}/${exploreId}`
+      })
+
+      // If should retry and we haven't reached max retries, schedule a retry
+      if (shouldRetry && !hasReachedMaxRetries) {
+        console.log(`ExploreEmbed - Scheduling retry ${retryCount + 1}`)
+        setTimeout(() => {
+          connectToExplore(retryAttempt + 1)
+        }, 2000) // 2 second delay between retries
+      } else {
+        setConnecting(false)
+      }
     }
+  }, [
+    extensionSDK,
+    exploreParams,
+    modelName,
+    exploreId,
+    settings,
+    handleError,
+    handleConnectionSuccess,
+    setConnecting,
+    hasReachedMaxRetries,
+    retryCount
+  ])
+
+  useEffect(() => {
+    // Reset connection state when exploreParams change (new query URL)
+    resetConnectionState()
+    connectToExplore()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exploreParams])
 
@@ -152,10 +224,42 @@ export const ExploreEmbed = ({
     return <></>
   }
 
-  console.log('ExploreEmbed - About to render EmbedContainer')
+  console.log('ExploreEmbed - About to render EmbedContainer', {
+    isConnecting,
+    connectionError: connectionError?.error.message,
+    retryCount,
+    hasReachedMaxRetries
+  })
+  
   return (
     <>
       <EmbedContainer id="embedcontainer" ref={ref} />
+      {/* Optional: Add connection status indicator */}
+      {isConnecting && (
+        <ConnectionStatus>
+          Connecting to Looker Explore...
+          {retryCount > 0 && ` (Retry ${retryCount}/3)`}
+        </ConnectionStatus>
+      )}
+      {connectionError && hasReachedMaxRetries && (
+        <ErrorStatus>
+          {isDatabaseConnectionError(connectionError.error) ? (
+            <>
+              Database connection failed after multiple attempts.
+              <br />
+              Please check your connection settings in the accounts page.
+              <br />
+              <small>Error: {connectionError.error.message}</small>
+            </>
+          ) : (
+            <>
+              Failed to connect to Looker Explore after multiple attempts.
+              <br />
+              Error: {connectionError.error.message}
+            </>
+          )}
+        </ErrorStatus>
+      )}
     </>
   )
 }
@@ -171,4 +275,36 @@ const EmbedContainer = styled.div<{}>`
     display: block;
     backgroundcolor: #f7f7f7;
   }
+`
+
+const ConnectionStatus = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(23, 78, 166, 0.9);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 14px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+`
+
+const ErrorStatus = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(220, 53, 69, 0.9);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 14px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: 400px;
+  line-height: 1.4;
 `

@@ -1,12 +1,9 @@
-import { useContext, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useSelector } from 'react-redux'
-import { ExtensionContext } from '@looker/extension-sdk-react'
 import { RootState } from '../store'
 import { AssistantState } from '../slices/assistantSlice'
 
 const useSendCloudRunMessage = () => {
-  const { extensionSDK } = useContext(ExtensionContext)
-
   const { settings, examples, currentExplore, semanticModels, currentExploreThread, history } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
@@ -23,10 +20,6 @@ const useSendCloudRunMessage = () => {
   }
 
   const callCloudRunAPI = async (payload: any) => {
-    if (!extensionSDK) {
-      throw new Error('Extension SDK not available')
-    }
-
     if (!CLOUD_RUN_URL) {
       throw new Error('Cloud Run service URL not configured')
     }
@@ -35,98 +28,24 @@ const useSendCloudRunMessage = () => {
       throw new Error('OAuth token not available')
     }
 
-    // Try extension SDK proxies first (bypass CORS), then fallback to direct fetch
-    const methods = [
-      // Method 1: Extension fetchProxy (recommended for authenticated Cloud Run)
-      async () => {
-        console.log('Trying extension fetchProxy...')
-        const response = await extensionSDK.fetchProxy(
-          CLOUD_RUN_URL,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${oauth2Token}`,
-            },
-            body: JSON.stringify(payload),
-          }
-        )
-
-        if (!response.ok) {
-          throw new Error(`fetchProxy error: ${response.status} ${response.statusText}`)
-        }
-
-        // fetchProxy returns the parsed response body directly
-        return response.body
-      },
-      
-      // Method 2: Extension serverProxy
-      async () => {
-        console.log('Trying extension serverProxy...')
-        const response = await extensionSDK.serverProxy(
-          CLOUD_RUN_URL,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${oauth2Token}`,
-            },
-            body: JSON.stringify(payload),
-          }
-        )
-
-        if (!response.ok) {
-          throw new Error(`serverProxy error: ${response.status} ${response.statusText}`)
-        }
-
-        // serverProxy returns the parsed response body directly
-        return response.body
-      },
-      
-      // Method 3: Direct fetch (will likely fail with authenticated Cloud Run due to CORS)
-      async () => {
-        console.log('Trying direct fetch as fallback (may fail due to CORS with authenticated Cloud Run)...')
-        const response = await fetch(CLOUD_RUN_URL, {
-          method: 'POST',
-          mode: 'cors',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${oauth2Token}`,
-          },
-          body: JSON.stringify(payload),
-        })
-        
-        if (!response.ok) {
-          throw new Error(`Direct fetch error: ${response.status} ${response.statusText}`)
-        }
-        
-        return await response.json()
-      }
-    ]
-
-    let lastError: Error | null = null
+    console.log('Making request to Cloud Run service...')
     
-    for (const method of methods) {
-      try {
-        console.log('Attempting API call method...')
-        const result = await method()
-        console.log('API call successful, result:', result)
-        return result
-      } catch (error) {
-        console.error('Method failed with error:', error)
-        if (error instanceof Error) {
-          console.error('Error message:', error.message)
-          console.error('Error stack:', error.stack)
-        }
-        lastError = error as Error
-        continue
-      }
+    const response = await fetch(CLOUD_RUN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${oauth2Token}`,
+      },
+      body: JSON.stringify(payload),
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Cloud Run API error: ${response.status} ${response.statusText}`)
     }
-
-    throw lastError || new Error('All API call methods failed')
+    
+    return await response.json()
   }
 
-  // SINGLE MAIN FUNCTION - One call to process any prompt
   const processPrompt = useCallback(
     async (prompt: string, conversationId: string, promptHistory: string[] = []) => {
       try {
@@ -164,7 +83,7 @@ const useSendCloudRunMessage = () => {
         throw error
       }
     },
-    [currentExplore, examples, semanticModels, modelName, CLOUD_RUN_URL, oauth2Token, extensionSDK, currentExploreThread, history],
+    [currentExplore, examples, semanticModels, modelName, CLOUD_RUN_URL, oauth2Token, currentExploreThread, history],
   )
 
   // Test function for Cloud Run settings
@@ -180,12 +99,7 @@ const useSendCloudRunMessage = () => {
         return false
       }
 
-      if (!extensionSDK) {
-        console.log('Cloud Run test failed: Extension SDK not available')
-        return false
-      }
-
-      console.log('Testing Cloud Run connection via extension proxy...')
+      console.log('Testing Cloud Run connection...')
       
       // Simple test payload
       const testPayload = {
@@ -195,20 +109,17 @@ const useSendCloudRunMessage = () => {
         conversation_id: "test"
       }
 
-      const response = await extensionSDK.fetchProxy(
-        CLOUD_RUN_URL,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${oauth2Token}`
-          },
-          body: JSON.stringify(testPayload)
-        }
-      )
+      const response = await fetch(CLOUD_RUN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${oauth2Token}`
+        },
+        body: JSON.stringify(testPayload)
+      })
 
       if (response.ok) {
-        console.log('Cloud Run test successful via extension proxy')
+        console.log('Cloud Run test successful')
         return true
       } else {
         console.log('Cloud Run test failed:', response.status, response.statusText)
@@ -218,7 +129,7 @@ const useSendCloudRunMessage = () => {
       console.error('Cloud Run test error:', error)
       return false
     }
-  }, [CLOUD_RUN_URL, oauth2Token, extensionSDK])
+  }, [CLOUD_RUN_URL, oauth2Token])
 
   return {
     processPrompt,

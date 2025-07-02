@@ -43,7 +43,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const { saveExtensionContext } = useExtensionContext()
 
   const GOOGLE_CLIENT_ID = settings['google_oauth_client_id']?.value as string || '';
-  const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/bigquery https://www.googleapis.com/auth/userinfo.email';
+  // Only request OpenID scopes for user identity - backend will use service account for API calls
+  const GOOGLE_SCOPES = 'openid email profile';
   
   // Use our hook but don't trigger auto-authentication here
   const { isAuthenticating, hasValidToken, error: oauthHookError } = useAutoOAuth()
@@ -59,12 +60,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
       // Only validate existing token if NOT forcing new authentication
       if (!forceNew) {
-        const existingToken = settings['oauth2_token']?.value;
+        const existingToken = settings['identity_token']?.value;
         if (existingToken) {
-          const tokenInfo = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + existingToken);
-          if (tokenInfo.ok) {
-            console.log('Existing OAuth token is valid');
-            return true;
+          // For ID tokens, we can decode the JWT to check expiration without making a network call
+          try {
+            const payload = JSON.parse(atob(existingToken.split('.')[1]));
+            const now = Math.floor(Date.now() / 1000);
+            if (payload.exp && payload.exp > now) {
+              console.log('Existing Identity token is valid');
+              return true;
+            }
+          } catch (e) {
+            console.log('Error validating existing ID token, will get new one');
           }
         }
       } else {
@@ -85,9 +92,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       dispatch(setOAuthAuthenticating(true));
 
       // Clear existing token before starting new flow (when forcing new)
-      if (forceNew && settings['oauth2_token']?.value) {
+      if (forceNew && settings['identity_token']?.value) {
         console.log('Clearing existing token before new OAuth flow');
-        dispatch(setSetting({ id: 'oauth2_token', value: '' }));
+        dispatch(setSetting({ id: 'identity_token', value: '' }));
       }
 
       const response = await extensionSDK.oauth2Authenticate(
@@ -95,20 +102,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         {
           client_id: clientId,
           scope: GOOGLE_SCOPES,
-          response_type: 'token',
+          response_type: 'id_token', // Only request ID token
           // Force consent screen to ensure fresh token
           prompt: forceNew ? 'consent' : undefined,
+          nonce: Math.random().toString(36).substring(2, 15), // Required for ID token
         }
       );
 
-      const { access_token } = response;
-      if (access_token) {
-        dispatch(setSetting({ id: 'oauth2_token', value: access_token }));
-        console.log('OAuth token obtained successfully');
+      const { id_token } = response;
+      if (id_token) {
+        dispatch(setSetting({ id: 'identity_token', value: id_token }));
+        console.log('ID token obtained successfully - Backend will use service account for API calls');
         return true;
       }
-      console.error('No access token received from OAuth flow');
-      dispatch(setOAuthError('Failed to receive access token from OAuth flow'));
+      console.error('No ID token received from OAuth flow');
+      dispatch(setOAuthError('Failed to receive ID token from OAuth flow'));
       return false;
     } catch (error) {
       console.error('OAuth2 authentication failed:', error);
@@ -222,7 +230,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       }
       
       // Run OAuth first if we have a client ID but no token
-      if (settings['google_oauth_client_id']?.value && !settings['oauth2_token']?.value) {
+      if (settings['google_oauth_client_id']?.value && !settings['identity_token']?.value) {
         await doOAuth();
       }
       
@@ -383,7 +391,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
         <Box sx={{ mt: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
           <Typography variant="body2" sx={{ mb: 1 }}>
-            OAuth Status: {settings['oauth2_token']?.value ? 
+            OAuth Status: {settings['identity_token']?.value ? 
               <Box component="span" sx={{ color: '#4caf50', fontWeight: 'bold' }}>✅ Authenticated</Box> : 
               <Box component="span" sx={{ color: '#f44336', fontWeight: 'bold' }}>❌ Not Authenticated</Box>
             }

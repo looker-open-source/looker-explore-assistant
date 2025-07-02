@@ -21,6 +21,9 @@ from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 import looker_sdk
 from google.cloud import bigquery
+import jwt
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
 
 logging.basicConfig(level=logging.INFO)
 
@@ -42,7 +45,9 @@ def get_response_headers():
     return {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Max-Age": "3600",
+        "Access-Control-Allow-Credentials": "false"
     }
 
 def validate_oauth_token(bearer_token: str) -> Optional[Dict[str, Any]]:
@@ -112,27 +117,29 @@ def validate_oauth_token(bearer_token: str) -> Optional[Dict[str, Any]]:
         logging.error(f"Traceback: {traceback.format_exc()}")
         return None
 
-def call_vertex_ai_api(oauth_token: str, request_body: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Call Vertex AI API using the user's OAuth token"""
+def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Call Vertex AI API using service account credentials"""
     try:
         if not project or not location:
             logging.error("Project or location not configured for Vertex AI API")
             return None
         
-        # Remove 'Bearer ' prefix if present
-        if oauth_token.startswith('Bearer '):
-            oauth_token = oauth_token[7:]
+        # Get service account credentials
+        credentials, _ = default()
+        auth_req = Request()
+        credentials.refresh(auth_req)
+        access_token = credentials.token
         
         # Construct Vertex AI API URL
         vertex_api_url = f"https://{location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/publishers/google/models/{vertex_model}:generateContent"
         
         headers = {
-            'Authorization': f'Bearer {oauth_token}',
+            'Authorization': f'Bearer {access_token}',
             'Content-Type': 'application/json'
         }
         
         # Log the request for debugging
-        logging.info(f"Calling Vertex AI API: {vertex_api_url}")
+        logging.info(f"Calling Vertex AI API with service account: {vertex_api_url}")
         
         response = requests.post(vertex_api_url, headers=headers, json=request_body)
         
@@ -257,8 +264,8 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
             }
         }
         
-        # Call Vertex AI
-        vertex_response = call_vertex_ai_api(oauth_token, vertex_request)
+        # Call Vertex AI using service account
+        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
         if not vertex_response:
             return None
         
@@ -367,8 +374,8 @@ Output only the synthesized query, nothing else."""
             }
         }
         
-        # Call Vertex AI
-        vertex_response = call_vertex_ai_api(oauth_token, vertex_request)
+        # Call Vertex AI using service account
+        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
         if not vertex_response:
             return None
         
@@ -501,8 +508,8 @@ User query: "{query}"
             }
         }
         
-        # Call Vertex AI
-        vertex_response = call_vertex_ai_api(oauth_token, vertex_request)
+        # Call Vertex AI using service account
+        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
         if not vertex_response:
             return None
         
@@ -946,9 +953,71 @@ def save_suggested_golden_query(oauth_token: str, explore_key: str, prompt_histo
         }
         logging.info(f"FALLBACK LOG - Suggested query data: {json.dumps(fallback_data, indent=2)}")
         return False
-        return False
 
-# ...existing code...
+def validate_identity_token(bearer_token: str) -> Optional[Dict[str, Any]]:
+    """Validate Google Identity token (JWT)"""
+    try:
+        logging.info("Starting Identity token validation")
+        
+        # Remove 'Bearer ' prefix if present
+        if bearer_token.startswith('Bearer '):
+            bearer_token = bearer_token[7:]
+        
+        logging.info(f"Identity token length: {len(bearer_token)}")
+        
+        # Verify the token using Google's library
+        # This validates the signature, expiration, and issuer
+        request = google_requests.Request()
+        id_info = id_token.verify_oauth2_token(bearer_token, request)
+        
+        logging.info(f"Identity token info received: {list(id_info.keys())}")
+        
+        # Extract user information from the JWT payload
+        email = id_info.get('email')
+        if not email:
+            logging.error("No email found in identity token")
+            logging.error(f"Available token fields: {list(id_info.keys())}")
+            return None
+
+        logging.info(f"Identity token validated for user: {email}")
+        return {
+            'email': email,
+            'user_id': id_info.get('sub'),
+            'expires_at': id_info.get('exp', 0),
+            'audience': id_info.get('aud'),
+            'token_type': 'identity'
+        }
+        
+    except ValueError as e:
+        logging.error(f"Identity token validation failed: {e}")
+        return None
+    except Exception as e:
+        logging.error(f"Error validating identity token: {e}")
+        logging.error(f"Error type: {type(e)}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
+        return None
+
+def validate_token(bearer_token: str) -> Optional[Dict[str, Any]]:
+    """Validate either OAuth access token or Identity token"""
+    if not bearer_token:
+        return None
+    
+    # Remove 'Bearer ' prefix if present
+    clean_token = bearer_token[7:] if bearer_token.startswith('Bearer ') else bearer_token
+    
+    # Try to determine token type by structure
+    # JWT tokens have 3 parts separated by dots
+    if clean_token.count('.') == 2:
+        logging.info("Token appears to be a JWT (Identity token), trying identity validation first")
+        result = validate_identity_token(bearer_token)
+        if result:
+            return result
+        logging.info("Identity token validation failed, trying as access token")
+    
+    # Try as access token
+    logging.info("Trying OAuth access token validation")
+    return validate_oauth_token(bearer_token)
 
 def create_mcp_flask_app():
     """Create Flask app with MCP endpoints"""
@@ -962,6 +1031,9 @@ def create_mcp_flask_app():
     def vertex_ai_proxy():
         """Main endpoint for Vertex AI processing"""
         logging.info(f"Received {request.method} request to main endpoint")
+        logging.info(f"Request headers: {dict(request.headers)}")
+        logging.info(f"Request origin: {request.headers.get('Origin', 'No origin header')}")
+        logging.info(f"User agent: {request.headers.get('User-Agent', 'No user agent')}")
         
         # Handle OPTIONS requests first, without authentication
         if request.method == "OPTIONS":
@@ -985,14 +1057,15 @@ def create_mcp_flask_app():
                 response.status_code = 401
                 return response
             
-            logging.info("Validating OAuth token...")
-            # Validate OAuth token
-            oauth_token_info = validate_oauth_token(auth_header)
+            logging.info("Validating OAuth/Identity token...")
+            # Validate OAuth token or Identity token
+            oauth_token_info = validate_token(auth_header)
             if not oauth_token_info:
-                logging.error("OAuth token validation failed")
-                return jsonify({'error': 'Invalid OAuth token'}), 401, get_response_headers()
+                logging.error("Token validation failed")
+                return jsonify({'error': 'Invalid token'}), 401, get_response_headers()
             
-            logging.info(f"OAuth token validated for user: {oauth_token_info.get('email')}")
+            token_type = oauth_token_info.get('token_type', 'access')
+            logging.info(f"{token_type.capitalize()} token validated for user: {oauth_token_info.get('email')}")
             
             # Get the request body
             logging.info("Getting request body...")
@@ -1045,6 +1118,24 @@ def create_mcp_flask_app():
     
     logging.info("Registered endpoint: /health")
     
+    @app.route("/cors", methods=["OPTIONS"])
+    def cors_preflight():
+        """Dedicated CORS preflight endpoint - can be deployed without auth"""
+        logging.info("Handling dedicated CORS preflight request")
+        response = Response()
+        response.headers.update(get_response_headers())
+        response.status_code = 200
+        return response
+    
+    @app.route("/cors-preflight", methods=["OPTIONS"])
+    def cors_preflight_only():
+        """Dedicated CORS preflight endpoint - can be deployed without strict auth"""
+        logging.info("Handling dedicated CORS preflight request")
+        response = Response()
+        response.headers.update(get_response_headers())
+        response.status_code = 200
+        return response
+    
     @app.errorhandler(500)
     def internal_server_error(error):
         return jsonify({'error': 'Internal server error'}), 500, get_response_headers()
@@ -1077,11 +1168,11 @@ def mcp_cloud_function_entrypoint(request):
                 response.status_code = 401
                 return response
             
-            # Validate OAuth token
-            oauth_token_info = validate_oauth_token(auth_header)
+            # Validate OAuth token or Identity token
+            oauth_token_info = validate_token(auth_header)
             if not oauth_token_info:
-                logging.error("OAuth token validation failed")
-                response = jsonify({'error': 'Invalid OAuth token'})
+                logging.error("Token validation failed")
+                response = jsonify({'error': 'Invalid token'})
                 response.headers.update(get_response_headers())
                 response.status_code = 401
                 return response
@@ -1128,10 +1219,3 @@ def mcp_cloud_function_entrypoint(request):
         response.headers.update(get_response_headers())
         response.status_code = 404
         return response
-
-# Create the Flask app for Cloud Run deployment
-app = create_mcp_flask_app()
-
-if __name__ == "__main__":
-    # For local development
-    app.run(host='0.0.0.0', port=8080, debug=False)

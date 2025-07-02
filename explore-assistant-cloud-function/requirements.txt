@@ -7,3 +7,4 @@ google-auth-oauthlib==1.1.0
 google-auth-httplib2==0.1.1
 google-cloud-core==2.3.3
 looker-sdk>=23.0.0
+PyJWT==2.8.0

@@ -190,6 +190,11 @@ export const initialState: AssistantState = {
       description: 'Google OAuth token used for authenticating Vertex AI requests',
       value: '',
     },
+    identity_token: {
+      name: 'Identity Token',
+      description: 'Google Identity token (JWT) for user authentication',
+      value: '',
+    },
     google_oauth_client_id: {
       name: 'Google OAuth Client ID',
       description: 'Client ID for authenticating with Google OAuth',

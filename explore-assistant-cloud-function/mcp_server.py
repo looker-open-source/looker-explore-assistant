@@ -1050,7 +1050,8 @@ def create_mcp_flask_app():
             auth_header = request.headers.get("Authorization")
             logging.info(f"Authorization header present: {bool(auth_header)}")
             
-            if not auth_header or not auth_header.startswith("Bearer "):
+            # check lower or upper cased bearer token
+            if not auth_header or not auth_header.lower().startswith("bearer "):
                 logging.error("Missing or invalid Authorization header")
                 response = jsonify({'error': 'Missing or invalid Authorization header'})
                 response.headers.update(get_response_headers())

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manual Preflight Test</title>
+</head>
+<body>
+    <h1>Manual Preflight CORS Test</h1>
+    <button id="test1">Test 1: Manual OPTIONS with Auth</button>
+    <button id="test2">Test 2: Direct POST (triggers automatic preflight)</button>
+    <button id="test3">Test 3: Manual OPTIONS then POST</button>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+        const endpoint = 'https://34.149.46.123/';
+        
+        function log(message) {
+            results.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        // Test 1: Manual OPTIONS request with Authorization header
+        document.getElementById('test1').onclick = async () => {
+            log('=== Test 1: Manual OPTIONS with Authorization ===');
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Authorization': 'Bearer fake-token',
+                        'Origin': window.location.origin
+                    }
+                });
+                log('Manual OPTIONS succeeded: ' + response.status);
+                log('CORS headers: ' + response.headers.get('Access-Control-Allow-Origin'));
+            } catch (error) {
+                log('Manual OPTIONS failed: ' + error.message);
+            }
+        };
+
+        // Test 2: Direct POST that will trigger automatic preflight
+        document.getElementById('test2').onclick = async () => {
+            log('=== Test 2: Direct POST (triggers automatic preflight) ===');
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer fake-token'
+                    },
+                    body: JSON.stringify({test: 'data'})
+                });
+                log('POST succeeded: ' + response.status);
+            } catch (error) {
+                log('POST failed: ' + error.message);
+            }
+        };
+
+        // Test 3: Manual OPTIONS followed by POST
+        document.getElementById('test3').onclick = async () => {
+            log('=== Test 3: Manual OPTIONS then POST ===');
+            try {
+                // First, manual OPTIONS
+                const optionsResponse = await fetch(endpoint, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Authorization': 'Bearer fake-token',
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'Content-Type,Authorization'
+                    }
+                });
+                log('Manual OPTIONS: ' + optionsResponse.status);
+                
+                // Then try POST (browser will still do its own preflight)
+                const postResponse = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer fake-token'
+                    },
+                    body: JSON.stringify({test: 'data'})
+                });
+                log('POST after manual OPTIONS: ' + postResponse.status);
+            } catch (error) {
+                log('Test 3 failed: ' + error.message);
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Server OAuth Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .config {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .button {
+            background: #4285f4;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        .button:hover {
+            background: #3367d6;
+        }
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .results {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #0f5132;
+            background: #d1eddf;
+            border: 1px solid #a3cfbb;
+        }
+        .error {
+            color: #842029;
+            background: #f8d7da;
+            border: 1px solid #f1aeb5;
+        }
+        .warning {
+            color: #664d03;
+            background: #fff3cd;
+            border: 1px solid #ffecb5;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 MCP Server OAuth Test</h1>
+    <p>This tool helps you test your MCP server with proper OAuth tokens matching the configuration in <code>useAutoOAuth.ts</code>.</p>
+    
+    <div class="config">
+        <h3>📋 Configuration</h3>
+        <div class="input-group">
+            <label for="clientId">Google OAuth Client ID:</label>
+            <input type="text" id="clientId" value="730192175971-vh7e9uhhirae35943rpcon93fqp8bhoo.apps.googleusercontent.com">
+        </div>
+        <div class="input-group">
+            <label for="serverUrl">MCP Server URL:</label>
+            <input type="text" id="serverUrl" value="https://looker-explore-assistant-mcp-rchq2jmtba-uc.a.run.app">
+        </div>
+    </div>
+
+    <div>
+        <h3>🚀 Testing Steps</h3>
+        <button class="button" onclick="step1_getToken()">Step 1: Get OAuth Token</button>
+        <button class="button" onclick="step2_testServer()" id="testButton" disabled>Step 2: Test MCP Server</button>
+        <button class="button" onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="results" class="results" style="display:none;"></div>
+
+    <div style="margin-top: 30px;">
+        <h3>📝 Instructions</h3>
+        <ol>
+            <li><strong>Enter your Google OAuth Client ID</strong> - This should be the same one used in your Looker extension</li>
+            <li><strong>Click "Get OAuth Token"</strong> - This will open Google OAuth with the correct parameters</li>
+            <li><strong>Complete OAuth flow</strong> - Sign in and authorize the application</li>
+            <li><strong>Extract the token</strong> - Copy the <code>id_token</code> from the redirect URL</li>
+            <li><strong>Test the server</strong> - Use the token to test your MCP server</li>
+        </ol>
+        
+        <h4>📋 OAuth Parameters Used</h4>
+        <p>This tool uses the exact same parameters as <code>useAutoOAuth.ts</code>:</p>
+        <ul>
+            <li><code>scope: "openid email profile"</code></li>
+            <li><code>response_type: "id_token"</code></li>
+            <li><code>nonce: &lt;random&gt;</code></li>
+        </ul>
+    </div>
+
+    <script>
+        let currentToken = null;
+
+        function log(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+            
+            resultsDiv.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+            
+            // Update CSS class
+            resultsDiv.className = `results ${type}`;
+        }
+
+        function clearResults() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.textContent = '';
+            resultsDiv.style.display = 'none';
+            resultsDiv.className = 'results';
+        }
+
+        function generateNonce() {
+            return Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        }
+
+        function step1_getToken() {
+            const clientId = document.getElementById('clientId').value.trim();
+            
+            if (!clientId) {
+                log('Please enter your Google OAuth Client ID', 'error');
+                return;
+            }
+
+            log('Starting OAuth flow...', 'info');
+            log(`Client ID: ${clientId}`, 'info');
+
+            // Generate OAuth URL with exact parameters from useAutoOAuth.ts
+            const nonce = generateNonce();
+            const params = new URLSearchParams({
+                'client_id': clientId,
+                'response_type': 'id_token',
+                'scope': 'openid email profile',
+                'redirect_uri': window.location.origin + window.location.pathname,
+                'nonce': nonce
+            });
+
+            const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+            
+            log('OAuth URL generated', 'info');
+            log(`Parameters:`, 'info');
+            log(`  client_id: ${clientId}`, 'info');
+            log(`  response_type: id_token`, 'info');
+            log(`  scope: openid email profile`, 'info');
+            log(`  nonce: ${nonce}`, 'info');
+            log('', 'info');
+            log('Opening OAuth flow in new window...', 'info');
+            log('After authorization, copy the id_token from the URL and paste it in the prompt.', 'warning');
+
+            // Open OAuth flow
+            window.open(oauthUrl, 'oauth', 'width=500,height=600');
+            
+            // Check for token in current URL (in case user is returning from OAuth)
+            checkForTokenInUrl();
+        }
+
+        function checkForTokenInUrl() {
+            const fragment = window.location.hash.substring(1);
+            const params = new URLSearchParams(fragment);
+            const idToken = params.get('id_token');
+            const error = params.get('error');
+
+            if (idToken) {
+                log('✅ ID Token found in URL!', 'success');
+                log(`Token length: ${idToken.length}`, 'info');
+                currentToken = idToken;
+                document.getElementById('testButton').disabled = false;
+                
+                // Decode and display token info
+                try {
+                    const payload = JSON.parse(atob(idToken.split('.')[1]));
+                    log('Token payload:', 'info');
+                    log(`  Email: ${payload.email || 'Not found'}`, 'info');
+                    log(`  Audience: ${payload.aud || 'Not found'}`, 'info');
+                    log(`  Expires: ${new Date(payload.exp * 1000).toLocaleString()}`, 'info');
+                    log(`  Issued: ${new Date(payload.iat * 1000).toLocaleString()}`, 'info');
+                } catch (e) {
+                    log('Could not decode token payload', 'warning');
+                }
+                
+                // Clear the hash
+                window.location.hash = '';
+                
+            } else if (error) {
+                log(`OAuth error: ${error}`, 'error');
+            } else {
+                // Prompt user to paste token
+                setTimeout(() => {
+                    const token = prompt('Paste the id_token from the OAuth redirect URL:');
+                    if (token && token.trim()) {
+                        currentToken = token.trim();
+                        document.getElementById('testButton').disabled = false;
+                        log('Token received from user input', 'success');
+                        log(`Token length: ${currentToken.length}`, 'info');
+                    }
+                }, 2000);
+            }
+        }
+
+        async function step2_testServer() {
+            if (!currentToken) {
+                log('No token available. Please complete Step 1 first.', 'error');
+                return;
+            }
+
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            if (!serverUrl) {
+                log('Please enter the MCP Server URL', 'error');
+                return;
+            }
+
+            log('Testing MCP server...', 'info');
+            log(`Server: ${serverUrl}`, 'info');
+
+            // Test payload matching the expected format
+            const testPayload = {
+                "prompt": "Show me total sales by region",
+                "conversation_id": "browser-test-" + Date.now(),
+                "prompt_history": ["Show me total sales by region"],
+                "thread_messages": [],
+                "current_explore": {
+                    "modelName": "ecommerce",
+                    "exploreName": "order_items"
+                },
+                "golden_queries": {
+                    "exploreSamples": {
+                        "order_items": {
+                            "examples": []
+                        }
+                    }
+                },
+                "semantic_models": {},
+                "model_name": "ecommerce",
+                "test_mode": true
+            };
+
+            try {
+                log('Sending request to MCP server...', 'info');
+                
+                const response = await fetch(serverUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentToken}`
+                    },
+                    body: JSON.stringify(testPayload)
+                });
+
+                log(`Response status: ${response.status}`, response.ok ? 'success' : 'error');
+                log(`Response headers:`, 'info');
+                for (const [key, value] of response.headers.entries()) {
+                    log(`  ${key}: ${value}`, 'info');
+                }
+
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    log('✅ SUCCESS! MCP Server responded correctly', 'success');
+                    try {
+                        const responseJson = JSON.parse(responseText);
+                        log('Response JSON:', 'success');
+                        log(JSON.stringify(responseJson, null, 2), 'success');
+                    } catch (e) {
+                        log('Response (text):', 'success');
+                        log(responseText, 'success');
+                    }
+                } else {
+                    log('❌ ERROR: MCP Server returned error', 'error');
+                    log(`Error response: ${responseText}`, 'error');
+                }
+
+            } catch (error) {
+                log(`❌ Request failed: ${error.message}`, 'error');
+                log('This could be due to CORS, network issues, or server problems.', 'error');
+            }
+        }
+
+        // Check for token on page load
+        window.addEventListener('load', checkForTokenInUrl);
+    </script>
+</body>
+</html>

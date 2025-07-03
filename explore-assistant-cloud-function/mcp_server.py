@@ -21,6 +21,8 @@ from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 import looker_sdk
 from google.cloud import bigquery
+import vertexai
+from vertexai.generative_models import GenerativeModel
 
 logging.basicConfig(level=logging.INFO)
 

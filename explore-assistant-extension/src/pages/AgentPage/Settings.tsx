@@ -111,6 +111,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
       const { id_token } = response;
       if (id_token) {
+        // Validate the token format before storing
+        const tokenParts = id_token.split('.');
+        if (tokenParts.length !== 3) {
+          console.error('Received invalid JWT format from OAuth:', tokenParts.length, 'parts');
+          dispatch(setOAuthError('Received invalid identity token format from OAuth'));
+          return false;
+        }
+        
+        // Check for encoding issues
+        if (/[^\w\-_\.]/.test(id_token.replace(/=/g, ''))) {
+          console.error('Identity token contains invalid characters');
+          dispatch(setOAuthError('Identity token contains invalid characters'));
+          return false;
+        }
+        
+        console.log('ID token format validated - storing token');
+        console.log('Token length:', id_token.length);
+        console.log('Token preview:', id_token.substring(0, 50) + '...');
+        
         dispatch(setSetting({ id: 'identity_token', value: id_token }));
         console.log('ID token obtained successfully - Backend will use service account for API calls');
         return true;

@@ -21,9 +21,6 @@ from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 import looker_sdk
 from google.cloud import bigquery
-import jwt
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token
 
 logging.basicConfig(level=logging.INFO)
 
@@ -50,49 +47,53 @@ def get_response_headers():
         "Access-Control-Allow-Credentials": "false"
     }
 
-def validate_identity_token(bearer_token: str) -> Optional[Dict[str, Any]]:
-    """Validate Google Identity token (JWT)"""
+def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
+    """Extract user email from JWT token without validation (infrastructure handles auth)"""
     try:
-        logging.info("Starting Identity token validation")
+        logging.info("Extracting user email from token")
         
         # Remove 'Bearer ' prefix if present
         if bearer_token.lower().startswith('bearer '):
             bearer_token = bearer_token[7:]
         
-        logging.info(f"Identity token length: {len(bearer_token)}")
+        # Remove any whitespace
+        bearer_token = bearer_token.strip()
         
-        # Verify the token using Google's library
-        # This validates the signature, expiration, and issuer
-        request = google_requests.Request()
-        id_info = id_token.verify_oauth2_token(bearer_token, request)
-        
-        logging.info(f"Identity token info received: {list(id_info.keys())}")
-        
-        # Extract user information from the JWT payload
-        email = id_info.get('email')
-        if not email:
-            logging.error("No email found in identity token")
-            logging.error(f"Available token fields: {list(id_info.keys())}")
+        # Split JWT into parts
+        token_parts = bearer_token.split('.')
+        if len(token_parts) != 3:
+            logging.error(f"Invalid JWT format: expected 3 parts, got {len(token_parts)}")
             return None
-
-        logging.info(f"Identity token validated for user: {email}")
-        return {
-            'email': email,
-            'user_id': id_info.get('sub'),
-            'expires_at': id_info.get('exp', 0),
-            'audience': id_info.get('aud'),
-            'token_type': 'identity'
-        }
         
-    except ValueError as e:
-        logging.error(f"Identity token validation failed: {e}")
-        return None
+        # Decode the payload (second part) to extract email
+        import base64
+        import json
+        
+        payload_data = token_parts[1]
+        # Add padding if needed for base64 decoding
+        payload_data += '=' * (4 - len(payload_data) % 4)
+        
+        try:
+            payload_json = base64.urlsafe_b64decode(payload_data).decode('utf-8')
+            payload = json.loads(payload_json)
+            
+            email = payload.get('email')
+            if email:
+                logging.info(f"Extracted user email: {email}")
+                return email
+            else:
+                logging.error("No email found in token payload")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Failed to decode JWT payload: {e}")
+            return None
+        
     except Exception as e:
-        logging.error(f"Error validating identity token: {e}")
-        logging.error(f"Error type: {type(e)}")
-        import traceback
-        logging.error(f"Traceback: {traceback.format_exc()}")
+        logging.error(f"Error extracting email from token: {e}")
         return None
+
+def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Call Vertex AI API using service account credentials"""
     try:
         if not project or not location:
@@ -199,7 +200,7 @@ def extract_vertex_response_text(vertex_response: Dict[str, Any]) -> Optional[st
         logging.error(f"Error extracting Vertex AI response: {e}")
         return None
 
-def determine_explore_from_prompt(oauth_token: str, prompt: str, golden_queries: Dict[str, Any], 
+def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries: Dict[str, Any], 
                                  conversation_context: str = "") -> Optional[str]:
     """Enhanced explore determination with conversation context"""
     try:
@@ -258,7 +259,7 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
         logging.error(f"Error determining explore: {e}")
         return None
 
-def generate_explore_params(oauth_token: str, prompt: str, explore_key: str, 
+def generate_explore_params(auth_header: str, prompt: str, explore_key: str, 
                           golden_queries: Dict[str, Any], semantic_models: Dict[str, Any],
                           current_explore: Dict[str, Any], conversation_context: str = "") -> Optional[Dict[str, Any]]:
     """Enhanced parameter generation with two-step LLM approach for better conversation context handling"""
@@ -268,7 +269,7 @@ def generate_explore_params(oauth_token: str, prompt: str, explore_key: str,
         logging.info(f"Has conversation context: {bool(conversation_context)}")
         
         # Step 1: Synthesize conversation context into a clear, standalone query
-        synthesized_query = synthesize_conversation_context(oauth_token, prompt, conversation_context)
+        synthesized_query = synthesize_conversation_context(auth_header, prompt, conversation_context)
         if not synthesized_query:
             logging.warning("❌ SYNTHESIS FAILED - Using original prompt")
             synthesized_query = prompt
@@ -278,7 +279,7 @@ def generate_explore_params(oauth_token: str, prompt: str, explore_key: str,
         logging.info(f"Using query for explore params: {synthesized_query}")
         
         # Step 2: Generate explore parameters using the synthesized query
-        result = generate_explore_params_from_query(oauth_token, synthesized_query, explore_key, 
+        result = generate_explore_params_from_query(auth_header, synthesized_query, explore_key, 
                                                 golden_queries, semantic_models, current_explore)
         
         logging.info(f"=== GENERATE_EXPLORE_PARAMS RESULT ===")
@@ -295,7 +296,7 @@ def generate_explore_params(oauth_token: str, prompt: str, explore_key: str,
         logging.error(f"Error in generate_explore_params: {e}")
         return None
 
-def synthesize_conversation_context(oauth_token: str, current_prompt: str, conversation_context: str) -> Optional[str]:
+def synthesize_conversation_context(auth_header: str, current_prompt: str, conversation_context: str) -> Optional[str]:
     """First LLM call: Synthesize conversation history and current prompt into a clear, standalone query"""
     try:
         logging.info(f"=== SYNTHESIS STEP ===")
@@ -369,7 +370,7 @@ Output only the synthesized query, nothing else."""
         logging.error(f"Error synthesizing conversation context: {e}")
         return None
 
-def generate_explore_params_from_query(oauth_token: str, query: str, explore_key: str, 
+def generate_explore_params_from_query(auth_header: str, query: str, explore_key: str, 
                                      golden_queries: Dict[str, Any], semantic_models: Dict[str, Any],
                                      current_explore: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Second LLM call: Generate explore parameters from a clear, synthesized query"""
@@ -622,10 +623,20 @@ def create_context_aware_fallback(prompt: str, explore_key: str, conversation_co
             "summary": f"Unable to generate specific parameters for: {prompt}"
         }
 
-def process_explore_assistant_request(oauth_token: str, request_data: Dict[str, Any], user_info: Dict[str, Any] = None) -> Dict[str, Any]:
+def process_explore_assistant_request(auth_header: str, request_data: Dict[str, Any]) -> Dict[str, Any]:
     """Process the explore assistant request with conversation context"""
     try:
         logging.info("Starting process_explore_assistant_request")
+        
+        # Extract user email from token for Looker user lookup
+        user_email = extract_user_email_from_token(auth_header)
+        if not user_email:
+            logging.warning("Could not extract user email from token, proceeding without user context")
+            user_info = {'email': 'anonymous'}
+        else:
+            # Find Looker user for additional context
+            looker_user = find_looker_user_by_email(user_email)
+            user_info = {'email': user_email, 'looker_user': looker_user}
         
         # Extract conversation data from the request
         prompt = request_data.get('prompt', '')
@@ -638,9 +649,10 @@ def process_explore_assistant_request(oauth_token: str, request_data: Dict[str, 
         data_to_summarize = request_data.get('data_to_summarize', '')
         test_mode = request_data.get('test_mode', False)
         
-        # NEW: Handle conversation context
+        # Handle conversation context
         thread_messages = request_data.get('thread_messages', [])
         
+        logging.info(f"User: {user_email}")
         logging.info(f"Conversation ID: {conversation_id}")
         logging.info(f"Prompt history length: {len(prompt_history)}")
         logging.info(f"Thread messages length: {len(thread_messages)}")
@@ -663,7 +675,7 @@ def process_explore_assistant_request(oauth_token: str, request_data: Dict[str, 
         if not current_explore_key or current_explore_key == '' or current_explore_key == 'null':
             # Two-step process with conversation context
             determined_explore_key = determine_explore_from_prompt(
-                oauth_token, prompt, golden_queries, conversation_context
+                auth_header, prompt, golden_queries, conversation_context
             )
             
             if not determined_explore_key:
@@ -679,13 +691,13 @@ def process_explore_assistant_request(oauth_token: str, request_data: Dict[str, 
             }
             
             result = generate_explore_params(
-                oauth_token, prompt, determined_explore_key, 
+                auth_header, prompt, determined_explore_key, 
                 golden_queries, semantic_models, current_explore, conversation_context
             )
         else:
             # Single call with conversation context
             result = generate_explore_params(
-                oauth_token, prompt, current_explore_key, 
+                auth_header, prompt, current_explore_key, 
                 golden_queries, semantic_models, current_explore, conversation_context
             )
         
@@ -702,20 +714,16 @@ def process_explore_assistant_request(oauth_token: str, request_data: Dict[str, 
         # Check for feedback pattern and save suggested golden query if detected
         has_feedback, approved_explore_params = detect_feedback_pattern(prompt_history, thread_messages, prompt)
         if has_feedback and approved_explore_params:
-            # Extract user email from user_info
-            user_email = user_info.get('email', 'anonymous') if user_info else 'anonymous'
-            
-            # Save the suggested golden query with the APPROVED explore_params (not the current confirmation params)
+            # Save the suggested golden query with the APPROVED explore_params
             save_success = save_suggested_golden_query(
-                oauth_token, 
+                auth_header, 
                 result.get('explore_key', ''), 
-                prompt_history,  # Pass entire prompt history instead of just original prompt
-                approved_explore_params,  # Use the approved params, not the current result params
+                prompt_history,  # Pass entire prompt history
+                approved_explore_params,  # Use the approved params
                 user_email
             )
             
             if save_success:
-                # Add feedback message to response (but don't change the main result)
                 result['feedback_message'] = "Thank you for your feedback. This is being saved as an improved example."
                 logging.info("Successfully saved suggested golden query with approved explore_params")
         elif has_feedback:
@@ -873,7 +881,7 @@ def detect_feedback_pattern(prompt_history: list, thread_messages: list, current
         logging.error(f"Error detecting feedback pattern: {e}")
         return False, None
 
-def save_suggested_golden_query(oauth_token: str, explore_key: str, prompt_history: list, 
+def save_suggested_golden_query(auth_header: str, explore_key: str, prompt_history: list, 
                                explore_params: Dict[str, Any], user_email: str) -> bool:
     """
     Save a suggested golden query to the BigQuery suggested_golden_queries table
@@ -929,58 +937,6 @@ def save_suggested_golden_query(oauth_token: str, explore_key: str, prompt_histo
         logging.info(f"FALLBACK LOG - Suggested query data: {json.dumps(fallback_data, indent=2)}")
         return False
 
-def validate_identity_token(bearer_token: str) -> Optional[Dict[str, Any]]:
-    """Validate Google Identity token (JWT)"""
-    try:
-        logging.info("Starting Identity token validation")
-        
-        # Remove 'Bearer ' prefix if present
-        if bearer_token.lower().startswith('Bearer '):
-            bearer_token = bearer_token[7:]
-        
-        logging.info(f"Identity token length: {len(bearer_token)}")
-        
-        # Verify the token using Google's library
-        # This validates the signature, expiration, and issuer
-        request = google_requests.Request()
-        id_info = id_token.verify_oauth2_token(bearer_token, request)
-        
-        logging.info(f"Identity token info received: {list(id_info.keys())}")
-        
-        # Extract user information from the JWT payload
-        email = id_info.get('email')
-        if not email:
-            logging.error("No email found in identity token")
-            logging.error(f"Available token fields: {list(id_info.keys())}")
-            return None
-
-        logging.info(f"Identity token validated for user: {email}")
-        return {
-            'email': email,
-            'user_id': id_info.get('sub'),
-            'expires_at': id_info.get('exp', 0),
-            'audience': id_info.get('aud'),
-            'token_type': 'identity'
-        }
-        
-    except ValueError as e:
-        logging.error(f"Identity token validation failed: {e}")
-        return None
-    except Exception as e:
-        logging.error(f"Error validating identity token: {e}")
-        logging.error(f"Error type: {type(e)}")
-        import traceback
-        logging.error(f"Traceback: {traceback.format_exc()}")
-        return None
-
-def validate_token(bearer_token: str) -> Optional[Dict[str, Any]]:
-    """Validate Identity token (JWT only - no longer supporting OAuth access tokens)"""
-    if not bearer_token:
-        return None
-    
-    logging.info("Validating Identity token (JWT)")
-    return validate_identity_token(bearer_token)
-
 def create_mcp_flask_app():
     """Create Flask app with MCP endpoints"""
     app = Flask(__name__)
@@ -1012,7 +968,7 @@ def create_mcp_flask_app():
             auth_header = request.headers.get("Authorization")
             logging.info(f"Authorization header present: {bool(auth_header)}")
             
-            # check lower or upper cased bearer token
+            # Check for Authorization header (infrastructure handles validation)
             if not auth_header or not auth_header.lower().startswith("bearer "):
                 logging.error("Missing or invalid Authorization header")
                 response = jsonify({'error': 'Missing or invalid Authorization header'})
@@ -1020,15 +976,7 @@ def create_mcp_flask_app():
                 response.status_code = 401
                 return response
             
-            logging.info("Validating Identity token...")
-            # Validate Identity token
-            token_info = validate_token(auth_header)
-            if not token_info:
-                logging.error("Identity token validation failed")
-                return jsonify({'error': 'Invalid identity token'}), 401, get_response_headers()
-            
-            token_type = token_info.get('token_type', 'identity')
-            logging.info(f"{token_type.capitalize()} token validated for user: {token_info.get('email')}")
+            logging.info("Authorization header received, proceeding with request...")
             
             # Get the request body
             logging.info("Getting request body...")
@@ -1042,7 +990,7 @@ def create_mcp_flask_app():
             
             # Process the explore assistant request
             logging.info("Processing explore assistant request...")
-            result = process_explore_assistant_request(auth_header, request_data, token_info)
+            result = process_explore_assistant_request(auth_header, request_data)
             
             logging.info(f"Request processing completed, result type: {type(result)}")
             logging.info(f"Result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
@@ -1131,14 +1079,7 @@ def mcp_cloud_function_entrypoint(request):
                 response.status_code = 401
                 return response
             
-            # Validate Identity token
-            token_info = validate_token(auth_header)
-            if not token_info:
-                logging.error("Identity token validation failed")
-                response = jsonify({'error': 'Invalid identity token'})
-                response.headers.update(get_response_headers())
-                response.status_code = 401
-                return response
+            logging.info("Authorization header received, proceeding with request...")
             
             # Get the request body
             request_data = request.get_json()
@@ -1150,7 +1091,7 @@ def mcp_cloud_function_entrypoint(request):
                 return response
             
             # Process the explore assistant request
-            result = process_explore_assistant_request(auth_header, request_data, token_info)
+            result = process_explore_assistant_request(auth_header, request_data)
             
             response = jsonify(result)
             response.headers.update(get_response_headers())
@@ -1182,3 +1123,11 @@ def mcp_cloud_function_entrypoint(request):
         response.headers.update(get_response_headers())
         response.status_code = 404
         return response
+
+# For running directly as a Flask app (Cloud Run)
+if __name__ == "__main__":
+    import os
+    app = create_mcp_flask_app()
+    port = int(os.environ.get("PORT", 8080))
+    logging.info(f"Starting Flask app on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)

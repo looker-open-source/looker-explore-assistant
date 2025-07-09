@@ -42,7 +42,7 @@ const useSendCloudRunMessage = () => {
       const simpleResponse = await fetch(CLOUD_RUN_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'text/plain', // This avoids CORS preflight
+          'Content-Type': 'text/plain' // This avoids CORS preflight
         },
         body: JSON.stringify(payload),
         mode: 'cors',
@@ -153,8 +153,13 @@ const useSendCloudRunMessage = () => {
 
   const testCloudRunSettings = useCallback(async () => {
     if (testInFlight.current) {
-      // If a test is already running, return the same promise
-      return testInFlight.current
+      // Await the in-flight promise and return its resolved value
+      try {
+        const result = await testInFlight.current
+        return !!result
+      } catch (e) {
+        return false
+      }
     }
     const testPromise = (async () => {
       try {
@@ -214,7 +219,12 @@ const useSendCloudRunMessage = () => {
       }
     })()
     testInFlight.current = testPromise
-    return testPromise
+    try {
+      const result = await testPromise
+      return !!result
+    } catch (e) {
+      return false
+    }
   }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
   return {

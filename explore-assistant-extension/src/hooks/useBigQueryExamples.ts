@@ -282,8 +282,7 @@ export const useBigQueryExamples = () => {
     settings?.bigquery_example_looker_model_name?.value, 
     modelName,
     dispatch, 
-    isBigQueryMetadataLoaded,
-    getExamplesAndSamples
+    isBigQueryMetadataLoaded
   ])
 
   return {

@@ -83,11 +83,11 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
       }
 
       // Reset authenticating state on fresh mount if it's stuck
-      // if (isAuthenticating && Date.now() - mountTime.current < 1000) {
-      //   TOKEN_DEBUG && console.log('Clearing stuck authenticating state on fresh mount')
-      //   dispatch(setOAuthAuthenticating(false))
-      //   return
-      // }
+      if (isAuthenticating && Date.now() - mountTime.current < 20000) {
+        TOKEN_DEBUG && console.log('Clearing stuck authenticating state on fresh mount. If you see this message often, please comment out useAutoOauth line 86')
+        dispatch(setOAuthAuthenticating(false))
+        return
+      }
 
       // Skip if parameters indicate we should skip, or if we've already attempted successfully
       if (skipAutoAuthParam || skipAutoAuth || hasAttemptedOAuth.current) {

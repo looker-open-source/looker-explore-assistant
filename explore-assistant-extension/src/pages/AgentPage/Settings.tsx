@@ -7,7 +7,6 @@ import {
   setSetting, 
   resetExploreAssistant,
   setBigQueryTestSuccessful,
-  setVertexTestSuccessful,
   setOAuthError,
   setOAuthAuthenticating
 } from '../../slices/assistantSlice'
@@ -164,8 +163,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         console.log('Settings modal Cloud Run test result:', cloudRunResult)
         setCloudRunTestResult(cloudRunResult)
         
-        // Update Redux state with Cloud Run test result
-        dispatch(setVertexTestSuccessful(cloudRunResult))
       }
       runTests()
     }
@@ -260,8 +257,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       
       const cloudRunResult = await testCloudRunSettings();
       setCloudRunTestResult(cloudRunResult);
-      // Update Redux state with Cloud Run test result
-      dispatch(setVertexTestSuccessful(cloudRunResult))
       
     } catch (error) {
       console.error('Error in handleTestAndSave:', error);

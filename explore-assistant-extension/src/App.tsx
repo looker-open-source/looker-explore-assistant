@@ -9,9 +9,6 @@ import useSendCloudRunMessage from './hooks/useSendCloudRunMessage'
 import { useAutoOAuth } from './hooks/useAutoOAuth'
 import { useExtensionContext } from './hooks/useExtensionContext'
 import {
-  resetExploreAssistant,
-  setBigQueryTestSuccessful,
-  setVertexTestSuccessful,  // Add this import
   setInitialTestsCompleted,
 } from './slices/assistantSlice'
 import AgentPage from './pages/AgentPage'
@@ -128,18 +125,8 @@ const ExploreApp = () => {
         console.log('Will test URL:', cloudRunUrl)
         console.log('Using OAuth token:', hasOAuthToken)
         
-        cloudRunResult = await testCloudRunSettings();
-        console.log('Cloud Run test result:', cloudRunResult)
-        
-        // Update Redux state with Cloud Run test result
-        dispatch(setVertexTestSuccessful(cloudRunResult))
-        console.log('Dispatched setVertexTestSuccessful:', cloudRunResult)
-      } else {
-        console.log('Cloud Run URL not configured, skipping Cloud Run test')
-        // If no URL configured, consider it as "passed" since it's optional
-        dispatch(setVertexTestSuccessful(true))
-        console.log('Dispatched setVertexTestSuccessful: true (no URL configured)')
-      }
+        testCloudRunSettings();
+      } 
       
       // ONLY mark initial tests as completed AFTER both tests are done
       dispatch(setInitialTestsCompleted(true))

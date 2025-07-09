@@ -300,8 +300,6 @@ const AgentPage = () => {
 
   const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded
 
-  console.log('agent ready?', isAgentReady, isBigQueryMetadataLoaded, isSemanticModelLoaded)
-  
   if (!isAgentReady) {
     return (
       <div className="flex justify-center items-center h-screen">

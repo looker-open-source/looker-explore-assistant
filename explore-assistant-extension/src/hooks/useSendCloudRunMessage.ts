@@ -1,4 +1,4 @@
-import { useCallback, useContext } from 'react'
+import { useCallback, useContext, useRef } from 'react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store'
 import { AssistantState } from '../slices/assistantSlice'
@@ -149,67 +149,72 @@ const useSendCloudRunMessage = () => {
   )
 
   // Test function for Cloud Run settings
+  const testInFlight = useRef<Promise<boolean> | null>(null)
+
   const testCloudRunSettings = useCallback(async () => {
-    try {
-      if (!CLOUD_RUN_URL) {
-        console.log('Cloud Run test failed: No service URL configured')
-        return false
-      }
-      
-      if (!identityToken) {
-        console.log('Cloud Run test failed: No Identity token available')
-        return false
-      }
-      
-      console.log('Testing Cloud Run connection using Identity token...')
-      
-      // Simple test payload
-      const testPayload = {
-        prompt: "test connection",
-        explore_key: "test",
-        model_name: "test",
-        conversation_id: "test",
-        test_mode: true
-      }
-
+    if (testInFlight.current) {
+      // If a test is already running, return the same promise
+      return testInFlight.current
+    }
+    const testPromise = (async () => {
       try {
-        // Try fetchProxy first
-        const result = await extensionSDK.fetchProxy(CLOUD_RUN_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${identityToken}`
-          },
-          body: JSON.stringify(testPayload)
-        })
-
-        console.log('Cloud Run test successful via fetchProxy')
-        return true
-      } catch (fetchProxyError) {
-        console.log('fetchProxy failed, trying direct fetch...', fetchProxyError)
-        
-        // Fallback to direct fetch
-        const response = await fetch(CLOUD_RUN_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${identityToken}`
-          },
-          body: JSON.stringify(testPayload)
-        })
-
-        if (response.ok) {
-          console.log('Cloud Run test successful via direct fetch')
-          return true
-        } else {
-          console.log('Cloud Run test failed:', response.status, response.statusText)
+        if (!CLOUD_RUN_URL) {
+          console.log('Cloud Run test failed: No service URL configured')
           return false
         }
+        if (!identityToken) {
+          console.log('Cloud Run test failed: No Identity token available')
+          return false
+        }
+        console.log('Testing Cloud Run connection using Identity token...')
+        // Simple test payload
+        const testPayload = {
+          prompt: "test connection",
+          explore_key: "test",
+          model_name: "test",
+          conversation_id: "test",
+          test_mode: true
+        }
+        try {
+          // Try fetchProxy first
+          const result = await extensionSDK.fetchProxy(CLOUD_RUN_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${identityToken}`
+            },
+            body: JSON.stringify(testPayload)
+          })
+          console.log('Cloud Run test successful via fetchProxy')
+          return true
+        } catch (fetchProxyError) {
+          console.log('fetchProxy failed, trying direct fetch...', fetchProxyError)
+          // Fallback to direct fetch
+          const response = await fetch(CLOUD_RUN_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${identityToken}`
+            },
+            body: JSON.stringify(testPayload)
+          })
+          if (response.ok) {
+            console.log('Cloud Run test successful via direct fetch')
+            return true
+          } else {
+            console.log('Cloud Run test failed:', response.status, response.statusText)
+            return false
+          }
+        }
+      } catch (error) {
+        console.error('Cloud Run test error:', error)
+        return false
+      } finally {
+        testInFlight.current = null
       }
-    } catch (error) {
-      console.error('Cloud Run test error:', error)
-      return false
-    }
+    })()
+    testInFlight.current = testPromise
+    return testPromise
   }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
   return {

@@ -60,6 +60,7 @@ export const useLookerFields = () => {
           }),
         )
 
+        console.log(`Fetched semantic model for ${modelName}:${exploreId}`, response)
         const { fields } = response
 
         if (!fields || !fields.dimensions || !fields.measures) {
@@ -95,7 +96,7 @@ export const useLookerFields = () => {
         }
       } catch (error) {
         showBoundary({
-          message: `Failed to fetch semantic model for ${modelName}::${exploreId}`,
+          message: `Failed to fetch semantic model for ${modelName}:${exploreId}`,
         })
         return undefined
       }

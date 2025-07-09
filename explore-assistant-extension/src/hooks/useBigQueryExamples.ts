@@ -210,6 +210,7 @@ export const useBigQueryExamples = () => {
 
   // Create refs to track state between renders
   const hasFetched = useRef(false)
+  const isFetching = useRef(false)
   const lastModelName = useRef<string | null>(null)
 
   // get the example prompts provide completion status
@@ -229,19 +230,19 @@ export const useBigQueryExamples = () => {
     
     // Debounce to prevent multiple rapid state changes
     let activeRequest = true
-    
-    // Skip if we've already fetched AND the data is loaded
-    if (hasFetched.current || isBigQueryMetadataLoaded) {
-      // console.log('Already fetching or metadata loaded, skipping')
+
+    // Prevent multiple fetches
+    if (hasFetched.current || isFetching.current || isBigQueryMetadataLoaded) {
       return
     }
-    hasFetched.current = true
-    
+
+    isFetching.current = true
+
     // Set loading state only once at beginning of request
     if (!isBigQueryMetadataLoaded) {
       dispatch(setisBigQueryMetadataLoaded(false))
     }
-    
+
     // Add timeout in case fetch hangs
     const timeoutId = setTimeout(() => {
       console.warn('BigQuery fetch timeout exceeded, forcing initialization')
@@ -255,6 +256,8 @@ export const useBigQueryExamples = () => {
       .then(() => {
         if (activeRequest) {
           clearTimeout(timeoutId)
+          hasFetched.current = true
+          isFetching.current = false
           console.log('SUCCESS: Setting isBigQueryMetadataLoaded to true')
           dispatch(setisBigQueryMetadataLoaded(true))
           dispatch(setBigQueryTestSuccessful(true))
@@ -263,6 +266,7 @@ export const useBigQueryExamples = () => {
       .catch((error) => {
         if (activeRequest) {
           clearTimeout(timeoutId)
+          isFetching.current = false
           console.error('Failed to fetch examples and samples:', error)
           console.log('ERROR: Setting isBigQueryMetadataLoaded to false')
           dispatch(setisBigQueryMetadataLoaded(false))
@@ -276,6 +280,7 @@ export const useBigQueryExamples = () => {
     return () => {
       activeRequest = false
       clearTimeout(timeoutId)
+      isFetching.current = false
     }
 
   }, [

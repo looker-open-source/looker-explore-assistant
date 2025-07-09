@@ -14,7 +14,7 @@ import {
 } from '../slices/assistantSlice'
 
 // Debug configuration
-const TOKEN_DEBUG = true
+const TOKEN_DEBUG = false
 
 // Token expiration threshold (if token expires in less than this time, refresh it)
 const TOKEN_EXPIRY_THRESHOLD = 10 * 60 // 10 minutes in seconds

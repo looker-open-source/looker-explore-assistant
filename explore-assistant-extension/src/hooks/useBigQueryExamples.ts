@@ -278,7 +278,7 @@ export const useBigQueryExamples = () => {
       clearTimeout(timeoutId)
       isFetching.current = false
     }
-  }, [settings?.bigquery_example_looker_model_name?.value, modelName, dispatch, isBigQueryMetadataLoaded])
+  }, [settings?.bigquery_example_looker_model_name?.value, modelName, dispatch])
 
   return {
     testBigQuerySettings,

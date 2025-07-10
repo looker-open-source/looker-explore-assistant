@@ -108,7 +108,7 @@ export const useExtensionContext = () => {
     if (!userAttributesLoaded && extensionSDK) {
       loadExtensionContext()
     }
-  }, [extensionSDK, userAttributesLoaded])
+  }, [extensionSDK])
 
   return {
     isLoading,

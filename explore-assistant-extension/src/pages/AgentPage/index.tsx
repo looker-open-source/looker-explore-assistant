@@ -88,7 +88,7 @@ const AgentPage = () => {
       console.log('No valid explore context, ensuring valid context...')
       dispatch(ensureValidExploreContext())
     }
-  }, [examples.exploreSamples, currentExplore.exploreKey, currentExplore.modelName, currentExplore.exploreId, dispatch])
+  }, [examples.exploreSamples, dispatch])
 
   useEffect(() => {
     scrollIntoView()

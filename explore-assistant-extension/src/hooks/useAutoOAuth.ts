@@ -219,7 +219,7 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
         console.log('Component was mounted for:', (Date.now() - mountTime.current) / 1000, 'seconds')
       }
     }
-  }, [GOOGLE_CLIENT_ID, IDENTITY_TOKEN, extensionSDK, dispatch, skipAutoAuthParam, skipAutoAuth, isAuthenticating, validationInProgress])
+  }, [GOOGLE_CLIENT_ID, IDENTITY_TOKEN, extensionSDK, dispatch, skipAutoAuthParam, skipAutoAuth])
 
   return { 
     isAuthenticating,

@@ -670,36 +670,51 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
         conversation_context = build_conversation_context(prompt_history, thread_messages)
         logging.info(f"Built conversation context: {conversation_context[:200]}..." if len(conversation_context) > 200 else f"Built conversation context: {conversation_context}")
         
-        # Check if current explore is null/empty
-        current_explore_key = current_explore.get('exploreKey') if current_explore else None
+        # Always determine the most appropriate explore for each request
+        # This ensures we select the best explore based on the current prompt and conversation context
+        # Ignoring any input explore or model information in favor of AI-driven selection
+        logging.info("Always determining explore from prompt and conversation context")
+        determined_explore_key = determine_explore_from_prompt(
+            auth_header, prompt, golden_queries, conversation_context
+        )
         
-        if not current_explore_key or current_explore_key == '' or current_explore_key == 'null':
-            # Two-step process with conversation context
-            determined_explore_key = determine_explore_from_prompt(
-                auth_header, prompt, golden_queries, conversation_context
-            )
-            
-            if not determined_explore_key:
+        if not determined_explore_key:
+            # If AI couldn't determine explore, try to use first available explore as fallback
+            if golden_queries.get('exploreEntries'):
+                first_explore = list(golden_queries['exploreEntries'].keys())[0]
+                logging.warning(f"Failed to determine explore, using first available: {first_explore}")
+                determined_explore_key = first_explore
+            else:
                 return {
-                    'error': 'Failed to determine appropriate explore',
+                    'error': 'Failed to determine appropriate explore and no fallback available',
                     'message_type': 'error'
                 }
         
-            current_explore = {
-                'exploreKey': determined_explore_key,
-                'exploreId': determined_explore_key,
-            }
-            
-            result = generate_explore_params(
-                auth_header, prompt, determined_explore_key, 
-                golden_queries, semantic_models, current_explore, conversation_context
-            )
+        logging.info(f"Determined explore key: {determined_explore_key}")
+        
+        # Extract model name and explore name from the determined explore key
+        # The explore key format is "model:explore_name" (e.g., "ecommerce:order_items")
+        if ':' in determined_explore_key:
+            model_name_from_key, explore_name_from_key = determined_explore_key.split(':', 1)
+            logging.info(f"Extracted from explore key - Model: {model_name_from_key}, Explore: {explore_name_from_key}")
         else:
-            # Single call with conversation context
-            result = generate_explore_params(
-                auth_header, prompt, current_explore_key, 
-                golden_queries, semantic_models, current_explore, conversation_context
-            )
+            # Fallback if the key doesn't contain model info
+            model_name_from_key = 'unknown'
+            explore_name_from_key = determined_explore_key
+            logging.warning(f"Explore key doesn't contain model info, using fallback: {model_name_from_key}:{explore_name_from_key}")
+        
+        # Create explore context for parameter generation
+        current_explore = {
+            'exploreKey': explore_name_from_key,  # Just the explore name part
+            'exploreId': determined_explore_key,  # Full key (model:explore_name)
+            'modelName': model_name_from_key      # Model name extracted from key
+        }
+        
+        # Generate explore parameters using the determined explore
+        result = generate_explore_params(
+            auth_header, prompt, determined_explore_key, 
+            golden_queries, semantic_models, current_explore, conversation_context
+        )
         
         if not result:
             return {

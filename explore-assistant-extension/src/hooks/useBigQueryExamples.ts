@@ -215,33 +215,32 @@ export const useBigQueryExamples = () => {
 
   // get the example prompts provide completion status
   useEffect(() => {
+    // Synchronously block duplicate fetches at the very top
+    if (isFetching.current) {
+      console.log('BigQuery fetch already in progress, skipping')
+      return
+    }
+    if (isBigQueryMetadataLoaded) {
+      return
+    }
+    isFetching.current = true
+    console.log('BigQuery fetch effect triggered', {
+      modelName,
+      isBigQueryMetadataLoaded,
+      hasFetched: hasFetched.current,
+      isFetching: isFetching.current
+    })
+
     // Check if model name changed since last fetch
     const modelNameChanged = lastModelName.current !== null && 
                              lastModelName.current !== modelName;
-    
     if (modelNameChanged) {
       console.log(`Model name changed from ${lastModelName.current} to ${modelName}, forcing re-fetch`);
       hasFetched.current = false;
       dispatch(setisBigQueryMetadataLoaded(false));
     }
-
-    // Update last model name reference
     lastModelName.current = modelName || null;
-    
-    // Debounce to prevent multiple rapid state changes
     let activeRequest = true
-
-    // Prevent multiple fetches
-    if (hasFetched.current || isFetching.current || isBigQueryMetadataLoaded) {
-      return
-    }
-
-    isFetching.current = true
-
-    // Set loading state only once at beginning of request
-    if (!isBigQueryMetadataLoaded) {
-      dispatch(setisBigQueryMetadataLoaded(false))
-    }
 
     // Add timeout in case fetch hangs
     const timeoutId = setTimeout(() => {
@@ -250,7 +249,7 @@ export const useBigQueryExamples = () => {
         console.log('TIMEOUT: Setting isBigQueryMetadataLoaded to true')
         dispatch(setisBigQueryMetadataLoaded(true))
       }
-    }, 10000) // 10 second timeout
+    }, 10000)
 
     getExamplesAndSamples()
       .then(() => {
@@ -271,24 +270,15 @@ export const useBigQueryExamples = () => {
           console.log('ERROR: Setting isBigQueryMetadataLoaded to false')
           dispatch(setisBigQueryMetadataLoaded(false))
           dispatch(setBigQueryTestSuccessful(false))
-          // Reset hasFetched to allow retry on next render
           hasFetched.current = false
         }
       })
-      
-    // Cleanup function to prevent setState after unmount
     return () => {
       activeRequest = false
       clearTimeout(timeoutId)
       isFetching.current = false
     }
-
-  }, [
-    settings?.bigquery_example_looker_model_name?.value, 
-    modelName,
-    dispatch, 
-    isBigQueryMetadataLoaded
-  ])
+  }, [settings?.bigquery_example_looker_model_name?.value, modelName, dispatch, isBigQueryMetadataLoaded])
 
   return {
     testBigQuerySettings,

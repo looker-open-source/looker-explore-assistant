@@ -20,7 +20,6 @@ const PromptInput = () => {
     // check if lookerHostData is undefined
     if (lookerHostData) {
       const queryPrompt = new URLSearchParams(lookerHostData?.route?.split('?')[1]).get('queryPrompt') as string
-      console.log('Query Prompt:', queryPrompt, lookerHostData)
       if (queryPrompt && queryPrompt.length > 5) {
         setInputText(queryPrompt)
         setLetsGo(true)

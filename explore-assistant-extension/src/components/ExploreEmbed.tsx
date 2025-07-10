@@ -33,6 +33,7 @@ import { RootState } from '../store'
 import { ExploreHelper } from '../utils/ExploreHelper'
 import { ExploreParams } from '../slices/assistantSlice'
 import { useCheckForConnectionFailure } from '../hooks/useCheckForConnectionFailure'
+import objectHash from 'object-hash'
 
 export interface ExploreEmbedProps {
   modelName: string | null | undefined
@@ -45,15 +46,13 @@ export const ExploreEmbed = ({
   exploreId,
   exploreParams,
 }: ExploreEmbedProps) => {
-  console.log('ExploreEmbed component props:', { modelName, exploreId, exploreParams })
   
+  // Generate a unique key for the embed container to force remount on param changes
+  const embedKey = modelName && exploreId && exploreParams
+    ? `${modelName}_${exploreId}_${objectHash(exploreParams)}`
+    : 'empty-embed'
+
   if (!modelName || !exploreId || !exploreParams) {
-    console.log('ExploreEmbed returning empty - missing props:', { 
-      hasModelName: !!modelName, 
-      hasExploreId: !!exploreId, 
-      hasExploreParams: !!exploreParams,
-      exploreParamsKeys: exploreParams ? Object.keys(exploreParams) : 'null'
-    })
     return <></>
   }
 
@@ -88,6 +87,15 @@ export const ExploreEmbed = ({
   }
 
   const ref = useRef<HTMLDivElement>(null)
+
+  // Cleanup effect to clear the container and any SDK state on unmount or before new embed
+  useEffect(() => {
+    return () => {
+      if (ref.current) {
+        ref.current.innerHTML = ''
+      }
+    }
+  }, [embedKey])
 
   const handleQueryError = () => {
     setTimeout(() => !exploreRunStart && animateExploreLoad(), 10)
@@ -135,11 +143,6 @@ export const ExploreEmbed = ({
       paramsObj[key] = encodedParams[key]
     }
 
-    console.log('Explore Embed - Params', paramsObj)
-    console.log('Explore Embed - About to initialize LookerEmbedSDK with hostUrl:', hostUrl)
-    console.log('Explore Embed - Creating explore with ID:', modelName + '/' + exploreId)
-    console.log('Explore Embed - Connection attempt:', retryAttempt + 1)
-
     try {
       el.innerHTML = ''
       LookerEmbedSDK.init(hostUrl)
@@ -160,14 +163,11 @@ export const ExploreEmbed = ({
         .connect()
 
       console.log('ExploreEmbed - Successfully connected to explore:', explore)
-      console.log('ExploreEmbed - Container element:', el)
-      console.log('ExploreEmbed - Container innerHTML:', el.innerHTML)
       
       handleConnectionSuccess()
       setExploreLoading(explore)
       
     } catch (error: any) {
-      console.error('ExploreEmbed - Connection error', error)
       console.error('ExploreEmbed - Error details:', {
         message: error.message,
         stack: error.stack,
@@ -223,24 +223,11 @@ export const ExploreEmbed = ({
     })
     return <></>
   }
-
-  console.log('ExploreEmbed - About to render EmbedContainer', {
-    isConnecting,
-    connectionError: connectionError?.error.message,
-    retryCount,
-    hasReachedMaxRetries
-  })
   
   return (
     <>
-      <EmbedContainer id="embedcontainer" ref={ref} />
-      {/* Optional: Add connection status indicator */}
-      {isConnecting && (
-        <ConnectionStatus>
-          Connecting to Looker Explore...
-          {retryCount > 0 && ` (Retry ${retryCount}/3)`}
-        </ConnectionStatus>
-      )}
+      <EmbedContainer id="embedcontainer" ref={ref} key={embedKey} />
+
       {connectionError && hasReachedMaxRetries && (
         <ErrorStatus>
           {isDatabaseConnectionError(connectionError.error) ? (

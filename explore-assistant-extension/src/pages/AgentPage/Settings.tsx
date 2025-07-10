@@ -147,26 +147,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
   // No longer automatically running OAuth on component mount
 
-  // Run tests when settings are opened
-  useEffect(() => {
-    if (open) {
-      const runTests = async () => {
-        console.log('Running tests in settings modal...')
-        const bigQueryResult = await testBigQuerySettings()
-        console.log('Settings modal BQ test result:', bigQueryResult)
-        setBigQueryTestResult(bigQueryResult)
-        
-        // Update Redux state with BigQuery test result
-        dispatch(setBigQueryTestSuccessful(bigQueryResult))
-        
-        const cloudRunResult = await testCloudRunSettings()
-        console.log('Settings modal Cloud Run test result:', cloudRunResult)
-        setCloudRunTestResult(cloudRunResult)
-        
-      }
-      runTests()
-    }
-  }, [open, testBigQuerySettings, testCloudRunSettings, dispatch]);
+  // No longer automatically running tests when modal opens
+  // Only run tests when the user clicks Test & Save
 
   // Check admin status
   useEffect(() => {

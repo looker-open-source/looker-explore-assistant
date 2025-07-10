@@ -33,49 +33,24 @@ const useSendCloudRunMessage = () => {
 
     console.log('Making request to Cloud Run service using Identity token...')
     console.log('Request URL:', CLOUD_RUN_URL)
-    console.log('Payload keys:', Object.keys(payload))
     
     try {
-      // First, let's try a simple request that won't trigger CORS preflight
-      // Use text/plain content type to avoid preflight for testing
-      console.log('Attempting simple CORS request without preflight...')
-      
-      const simpleResponse = await fetch(CLOUD_RUN_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain' // This avoids CORS preflight
-        },
-        body: JSON.stringify(payload),
-        mode: 'cors',
-      })
-      
-      if (simpleResponse.ok) {
-        console.log('Simple CORS request successful (no auth needed)')
-        return await simpleResponse.json()
-      } else {
-        console.log('Simple CORS failed, trying with auth...')
-      }
-      
-      // If simple request fails, try fetchProxy with identity token
-      console.log('Trying fetchProxy with authentication...')
-      const response = await extensionSDK.fetchProxy(CLOUD_RUN_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${identityToken}`,
-        },
-        body: JSON.stringify(payload),
-      })
-      
-      console.log('Cloud Run API response received via fetchProxy:', typeof response)
-      return response
-    } catch (error) {
-      console.error('All requests failed:', error)
-      console.error('Error details:', JSON.stringify(error, null, 2))
-      
-      // Last resort: try with proper auth headers
-      console.log('Final attempt: direct fetch with proper CORS and auth...')
+      // Try fetchProxy first (preferred)
       try {
+        console.log('Attempting fetchProxy request with Bearer token...')
+        const response = await extensionSDK.fetchProxy(CLOUD_RUN_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${identityToken}`,
+          },
+          body: JSON.stringify(payload),
+        })
+        console.log('fetchProxy request successful')
+        return response
+      } catch (proxyError) {
+        console.warn('fetchProxy failed, falling back to direct fetch...', proxyError)
+        // Fallback to direct fetch
         const response = await fetch(CLOUD_RUN_URL, {
           method: 'POST',
           headers: {
@@ -84,28 +59,19 @@ const useSendCloudRunMessage = () => {
           },
           body: JSON.stringify(payload),
           mode: 'cors',
-          credentials: 'omit', // Don't send cookies to avoid additional preflight
+          credentials: 'omit',
         })
-        
-        if (!response.ok) {
+        if (response.ok) {
+          console.log('Direct fetch with Bearer token successful')
+          return await response.json()
+        } else {
           const errorText = await response.text()
-          throw new Error(`Final fetch error: ${response.status} ${response.statusText} - ${errorText}`)
+          throw new Error(`Cloud Run fetch error: ${response.status} ${response.statusText} - ${errorText}`)
         }
-        
-        console.log('Final direct fetch successful')
-        return await response.json()
-      } catch (finalError) {
-        console.error('All connection attempts failed:', finalError)
-        
-        throw new Error(`Unable to connect to Cloud Run service:
-          Error: ${finalError}
-          
-          Troubleshooting steps:
-          1. Check that your Cloud Run URL is correct: ${CLOUD_RUN_URL}
-          2. Verify your OAuth token is valid
-          3. Ensure Cloud Run service is accepting requests
-          4. Check Cloud Run logs for authentication errors`)
       }
+    } catch (error) {
+      console.error('Cloud Run request failed:', error)
+      throw new Error(`Unable to connect to Cloud Run service: ${error}`)
     }
   }
 
@@ -140,7 +106,7 @@ const useSendCloudRunMessage = () => {
 
         const result = await callCloudRunAPI(payload)
         console.log('Received result from Cloud Run:', result)
-        return result
+        return result.body
       } catch (error) {
         console.error('Error processing prompt:', error)
         throw error
@@ -153,6 +119,7 @@ const useSendCloudRunMessage = () => {
   const testInFlight = useRef(false)
 
   const testCloudRunSettings = useCallback(async () => {
+    console.log('Starting Cloud Run settings test...')
     if (testInFlight.current) {
       // If a test is already running, do not start another; return false (no-op)
       return false
@@ -161,10 +128,12 @@ const useSendCloudRunMessage = () => {
     try {
       if (!CLOUD_RUN_URL) {
         console.log('Cloud Run test failed: No service URL configured')
+        testInFlight.current = false
         return false
       }
       if (!identityToken) {
         console.log('Cloud Run test failed: No Identity token available')
+        testInFlight.current = false
         return false
       }
       console.log('Testing Cloud Run connection using Identity token...')
@@ -214,21 +183,6 @@ const useSendCloudRunMessage = () => {
       testInFlight.current = false
     }
   }, [CLOUD_RUN_URL, identityToken, extensionSDK])
-
-  // Run initial tests on settings change
-  useEffect(() => {
-    const runInitialTests = async () => {
-      // ... your test logic ...
-    }
-
-    runInitialTests()
-  }, [
-    settings['cloud_run_service_url']?.value,
-    settings['identity_token']?.value,
-    // userAttributesLoaded, // Uncomment if needed
-    // initialTestsCompleted, // Uncomment if needed
-    dispatch
-  ])
 
   return {
     processPrompt,

@@ -647,7 +647,6 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
         current_explore = request_data.get('current_explore', {})
         golden_queries = request_data.get('golden_queries', {})
         semantic_models = request_data.get('semantic_models', {})
-        model_name = request_data.get('model_name', '')
         data_to_summarize = request_data.get('data_to_summarize', '')
         test_mode = request_data.get('test_mode', False)
         
@@ -685,11 +684,10 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
                     'error': 'Failed to determine appropriate explore',
                     'message_type': 'error'
                 }
-            
+        
             current_explore = {
                 'exploreKey': determined_explore_key,
                 'exploreId': determined_explore_key,
-                'modelName': model_name
             }
             
             result = generate_explore_params(

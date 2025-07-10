@@ -15,13 +15,6 @@ const useSendCloudRunMessage = () => {
   const CLOUD_RUN_URL = settings['cloud_run_service_url']?.value as string || ''
   const identityToken = settings['identity_token']?.value as string || ''
 
-  // Use the model name from the current explore context
-  // If not available, log a warning as this indicates a state issue
-  const modelName = currentExplore.modelName
-  if (!modelName) {
-    console.warn('No model name in current explore context. This may cause issues with the Cloud Run API.')
-  }
-
   const callCloudRunAPI = async (payload: any) => {
     if (!CLOUD_RUN_URL) {
       throw new Error('Cloud Run service URL not configured')
@@ -90,7 +83,7 @@ const useSendCloudRunMessage = () => {
           current_explore: currentExplore,
           golden_queries: examples,
           semantic_models: semanticModels,
-          model_name: modelName,
+          model_name: '',
           test_mode: false
         }
 
@@ -98,7 +91,7 @@ const useSendCloudRunMessage = () => {
           prompt: payload.prompt,
           conversation_id: payload.conversation_id,
           current_explore: payload.current_explore,
-          model_name: payload.model_name,
+          model_name: '',
           // Don't log the entire examples and semantic_models objects as they're large
           golden_queries_keys: Object.keys(payload.golden_queries?.exploreSamples || {}),
           semantic_models_keys: Object.keys(payload.semantic_models || {}),
@@ -112,7 +105,7 @@ const useSendCloudRunMessage = () => {
         throw error
       }
     },
-    [currentExplore, examples, semanticModels, modelName, CLOUD_RUN_URL, identityToken, currentExploreThread, history],
+    [currentExplore, examples, semanticModels, CLOUD_RUN_URL, identityToken, currentExploreThread, history],
   )
 
   // Test function for Cloud Run settings

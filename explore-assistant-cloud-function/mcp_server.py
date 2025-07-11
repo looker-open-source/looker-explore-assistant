@@ -32,13 +32,13 @@ location = os.environ.get("REGION", "us-central1")
 vertex_model = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash-001")
 looker_api_client_id = os.environ.get("LOOKER_API_CLIENT_ID")
 looker_api_client_secret = os.environ.get("LOOKER_API_CLIENT_SECRET")
-looker_base_url = os.environ.get("LOOKER_BASE_URL")
+looker_base_url = os.environ.get("LOOKERSDK_BASE_URL")
 
 # BigQuery configuration for suggested golden queries
 bq_project_id = os.environ.get("BQ_PROJECT_ID", "ml-accelerator-dbarr")
 bq_dataset_id = os.environ.get("BQ_DATASET_ID", "explore_assistant")
 bq_suggested_table = os.environ.get("BQ_SUGGESTED_TABLE", "suggested_golden_queries")
-looker_base_url = os.environ.get("LOOKER_BASE_URL")
+looker_base_url = os.environ.get("LOOKERSDK_BASE_URL")
 
 def get_response_headers():
     return {

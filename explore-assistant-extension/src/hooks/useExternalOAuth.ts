@@ -1,7 +1,6 @@
 import { useContext, useCallback, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { ExtensionContext } from '@looker/extension-sdk-react'
-import { DelimArray } from '@looker/sdk-rtl'
 import { RootState } from '../store'
 import { AssistantState } from '../slices/assistantSlice'
 
@@ -30,9 +29,10 @@ export const useExternalOAuth = () => {
       console.log(`Testing connection: ${EXTERNAL_CONNECTION_NAME}`)
       
       // Test the connection using the Looker SDK
+      // Use plain array - the SDK should handle DelimArray conversion internally
       const response = await core40SDK.test_connection(
         EXTERNAL_CONNECTION_NAME,
-        new DelimArray(['connect'])
+        'connect' as any
       )
       
       console.log('Connection test response:', response)

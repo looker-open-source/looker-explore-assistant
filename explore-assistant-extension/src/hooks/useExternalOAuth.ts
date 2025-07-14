@@ -127,9 +127,10 @@ export const useExternalOAuth = () => {
     console.log('Connection test failed or OAuth needs refresh - proceeding to open OAuth window')
 
     try {
-      const host_uri = extensionSDK?.lookerHostData?.hostUrl || 'https://looker.mycompany.com'
       const host_name = extensionSDK?.lookerHostData?.hostOrigin || 'https://looker.mycompany.com'
-      const redirect_uri = encodeURIComponent(host_uri)
+      const extensionId = extensionSDK.lookerHostData?.extensionId
+      const extensionContext = extensionSDK?.lookerHostData?.route 
+      const redirect_uri = encodeURIComponent(`${host_name}/extensions/${extensionId}/${extensionContext}`)
       console.log(`Opening external OAuth window for connection ID: ${EXTERNAL_OAUTH_CONNECTION_ID}?redirect_uri=${redirect_uri}`)
       extensionSDK.openBrowserWindow(`${host_name}/external_oauth/authenticate/${EXTERNAL_OAUTH_CONNECTION_ID}?redirect_uri=${redirect_uri}`)
       hasOpenedWindow.current = true

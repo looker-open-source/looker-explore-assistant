@@ -29,10 +29,10 @@ export const useExternalOAuth = () => {
       console.log(`Testing connection: ${EXTERNAL_CONNECTION_NAME}`)
       
       // Test the connection using the Looker SDK
-      // @ts-ignore - bypassing TypeScript error for DelimArray, string works fine
       const response = await core40SDK.test_connection(
         EXTERNAL_CONNECTION_NAME,
-        'connect'
+        // @ts-ignore - bypassing TypeScript error for DelimArray, string works fine
+        ['[connect]']
       )
       
       console.log('Connection test response:', response)

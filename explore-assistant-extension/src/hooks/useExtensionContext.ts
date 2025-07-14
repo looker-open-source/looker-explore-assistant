@@ -48,7 +48,8 @@ export const useExtensionContext = () => {
         'google_oauth_client_id',
         'bigquery_example_looker_model_name',
         'cloud_run_service_url',
-        'vertex_model'
+        'vertex_model',
+        'external_connection_using_oauth'
       ]
 
       settingsToLoad.forEach(settingKey => {

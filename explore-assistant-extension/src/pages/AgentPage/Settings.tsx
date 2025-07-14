@@ -50,7 +50,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const { isAuthenticating, hasValidToken, error: oauthHookError } = useAutoOAuth()
 
   // External OAuth hook for opening database connection window
-  const { openExternalOAuthWindow, hasOpenedWindow } = useExternalOAuth()
+  const { openExternalOAuthWindow, testConnection, hasOpenedWindow, connectionTestResult, isTestingConnection } = useExternalOAuth()
 
   // OAuth authentication - Now as a function that can be called on demand
   const doOAuth = async (forceNew = false) => {
@@ -191,7 +191,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     dispatch(setSetting({ id, value }));
     
     // Only persist specific settings to extension context
-    const persistableSettings = ['google_oauth_client_id', 'bigquery_example_looker_model_name', 'cloud_run_service_url', 'vertex_model', 'external_oauth_connection_id']
+    const persistableSettings = ['google_oauth_client_id', 'bigquery_example_looker_model_name', 'cloud_run_service_url', 'vertex_model', 'external_oauth_connection_id', 'external_connection_using_oauth']
     
     if (persistableSettings.includes(id)) {
       try {
@@ -217,7 +217,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const handleTestAndSave = async () => {
     try {
       // Save all persistable settings to context as a complete set
-      const persistableSettings = ['google_oauth_client_id', 'bigquery_example_looker_model_name', 'cloud_run_service_url', 'vertex_model', 'external_oauth_connection_id']
+      const persistableSettings = ['google_oauth_client_id', 'bigquery_example_looker_model_name', 'cloud_run_service_url', 'vertex_model', 'external_oauth_connection_id', 'external_connection_using_oauth']
       const allSettingsToSave: Record<string, any> = {}
       
       persistableSettings.forEach(settingId => {
@@ -269,7 +269,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     id === 'bigquery_example_looker_model_name' ||
     id === 'cloud_run_service_url' ||
     id === 'vertex_model' ||
-    id === 'external_oauth_connection_id'
+    id === 'external_oauth_connection_id' ||
+    id === 'external_connection_using_oauth'
   )
 
   return (
@@ -378,6 +379,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
                       {hasOpenedWindow ? 'Window Opened' : 'Open Auth Window'}
                     </Button>
                   </Box>
+                ) : id === 'external_connection_using_oauth' ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <input
+                      type="text"
+                      value={String(setting.value)}
+                      onChange={(e) => handleSaveSetting(id, e.target.value)}
+                      style={{
+                        padding: '8px 12px',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        minWidth: '200px'
+                      }}
+                      placeholder="Connection name (e.g., my_oauth_connection)"
+                    />
+                    <Button 
+                      onClick={testConnection}
+                      variant="outlined" 
+                      size="small"
+                      disabled={!setting.value || isTestingConnection}
+                    >
+                      {isTestingConnection ? 'Testing...' : 'Test Connection'}
+                    </Button>
+                  </Box>
                 ) : typeof setting.value === 'boolean' ? (
                   <Switch
                     edge="end"
@@ -422,6 +446,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
             External OAuth Window: {hasOpenedWindow ? 
               <Box component="span" sx={{ color: '#4caf50', fontWeight: 'bold' }}>✅ Opened</Box> : 
               <Box component="span" sx={{ color: '#f44336', fontWeight: 'bold' }}>❌ Not Opened</Box>
+            }
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            External Connection Test: {connectionTestResult === null ? 'Not Tested' : connectionTestResult ? 
+              <Box component="span" sx={{ color: '#4caf50', fontWeight: 'bold' }}>✅ Valid OAuth</Box> : 
+              <Box component="span" sx={{ color: '#f44336', fontWeight: 'bold' }}>❌ OAuth Required</Box>
             }
           </Typography>
           <Typography variant="body2" sx={{ mb: 1 }}>

@@ -229,6 +229,11 @@ export const initialState: AssistantState = {
       name: 'External OAuth Connection ID',
       description: 'The connection ID for external OAuth authentication in Looker. Can be found using the accounts link and investigating the log in or reauthenticate button for a database connection',
       value: '',
+    },
+    external_connection_using_oauth: {
+      name: 'External Connection Using OAuth',
+      description: 'The name of the Looker connection that uses external OAuth. This connection will be tested before opening the external OAuth window.',
+      value: '',
     }
   },
   isBigQueryMetadataLoaded: false,

@@ -1,6 +1,7 @@
 import { useContext, useCallback, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { ExtensionContext } from '@looker/extension-sdk-react'
+import { DelimArray } from '@looker/sdk-rtl'
 import { RootState } from '../store'
 import { AssistantState } from '../slices/assistantSlice'
 
@@ -31,8 +32,7 @@ export const useExternalOAuth = () => {
       // Test the connection using the Looker SDK
       const response = await core40SDK.test_connection(
         EXTERNAL_CONNECTION_NAME,
-        // @ts-ignore - bypassing TypeScript error for DelimArray, string works fine
-        ['[connect]']
+        new DelimArray(['connect'])
       )
       
       console.log('Connection test response:', response)

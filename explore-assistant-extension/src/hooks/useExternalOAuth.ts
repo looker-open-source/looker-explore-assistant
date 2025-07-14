@@ -130,7 +130,7 @@ export const useExternalOAuth = () => {
       const host_name = extensionSDK?.lookerHostData?.hostOrigin || 'https://looker.mycompany.com'
       const extensionId = extensionSDK.lookerHostData?.extensionId
       const extensionContext = extensionSDK?.lookerHostData?.route 
-      const redirect_uri = encodeURIComponent(`${host_name}/extensions/${extensionId}/${extensionContext}`)
+      const redirect_uri = encodeURIComponent(`${host_name}/extensions/${extensionId}${extensionContext}`)
       console.log(`Opening external OAuth window for connection ID: ${EXTERNAL_OAUTH_CONNECTION_ID}?redirect_uri=${redirect_uri}`)
       extensionSDK.openBrowserWindow(`${host_name}/external_oauth/authenticate/${EXTERNAL_OAUTH_CONNECTION_ID}?redirect_uri=${redirect_uri}`)
       hasOpenedWindow.current = true

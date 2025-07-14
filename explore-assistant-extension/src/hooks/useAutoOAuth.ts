@@ -117,6 +117,9 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
         // Clear any previous error
         dispatch(setOAuthError(null))
         
+        // Note: External OAuth window opening is now handled separately via useExternalOAuth hook
+        // to prevent multiple windows from opening
+
         // Always check token freshness on initial load, even if we have one
         let needsNewToken = !IDENTITY_TOKEN
         

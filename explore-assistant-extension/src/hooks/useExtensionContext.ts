@@ -12,7 +12,7 @@ import {
 const CONTEXT_DEBUG = true
 
 export const useExtensionContext = () => {
-  const { extensionSDK } = useContext(ExtensionContext)
+  const { extensionSDK, core40SDK } = useContext(ExtensionContext)
   const dispatch = useDispatch()
   
   const { settings, userAttributesLoaded } = useSelector(
@@ -32,11 +32,9 @@ export const useExtensionContext = () => {
       CONTEXT_DEBUG && console.log('Cannot load extension context: missing extensionSDK')
       return
     }
-
     try {
       setIsLoading(true)
       setError(null)
-      
       CONTEXT_DEBUG && console.log('===== Loading Extension Context =====')
 
       // Get extension context data
@@ -50,8 +48,6 @@ export const useExtensionContext = () => {
         'google_oauth_client_id',
         'bigquery_example_looker_model_name',
         'cloud_run_service_url',
-        'vertex_project',
-        'vertex_location',
         'vertex_model'
       ]
 

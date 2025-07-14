@@ -215,16 +215,6 @@ export const initialState: AssistantState = {
       description: 'The model name for the lookml model that has access to the examples and samples',
       value: 'extension_apps',
     },
-    vertex_project: {
-      name: 'Vertex AI Project ID',
-      description: 'GCP Project ID for Vertex AI integration',
-      value: '',
-    },
-    vertex_location: {
-      name: 'Vertex AI Location',
-      description: 'Location for Vertex AI API (e.g., us-central1)',
-      value: 'us-west1',
-    },
     vertex_model: {
       name: 'Vertex AI Model',
       description: 'Vertex AI model to use (e.g., gemini-2.0-flash)',
@@ -233,6 +223,11 @@ export const initialState: AssistantState = {
     cloud_run_service_url: {
       name: 'Cloud Run Service URL',
       description: 'URL of the Cloud Run service for AI processing (use http://localhost:8001 for local testing)',
+      value: '',
+    },
+    external_oauth_connection_id: {
+      name: 'External OAuth Connection ID',
+      description: 'The connection ID for external OAuth authentication in Looker. Can be found using the accounts link and investigating the log in or reauthenticate button for a database connection',
       value: '',
     }
   },

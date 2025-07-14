@@ -1,12 +1,11 @@
-import { useCallback, useContext, useEffect, useRef } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import { useCallback, useContext, useRef } from 'react'
+import { useSelector } from 'react-redux'
 import { RootState } from '../store'
 import { AssistantState } from '../slices/assistantSlice'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 
 const useSendCloudRunMessage = () => {
   const { extensionSDK } = useContext(ExtensionContext)
-  const dispatch = useDispatch()
   const { settings, examples, currentExplore, semanticModels, currentExploreThread, history } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
@@ -14,6 +13,7 @@ const useSendCloudRunMessage = () => {
   // Cloud Run service settings
   const CLOUD_RUN_URL = settings['cloud_run_service_url']?.value as string || ''
   const identityToken = settings['identity_token']?.value as string || ''
+  const vertexModel = settings['vertex_model']?.value as string || 'gemini-2.0-flash'
 
   const callCloudRunAPI = async (payload: any) => {
     if (!CLOUD_RUN_URL) {
@@ -84,6 +84,7 @@ const useSendCloudRunMessage = () => {
           golden_queries: examples,
           semantic_models: semanticModels,
           model_name: '',
+          vertex_model: vertexModel,
           test_mode: false
         }
 
@@ -136,6 +137,7 @@ const useSendCloudRunMessage = () => {
         explore_key: "test",
         model_name: "test",
         conversation_id: "test",
+        vertex_model: vertexModel,
         test_mode: true
       }
       try {

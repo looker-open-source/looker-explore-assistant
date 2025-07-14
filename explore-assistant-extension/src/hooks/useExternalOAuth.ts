@@ -41,10 +41,9 @@ export const useExternalOAuth = () => {
     }
   }, [examples.exploreEntries])
 
-  const testConnection = useCallback(async (): Promise<boolean> => {
-    const goldenQuery = getFirstGoldenQuery()
+  const testConnection = useCallback(async (goldenQuery: { exploreId: string; output: string }): Promise<boolean> => {
     if (!goldenQuery) {
-      console.log('No golden queries available for testing')
+      console.log('No golden query provided for testing')
       setConnectionTestResult(false)
       return false
     }
@@ -95,7 +94,7 @@ export const useExternalOAuth = () => {
     } finally {
       setIsTestingConnection(false)
     }
-  }, [getFirstGoldenQuery, extensionSDK, core40SDK])
+  }, [extensionSDK, core40SDK])
 
   const openExternalOAuthWindow = useCallback(async () => {
     // Prevent opening multiple windows
@@ -109,9 +108,16 @@ export const useExternalOAuth = () => {
       return false
     }
 
+    // Get the first golden query for testing
+    const goldenQuery = getFirstGoldenQuery()
+    if (!goldenQuery) {
+      console.log('No golden queries available - skipping external OAuth window')
+      return false
+    }
+
     // Test the connection using golden query first
     console.log('Testing connection with golden query before opening external OAuth window...')
-    const connectionIsValid = await testConnection()
+    const connectionIsValid = await testConnection(goldenQuery)
     
     if (connectionIsValid) {
       console.log('Connection is already valid - no need to open external OAuth window')
@@ -132,7 +138,7 @@ export const useExternalOAuth = () => {
       console.error('Failed to open external OAuth window:', error)
       return false
     }
-  }, [extensionSDK, EXTERNAL_OAUTH_CONNECTION_ID, testConnection])
+  }, [extensionSDK, EXTERNAL_OAUTH_CONNECTION_ID, getFirstGoldenQuery, testConnection])
 
   const resetWindowState = useCallback(() => {
     hasOpenedWindow.current = false
@@ -182,8 +188,16 @@ export const useExternalOAuth = () => {
       hasAutoExecuted.current = true
 
       try {
+        // Get the first golden query for testing
+        const goldenQuery = getFirstGoldenQuery()
+        if (!goldenQuery) {
+          console.log('No golden queries available for auto-execution - waiting for golden queries to load')
+          hasAutoExecuted.current = false // Reset so we can try again when golden queries load
+          return
+        }
+
         // Test the connection first
-        const connectionIsValid = await testConnection()
+        const connectionIsValid = await testConnection(goldenQuery)
         
         if (!connectionIsValid) {
           // Only open external OAuth window if connection test fails
@@ -203,7 +217,8 @@ export const useExternalOAuth = () => {
     EXTERNAL_OAUTH_CONNECTION_ID,
     oauth.isAuthenticating,
     oauth.hasValidToken,
-    examples.exploreEntries, // Add this dependency to trigger when examples load
+    examples.exploreEntries, 
+    getFirstGoldenQuery,
     testConnection,
     openExternalOAuthWindow
   ])

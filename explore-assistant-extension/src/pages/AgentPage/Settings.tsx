@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react'
-import { Modal, Box, Typography, Switch, IconButton, Button } from '@mui/material'
+import { Modal, Box, Typography, Switch, IconButton, Button, Select, MenuItem, FormControl, InputLabel } from '@mui/material'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store'
 import { 
@@ -17,10 +17,18 @@ import InfoIcon from '@mui/icons-material/Info'
 import { useAutoOAuth } from '../../hooks/useAutoOAuth'
 import { useExternalOAuth } from '../../hooks/useExternalOAuth'
 import { useExtensionContext } from '../../hooks/useExtensionContext'
+import useGenerateBronzeQueries from '../../hooks/useGenerateBronzeQueries'
 
 interface SettingsModalProps {
   open: boolean
   onClose: () => void
+}
+
+interface ExploreInfo {
+  modelName: string
+  exploreName: string
+  exploreKey: string
+  exploreLabel: string
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
@@ -34,9 +42,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const [expandedSetting, setExpandedSetting] = useState<string | null>(null)
   const [bigQueryTestResult, setBigQueryTestResult] = useState<boolean | null>(null)
   const [cloudRunTestResult, setCloudRunTestResult] = useState<boolean | null>(null)
+  const [availableExplores, setAvailableExplores] = useState<ExploreInfo[]>([])
+  const [selectedExploreToSetup, setSelectedExploreToSetup] = useState<string>('')
+  const [loadingExplores, setLoadingExplores] = useState(false)
+  const [generatingBronzeQueries, setGeneratingBronzeQueries] = useState(false)
+  const [bronzeQueriesMessage, setBronzeQueriesMessage] = useState<string | null>(null)
+  const [bronzeQueriesError, setBronzeQueriesError] = useState<string | null>(null)
 
   const { testBigQuerySettings } = useBigQueryExamples()
   const { testCloudRunSettings } = useSendCloudRunMessage()
+  const { generateBronzeQueries } = useGenerateBronzeQueries()
   const [isAdmin, setIsAdmin] = useState(false)
 
   // Use extension context hook
@@ -64,7 +79,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       // Only validate existing token if NOT forcing new authentication
       if (!forceNew) {
         const existingToken = settings['identity_token']?.value;
-        if (existingToken) {
+        if (existingToken && typeof existingToken === 'string') {
           // For ID tokens, we can decode the JWT to check expiration without making a network call
           try {
             const payload = JSON.parse(atob(existingToken.split('.')[1]));
@@ -107,7 +122,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
           scope: GOOGLE_SCOPES,
           response_type: 'id_token', // Only request ID token
           // Force consent screen to ensure fresh token
-          prompt: forceNew ? 'consent' : undefined,
+          ...(forceNew ? { prompt: 'consent' } : {}),
           nonce: Math.random().toString(36).substring(2, 15), // Required for ID token
         }
       );
@@ -159,7 +174,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     const checkAdminStatus = async () => {
       try {
         const me = await core40SDK.ok(core40SDK.me())
-        const isLookerAdmin = me.roles?.some((role: any) => 
+        const isLookerAdmin = (me as any).roles?.some((role: any) => 
           role.name === 'Admin' || role.permission_set?.permissions?.includes('admin')
         ) || false
         setIsAdmin(isLookerAdmin)
@@ -170,6 +185,48 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     }
     checkAdminStatus()
   }, [core40SDK]);
+
+  // Fetch available explores
+  useEffect(() => {
+    const fetchExplores = async () => {
+      if (!open) return;
+      
+      setLoadingExplores(true);
+      try {
+        const response = await core40SDK.ok(core40SDK.all_lookml_models({
+          fields: 'name, explores'
+        }));
+
+        const allExplores: ExploreInfo[] = [];
+        const currentExploreKeys = new Set(Object.keys((settings.examples as any)?.exploreSamples || {}));
+
+        response.forEach((model: any) => {
+          if (model.explores) {
+            model.explores.forEach((explore: any) => {
+              const exploreKey = `${model.name}:${explore.name}`;
+              // Only include explores that don't already have golden queries
+              if (!currentExploreKeys.has(exploreKey)) {
+                allExplores.push({
+                  modelName: model.name || '',
+                  exploreName: explore.name || '',
+                  exploreKey,
+                  exploreLabel: explore.label || explore.name || ''
+                });
+              }
+            });
+          }
+        });
+
+        setAvailableExplores(allExplores);
+      } catch (error) {
+        console.error('Error fetching explores:', error);
+      } finally {
+        setLoadingExplores(false);
+      }
+    };
+
+    fetchExplores();
+  }, [open, core40SDK, settings.examples]);
 
   // TEMPORARY ADMIN OVERRIDE - TODO: Remove in next commit
   // Allow all users to edit settings temporarily
@@ -183,6 +240,48 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         value: !settings[id].value,
       }),
     )
+  }
+
+  // Handle explore selection
+  const handleExploreSelectionChange = (event: any) => {
+    setSelectedExploreToSetup(event.target.value);
+  };
+
+  // Handle configure explore
+  const handleConfigureExplore = async () => {
+    if (!selectedExploreToSetup) {
+      console.log('No explore selected for configuration')
+      return
+    }
+
+    setGeneratingBronzeQueries(true)
+    setBronzeQueriesMessage(null)
+    setBronzeQueriesError(null)
+
+    try {
+      console.log('Generating bronze queries for explore:', selectedExploreToSetup)
+      const result = await generateBronzeQueries(selectedExploreToSetup)
+      
+      if (result.success) {
+        setBronzeQueriesMessage(
+          `Successfully generated ${result.queries_generated ?? 0} bronze queries for ${selectedExploreToSetup}`
+        )
+        setSelectedExploreToSetup('')
+        
+        // Re-fetch golden queries to update the available explores list
+        // This will trigger the useEffect that fetches explores
+        setTimeout(() => {
+          setBronzeQueriesMessage(null)
+        }, 5000) // Clear success message after 5 seconds
+      } else {
+        setBronzeQueriesError('Failed to generate bronze queries')
+      }
+    } catch (error: any) {
+      console.error('Error generating bronze queries:', error)
+      setBronzeQueriesError(error.message || 'An unexpected error occurred')
+    } finally {
+      setGeneratingBronzeQueries(false)
+    }
   }
 
   // Handle saving settings to extension context
@@ -409,6 +508,82 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
               )}
             </Box>
           ))}
+        </Box>
+
+        {/* Configure New Explore Section */}
+        <Box sx={{ mt: 4, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Configure New Explore
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 2, color: '#666' }}>
+            Select explores to configure for use with the assistant. Only explores without existing golden queries are shown.
+          </Typography>
+          
+          {/* Success Message */}
+          {bronzeQueriesMessage && (
+            <Box sx={{ mb: 2, p: 2, bgcolor: '#e8f5e8', border: '1px solid #4caf50', borderRadius: 1 }}>
+              <Typography variant="body2" color="success.main">
+                ✅ {bronzeQueriesMessage}
+              </Typography>
+            </Box>
+          )}
+
+          {/* Error Message */}
+          {bronzeQueriesError && (
+            <Box sx={{ mb: 2, p: 2, bgcolor: '#ffebee', border: '1px solid #f44336', borderRadius: 1 }}>
+              <Typography variant="body2" color="error">
+                ❌ {bronzeQueriesError}
+              </Typography>
+            </Box>
+          )}
+          
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="explore-select-label">Select Explore</InputLabel>
+            <Select
+              labelId="explore-select-label"
+              value={selectedExploreToSetup}
+              onChange={handleExploreSelectionChange}
+              label="Select Explore"
+              disabled={loadingExplores || generatingBronzeQueries}
+            >
+              {availableExplores.map((explore) => (
+                <MenuItem key={explore.exploreKey} value={explore.exploreKey}>
+                  <Box>
+                    <Typography variant="body1">
+                      {explore.exploreLabel || explore.exploreName}
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      {explore.modelName}:{explore.exploreName}
+                    </Typography>
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {selectedExploreToSetup && (
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={handleConfigureExplore}
+              disabled={generatingBronzeQueries}
+              sx={{ mt: 1 }}
+            >
+              {generatingBronzeQueries ? 'Generating Bronze Queries...' : 'Configure Selected Explore'}
+            </Button>
+          )}
+
+          {loadingExplores && (
+            <Typography variant="body2" color="textSecondary">
+              Loading available explores...
+            </Typography>
+          )}
+
+          {!loadingExplores && availableExplores.length === 0 && (
+            <Typography variant="body2" color="textSecondary">
+              No unconfigured explores available. All explores may already have golden queries.
+            </Typography>
+          )}
         </Box>
 
         <Box sx={{ mt: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>

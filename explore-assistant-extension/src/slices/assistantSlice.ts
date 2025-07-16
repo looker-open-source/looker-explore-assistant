@@ -99,6 +99,7 @@ export interface SemanticModel {
   exploreKey: string
   exploreId: string
   modelName: string
+  description: string
 }
 
 export interface AssistantState {

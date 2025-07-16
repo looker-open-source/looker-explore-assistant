@@ -99,7 +99,7 @@ gcloud run deploy $SERVICE_NAME \
     --set-env-vars "MCP_SHARED_SECRET=PLACEHOLDER_REPLACE_WITH_SECURE_SECRET" \
     --set-env-vars "LOOKER_API_CLIENT_ID=PLACEHOLDER_YOUR_LOOKER_CLIENT_ID" \
     --set-env-vars "LOOKER_API_CLIENT_SECRET=PLACEHOLDER_YOUR_LOOKER_CLIENT_SECRET" \
-    --set-env-vars "LOOKER_BASE_URL=PLACEHOLDER_YOUR_LOOKER_BASE_URL" \
+    --set-env-vars "LOOKERSDK_BASE_URL=PLACEHOLDER_YOUR_LOOKER_BASE_URL" \
     --set-env-vars "LOOKERSDK_CLIENT_ID=PLACEHOLDER_YOUR_LOOKER_CLIENT_ID" \
     --set-env-vars "LOOKERSDK_CLIENT_SECRET=PLACEHOLDER_YOUR_LOOKER_CLIENT_SECRET" \
     --set-env-vars "LOOKERSDK_VERIFY_SSL=true" \
@@ -119,7 +119,7 @@ echo "2. Required environment variables to update:"
 echo "   - MCP_SHARED_SECRET: Replace with a secure secret"
 echo "   - LOOKER_API_CLIENT_ID: Your Looker API client ID"
 echo "   - LOOKER_API_CLIENT_SECRET: Your Looker API client secret"
-echo "   - LOOKER_BASE_URL: Your Looker instance URL"
+echo "   - LOOKERSDK_BASE_URL: Your Looker instance URL"
 echo "   - LOOKERSDK_CLIENT_ID: Same as LOOKER_API_CLIENT_ID"
 echo "   - LOOKERSDK_CLIENT_SECRET: Same as LOOKER_API_CLIENT_SECRET"
 echo ""

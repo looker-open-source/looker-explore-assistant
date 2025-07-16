@@ -548,14 +548,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
             >
               {availableExplores.map((explore) => (
                 <MenuItem key={explore.exploreKey} value={explore.exploreKey}>
-                  <Box>
-                    <Typography variant="body1">
+                  <div>
+                    <div style={{ fontWeight: 'bold' }}>
                       {explore.exploreLabel || explore.exploreName}
-                    </Typography>
-                    <Typography variant="caption" color="textSecondary">
+                    </div>
+                    <div style={{ fontSize: '0.8em', color: '#666' }}>
                       {explore.modelName}:{explore.exploreName}
-                    </Typography>
-                  </Box>
+                    </div>
+                  </div>
                 </MenuItem>
               ))}
             </Select>

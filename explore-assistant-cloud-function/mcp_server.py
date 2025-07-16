@@ -24,8 +24,6 @@ from google.oauth2 import service_account
 import looker_sdk
 from looker_sdk.rtl import api_settings
 from google.cloud import bigquery
-import vertexai
-from vertexai.generative_models import GenerativeModel
 
 logging.basicConfig(level=logging.INFO)
 
@@ -430,6 +428,7 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
         # Format table context for this explore
         dimensions = explore_semantic_model.get('dimensions', [])
         measures = explore_semantic_model.get('measures', [])
+        explore_description = explore_semantic_model.get('description', '')
         
         def format_row(field):
             name = field.get('name', '')
@@ -442,6 +441,7 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
         table_context = f"""
 # Looker Explore Metadata
 Explore: {explore_key}
+{f"Additional instructions: {explore_description}" if explore_description else ""}
 
 ## Dimensions (for grouping data):
 | Field Id | Field Type | Label | Description | Tags |
@@ -930,14 +930,106 @@ def detect_feedback_pattern(prompt_history: list, thread_messages: list, current
         logging.error(f"Error detecting feedback pattern: {e}")
         return False, None
 
+def generate_suggested_prompt(auth_header: str, prompt_history: list, explore_params: Dict[str, Any]) -> Optional[str]:
+    """
+    Generate a suggested prompt that sanitizes and generalizes the initial user request.
+    This creates a clean, example prompt that matches the generated explore params.
+    """
+    try:
+        logging.info("=== GENERATING SUGGESTED PROMPT ===")
+        
+        if not prompt_history:
+            logging.warning("No prompt history provided")
+            return None
+            
+        # Get the first prompt from history (the initial user request)
+        initial_prompt = prompt_history[0] if prompt_history else ""
+        
+        # Build the system prompt for generating the suggested prompt
+        system_prompt = f"""You are an expert at creating clean, generalized example prompts for data analysis questions.
+
+Your task is to take a user's conversation history and create a single, clean example prompt that:
+1. Captures the essence of what the user was asking for
+2. Removes any personal, specific, or contextual information
+3. Uses generic terms that would apply to similar data analysis scenarios
+4. Is clear and well-structured
+5. Would be a good example for training an AI assistant
+
+Original prompt history (chronological order):
+{json.dumps(prompt_history, indent=2)}
+
+Generated explore parameters (for reference):
+{json.dumps(explore_params, indent=2)}
+
+Guidelines:
+- Focus on the data analysis intent from the FIRST prompt in the history
+- Remove specific names, dates, or personal references
+- Make it a standalone question that someone could understand without context
+- Keep it concise but complete
+- The suggested prompt should logically lead to the explore parameters that were generated
+
+Output only the suggested prompt, nothing else."""
+
+        # Format request for Vertex AI
+        vertex_request = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": system_prompt
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+                "topP": 0.8,
+                "topK": 40,
+                "maxOutputTokens": 256,
+                "responseMimeType": "text/plain"
+            }
+        }
+        
+        # Call Vertex AI using service account
+        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
+        if not vertex_response:
+            logging.error("Failed to get response from Vertex AI for suggested prompt")
+            return None
+        
+        # Extract the suggested prompt
+        suggested_prompt = extract_vertex_response_text(vertex_response)
+        if suggested_prompt:
+            suggested_prompt = suggested_prompt.strip()
+            # Remove any quotes that might have been added
+            if suggested_prompt.startswith('"') and suggested_prompt.endswith('"'):
+                suggested_prompt = suggested_prompt[1:-1]
+            
+            logging.info(f"Generated suggested prompt: {suggested_prompt}")
+            return suggested_prompt
+        
+        logging.error("Failed to extract suggested prompt from Vertex AI response")
+        return None
+        
+    except Exception as e:
+        logging.error(f"Error generating suggested prompt: {e}")
+        return None
+
 def save_suggested_silver_query(auth_header: str, explore_key: str, prompt_history: list, 
                                explore_params: Dict[str, Any], user_email: str) -> bool:
     """
     Save a suggested golden query to the BigQuery suggested_golden_queries table
-    Now stores the complete prompt history for better context
+    Now stores the complete prompt history for better context and generates a suggested new prompt
     """
     try:
         ensure_silver_queries_table_exists()
+
+        # Generate the suggested prompt using LLM
+        logging.info("Generating suggested prompt for silver query...")
+        suggested_prompt = generate_suggested_prompt(auth_header, prompt_history, explore_params)
+        if not suggested_prompt:
+            logging.warning("Failed to generate suggested prompt, using first prompt from history as fallback")
+            suggested_prompt = prompt_history[0] if prompt_history else "Unable to generate suggested prompt"
 
         # Create BigQuery client using default credentials (Cloud Run service account)
         client = bigquery.Client(project=bq_project_id)
@@ -954,10 +1046,12 @@ def save_suggested_silver_query(auth_header: str, explore_key: str, prompt_histo
             'approved': False,  
             'feedback_type': 'user_correction',
             'id': str(uuid.uuid4()),  # Generate UUID for the id field
-            'created_date': time.strftime('%Y-%m-%d', time.gmtime(current_time))  # Date for partitioning
+            'created_date': time.strftime('%Y-%m-%d', time.gmtime(current_time)),  # Date for partitioning
+            'suggested_new_prompt': suggested_prompt  # New field with LLM-generated suggested prompt
         }
         
         logging.info(f"Saving suggested golden query to BigQuery: {explore_key} for user {user_email}")
+        logging.info(f"Generated suggested prompt: {suggested_prompt}")
         
         # Reference to the table
         table_id = f"{bq_project_id}.{bq_dataset_id}.{bq_suggested_table}"
@@ -983,7 +1077,8 @@ def save_suggested_silver_query(auth_header: str, explore_key: str, prompt_histo
             'explore_params': explore_params,
             'user_id': user_email,
             'timestamp': time.time(),
-            'feedback_type': 'user_correction'
+            'feedback_type': 'user_correction',
+            'suggested_new_prompt': suggested_prompt if 'suggested_prompt' in locals() else 'Not generated'
         }
         logging.info(f"FALLBACK LOG - Suggested query data: {json.dumps(fallback_data, indent=2)}")
         return False
@@ -1284,11 +1379,21 @@ def ensure_silver_queries_table_exists():
         try:
             table = client.get_table(silver_table_id)
             logging.info(f"Silver queries table {silver_table_id} already exists")
+            
+            # Check if the new suggested_new_prompt field exists, add it if it doesn't
+            existing_field_names = {field.name for field in table.schema}
+            if 'suggested_new_prompt' not in existing_field_names:
+                logging.info("Adding suggested_new_prompt field to existing silver queries table")
+                new_field = bigquery.SchemaField("suggested_new_prompt", "STRING", mode="NULLABLE")
+                table.schema = table.schema + [new_field]
+                table = client.update_table(table, ["schema"])
+                logging.info("Successfully added suggested_new_prompt field to silver queries table")
+            
             return True
         except Exception as table_error:
             logging.info(f"Silver queries table {silver_table_id} does not exist, creating it: {table_error}")
 
-        # Define the table schema
+        # Define the table schema (including the new suggested_new_prompt field)
         schema = [
             bigquery.SchemaField("explore_key", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("prompt", "STRING", mode="REQUIRED"),
@@ -1300,6 +1405,7 @@ def ensure_silver_queries_table_exists():
             bigquery.SchemaField("feedback_type", "STRING", mode="NULLABLE"),
             bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("created_date", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("suggested_new_prompt", "STRING", mode="NULLABLE"),
         ]
 
         # Create table reference

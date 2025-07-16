@@ -56,12 +56,12 @@ export const useLookerFields = () => {
           core40SDK.lookml_model_explore({
             lookml_model_name: modelName,
             explore_name: exploreId,
-            fields: 'fields',
+            fields: 'fields, description',
           }),
         )
 
         console.log(`Fetched semantic model for ${modelName}:${exploreId}`, response)
-        const { fields } = response
+        const { fields, description } = response
 
         if (!fields || !fields.dimensions || !fields.measures) {
           return undefined
@@ -93,6 +93,7 @@ export const useLookerFields = () => {
           exploreKey,
           dimensions,
           measures,
+          description: description || '',
         }
       } catch (error) {
         showBoundary({

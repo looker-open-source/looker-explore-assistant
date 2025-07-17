@@ -16,7 +16,6 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Tuple
 from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
-import functions_framework
 import requests
 from google.auth import default
 from google.auth.transport.requests import Request
@@ -1195,10 +1194,95 @@ def create_mcp_flask_app():
             'project': project,
             'location': location,
             'model': vertex_model,
-            'endpoints': ['/ (POST)', '/health (GET)']
+            'endpoints': ['/ (POST)', '/health (GET)', '/vertex-passthrough (POST)']
         }), 200, get_response_headers()
     
     logging.info("Registered endpoint: /health")
+    
+    @app.route("/vertex-passthrough", methods=["POST", "OPTIONS"])
+    def vertex_passthrough():
+        """Simple pass-through endpoint to Vertex AI with user verification"""
+        logging.info(f"Received {request.method} request to vertex-passthrough endpoint")
+        
+        # Handle OPTIONS requests first, without authentication
+        if request.method == "OPTIONS":
+            logging.info("Handling OPTIONS preflight request for vertex-passthrough")
+            response = Response()
+            response.headers.update(get_response_headers())
+            response.status_code = 200
+            return response
+        
+        try:
+            logging.info("Processing POST request to vertex-passthrough...")
+            
+            # Get Bearer token from Authorization header
+            auth_header = request.headers.get("Authorization")
+            logging.info(f"Authorization header present: {bool(auth_header)}")
+            
+            # Check for Authorization header
+            if not auth_header or not auth_header.lower().startswith("bearer "):
+                logging.error("Missing or invalid Authorization header")
+                response = jsonify({'error': 'Missing or invalid Authorization header'})
+                response.headers.update(get_response_headers())
+                response.status_code = 401
+                return response
+            
+            # Verify user token (this extracts and validates the user email)
+            user_email = extract_user_email_from_token(auth_header)
+            if not user_email:
+                logging.error("Token validation failed")
+                response = jsonify({'error': 'Token validation failed'})
+                response.headers.update(get_response_headers())
+                response.status_code = 401
+                return response
+            
+            logging.info(f"Token validated for user: {user_email}")
+            
+            # Get the request body
+            request_data = request.get_json()
+            if not request_data:
+                logging.error("Missing request body")
+                response = jsonify({'error': 'Missing request body'})
+                response.headers.update(get_response_headers())
+                response.status_code = 400
+                return response
+            
+            logging.info(f"Request data keys: {list(request_data.keys())}")
+            
+            # Pass through the request directly to Vertex AI
+            # The request_data should contain the properly formatted Vertex AI request
+            vertex_response = call_vertex_ai_api_with_service_account(request_data)
+            
+            if not vertex_response:
+                logging.error("Failed to get response from Vertex AI")
+                response = jsonify({'error': 'Failed to get response from Vertex AI'})
+                response.headers.update(get_response_headers())
+                response.status_code = 500
+                return response
+            
+            logging.info("Successfully got response from Vertex AI")
+            
+            # Return the Vertex AI response directly
+            response = jsonify(vertex_response)
+            response.headers.update(get_response_headers())
+            response.status_code = 200
+            return response
+            
+        except Exception as e:
+            logging.error(f"Vertex passthrough error: {e}")
+            logging.error(f"Error type: {type(e)}")
+            logging.error(f"Traceback: {traceback.format_exc()}")
+            
+            try:
+                response = jsonify({'error': f'Internal server error: {str(e)}'})
+                response.headers.update(get_response_headers())
+                response.status_code = 500
+                return response
+            except Exception as json_error:
+                logging.error(f"Failed to send JSON error response: {json_error}")
+                return f"Internal server error: {str(e)}", 500, get_response_headers()
+    
+    logging.info("Registered endpoint: /vertex-passthrough (POST)")
     
     @app.route("/cors", methods=["OPTIONS"])
     def cors_preflight():
@@ -1224,76 +1308,6 @@ def create_mcp_flask_app():
     
     logging.info("MCP Flask app created with Vertex AI endpoints")
     return app
-
-@functions_framework.http
-def mcp_cloud_function_entrypoint(request):
-    """Cloud Function entry point for MCP server"""
-    
-    # Handle OPTIONS requests first, without authentication
-    if request.method == "OPTIONS":
-        logging.info("Handling OPTIONS preflight request")
-        response = Response()
-        response.headers.update(get_response_headers())
-        response.status_code = 200
-        return response
-    
-    path = request.path
-    
-    if path == "/" or path == "":
-        try:
-            # Get Bearer token from Authorization header
-            auth_header = request.headers.get("Authorization")
-            if not auth_header or not auth_header.startswith("Bearer "):
-                logging.error("Missing or invalid Authorization header")
-                response = jsonify({'error': 'Missing or invalid Authorization header'})
-                response.headers.update(get_response_headers())
-                response.status_code = 401
-                return response
-            
-            logging.info("Authorization header received, proceeding with request...")
-            
-            # Get the request body
-            request_data = request.get_json()
-            if not request_data:
-                logging.error("Missing request body")
-                response = jsonify({'error': 'Missing request body'})
-                response.headers.update(get_response_headers())
-                response.status_code = 400
-                return response
-            
-            # Process the explore assistant request
-            result = process_explore_assistant_request(auth_header, request_data)
-            
-            response = jsonify(result)
-            response.headers.update(get_response_headers())
-            response.status_code = 200
-            return response
-            
-        except Exception as e:
-            logging.error(f"Vertex AI proxy error: {e}")
-            response = jsonify({'error': f'Internal server error: {str(e)}'})
-            response.headers.update(get_response_headers())
-            response.status_code = 500
-            return response
-    
-    elif path == "/health":
-        response = jsonify({
-            'status': 'healthy',
-            'service': 'vertex-ai-proxy',
-            'timestamp': time.time(),
-            'project': project,
-            'location': location,
-            'model': vertex_model,
-            'endpoints': ['/ (POST)', '/health (GET)']
-        })
-        response.headers.update(get_response_headers())
-        return response
-    
-    else:
-        response = jsonify({'error': 'Endpoint not found'})
-        response.headers.update(get_response_headers())
-        response.status_code = 404
-        return response
 
 def ensure_bronze_queries_table_exists():
     """

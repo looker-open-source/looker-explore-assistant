@@ -6,7 +6,7 @@
 set -e  # Exit on any error
 
 # Configuration variables - Modify these to match your deployment
-PROJECT_ID="YOUR_PROJECT_ID"  # Replace with your GCP project ID
+PROJECT_ID="combined-genai-bi"  # Replace with your GCP project ID
 REGION="us-central1"  # Replace with your region (should match deployment)
 SERVICE_NAME="looker-explore-assistant-mcp"
 

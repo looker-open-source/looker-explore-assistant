@@ -219,25 +219,53 @@ def extract_vertex_response_text(vertex_response: Dict[str, Any]) -> Optional[st
         return None
 
 def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries: Dict[str, Any], 
-                                 conversation_context: str = "") -> Optional[str]:
+                                 conversation_context: str = "", restricted_explore_keys: list = None) -> Optional[str]:
     """
-    Enhanced explore determination with conversation context.
+    Enhanced explore determination with conversation context and area restrictions.
     Always determines the best explore based on the prompt and conversation context,
-    ignoring any previously specified explore or model information.
+    but restricts selection to specified explore keys if provided.
     """
     try:
         logging.info("=== EXPLORE DETERMINATION START ===")
         logging.info(f"Determining best explore for prompt: {prompt}")
         logging.info(f"Has conversation context: {bool(conversation_context)}")
+        logging.info(f"Restricted explore keys: {restricted_explore_keys}")
+        
+        # Filter golden queries by restricted explore keys if provided
+        filtered_golden_queries = golden_queries
+        if restricted_explore_keys:
+            filtered_golden_queries = {}
+            for key, value in golden_queries.items():
+                if key == 'exploreEntries':
+                    # Filter explore entries by restricted keys
+                    filtered_entries = [
+                        entry for entry in value 
+                        if entry.get('golden_queries.explore_id') in restricted_explore_keys
+                    ]
+                    filtered_golden_queries[key] = filtered_entries
+                else:
+                    # For other keys, filter based on explore keys
+                    if isinstance(value, dict):
+                        filtered_value = {
+                            k: v for k, v in value.items() 
+                            if k in restricted_explore_keys
+                        }
+                        filtered_golden_queries[key] = filtered_value
+                    else:
+                        filtered_golden_queries[key] = value
         
         # Build system prompt with conversation context
         newline_char = "\n"
+        restriction_text = ""
+        if restricted_explore_keys:
+            restriction_text = f"{newline_char}IMPORTANT: You must only select explores from this restricted list: {restricted_explore_keys}{newline_char}"
+        
         system_prompt = f"""You are a Looker Explore Assistant. Your job is to determine which Looker explore is most appropriate for answering a user's question.
 
 IMPORTANT: You must analyze the user's question independently and select the BEST explore for their needs, regardless of any previous explore selections or model information.
-
+{restriction_text}
 Available Explores and Examples:
-{json.dumps(golden_queries, indent=2)}
+{json.dumps(filtered_golden_queries, indent=2)}
 
 {f"Conversation Context:{newline_char}{conversation_context}{newline_char}" if conversation_context else ""}
 
@@ -246,7 +274,7 @@ Instructions:
 2. Consider the conversation context to understand what the user has been asking about
 3. Compare against ALL available explores and their examples
 4. Determine which explore would be BEST suited to answer this question
-5. Ignore any previous explore selections - choose the optimal explore for this specific question
+5. {"Restrict your selection to the provided explore keys only" if restricted_explore_keys else "Ignore any previous explore selections - choose the optimal explore for this specific question"}
 6. Return ONLY the explore key (e.g., "order_items", "events", etc.) as a single string
 
 Current user prompt: {prompt}
@@ -280,6 +308,12 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
         if response_text:
             # Clean up the response - remove any extra whitespace or formatting
             explore_key = response_text.strip().replace('"', '').replace('\n', '')
+            
+            # Validate that the determined explore is in the restricted list if restrictions apply
+            if restricted_explore_keys and explore_key not in restricted_explore_keys:
+                logging.warning(f"Determined explore '{explore_key}' not in restricted list. Selecting first available.")
+                explore_key = restricted_explore_keys[0] if restricted_explore_keys else explore_key
+            
             logging.info(f"✅ Determined explore with context: {explore_key}")
             logging.info("=== EXPLORE DETERMINATION COMPLETE ===")
             return explore_key
@@ -683,6 +717,10 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
         data_to_summarize = request_data.get('data_to_summarize', '')
         test_mode = request_data.get('test_mode', False)
         
+        # Extract area restriction parameters
+        selected_area = request_data.get('selected_area', None)
+        restricted_explore_keys = request_data.get('restricted_explore_keys', [])
+        
         # Handle conversation context
         thread_messages = request_data.get('thread_messages', [])
         
@@ -690,6 +728,8 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
         logging.info(f"Conversation ID: {conversation_id}")
         logging.info(f"Prompt history length: {len(prompt_history)}")
         logging.info(f"Thread messages length: {len(thread_messages)}")
+        logging.info(f"Selected area: {selected_area}")
+        logging.info(f"Restricted explore keys: {restricted_explore_keys}")
         
         # Handle test mode
         if test_mode:
@@ -708,7 +748,7 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
         # Ignoring any input explore or model information in favor of AI-driven selection
         logging.info("Always determining explore from prompt and conversation context")
         determined_explore_key = determine_explore_from_prompt(
-            auth_header, prompt, golden_queries, conversation_context
+            auth_header, prompt, golden_queries, conversation_context, restricted_explore_keys
         )
         
         if not determined_explore_key:

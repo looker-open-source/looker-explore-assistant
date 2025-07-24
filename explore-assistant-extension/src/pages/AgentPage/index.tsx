@@ -9,6 +9,7 @@ import { ExploreEmbed } from '../../components/ExploreEmbed'
 import { RootState } from '../../store'
 import { useDispatch, useSelector } from 'react-redux'
 import useSendCloudRunMessage from '../../hooks/useSendCloudRunMessage'
+import { useAreas } from '../../hooks/useAreas'
 import {
   addMessage,
   AssistantState,
@@ -22,6 +23,7 @@ import {
   setSidePanelExploreParams,
   updateCurrentThread,
   updateLastHistoryEntry,
+  setSelectedArea,
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
@@ -55,6 +57,9 @@ const AgentPage = () => {
   const dispatch = useDispatch()
   const [expanded, setExpanded] = useState(false)
   const { processPrompt } = useSendCloudRunMessage()
+  
+  // Initialize the areas hook
+  useAreas()
 
   const {
     isChatMode,
@@ -67,6 +72,9 @@ const AgentPage = () => {
     semanticModels,
     isBigQueryMetadataLoaded,
     isSemanticModelLoaded,
+    selectedArea,
+    availableAreas,
+    isAreasLoaded,
   } = useSelector((state: RootState) => state.assistant as AssistantState)
 
   const explores = Object.keys(examples.exploreSamples).map((key) => {
@@ -286,9 +294,30 @@ const AgentPage = () => {
     }
   }
 
-  const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded
+  const handleAreaChange = (event: SelectChangeEvent) => {
+    const area = event.target.value
+    dispatch(setSelectedArea(area))
+    
+    // Reset chat when switching areas to start fresh with new area context
+    if (currentExploreThread && currentExploreThread.messages.length > 0) {
+      dispatch(resetChat());
+      
+      // Add a message to inform the user that the area has changed
+      dispatch(
+        addMessage({
+          uuid: uuidv4(),
+          message: `Now focusing on the "${area}" area for this conversation.`,
+          actor: 'system',
+          createdAt: Date.now(),
+          type: 'text',
+        }),
+      );
+    }
+  }
+
+  const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded && isAreasLoaded
   if (!isAgentReady) {
-    console.log('AgentPage - isBigQueryMetadataLoaded:', isBigQueryMetadataLoaded, ' is semanticModelLoaded:', isSemanticModelLoaded)
+    console.log('AgentPage - isBigQueryMetadataLoaded:', isBigQueryMetadataLoaded, ' isSemanticModelLoaded:', isSemanticModelLoaded, ' isAreasLoaded:', isAreasLoaded)
       }
     //       return (
     //   <div className="flex justify-center items-center h-screen">
@@ -441,6 +470,38 @@ const AgentPage = () => {
                     Just start asking questions about your data. I'll automatically select the most relevant data model for you.
                   </p>
                 </div>
+                
+                {/* Area Selector */}
+                {availableAreas && availableAreas.length > 0 && (
+                  <div className="mb-6 mx-auto" style={{ width: '400px' }}>
+                    <div className="mb-3">
+                      <p className="text-sm text-gray-600 text-center">
+                        Choose a business area to focus your questions and restrict the data models used in responses.
+                      </p>
+                    </div>
+                    <FormControl fullWidth variant="outlined" size="small">
+                      <InputLabel id="area-select-label">Select Business Area</InputLabel>
+                      <Select
+                        labelId="area-select-label"
+                        value={selectedArea || ''}
+                        onChange={handleAreaChange}
+                        label="Select Business Area"
+                        className="bg-white"
+                        style={{ minWidth: '400px' }}
+                      >
+                        <MenuItem value="">
+                          <em>All Areas (No Restriction)</em>
+                        </MenuItem>
+                        {availableAreas.map((area) => (
+                          <MenuItem key={area.area} value={area.area}>
+                            {area.area}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </div>
+                )}
+                
                 <SamplePrompts />
               </div>
 

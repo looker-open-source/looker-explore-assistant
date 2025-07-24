@@ -39,6 +39,11 @@ export interface RefinementExamples {
   }[]
 }
 
+export interface Area {
+  area: string
+  explore_keys: string[]
+}
+
 interface Field {
   name: string
   type: string
@@ -111,6 +116,9 @@ export interface AssistantState {
     modelName: string
     exploreId: string
   }
+  selectedArea: string | null
+  availableAreas: Area[]
+  isAreasLoaded: boolean
   sidePanel: {
     isSidePanelOpen: boolean
     exploreParams: ExploreParams
@@ -171,6 +179,9 @@ export const initialState: AssistantState = {
     modelName: '',
     exploreId: ''
   },
+  selectedArea: null,
+  availableAreas: [],
+  isAreasLoaded: false,
   sidePanel: {
     isSidePanelOpen: false,
     exploreParams: {},
@@ -461,21 +472,17 @@ export const assistantSlice = createSlice({
         const availableExplores = Object.keys(state.examples.exploreSamples)
         if (availableExplores.length > 0) {
           const firstExplore = availableExplores[0]
-          const [modelName, exploreId] = firstExplore.split(':')
-          state.currentExplore = {
-            exploreKey: firstExplore,
-            modelName,
-            exploreId
-          }
-          
-          // Also update the current thread to match
-          if (state.currentExploreThread) {
-            state.currentExploreThread.exploreKey = firstExplore
-            state.currentExploreThread.modelName = modelName
-            state.currentExploreThread.exploreId = exploreId
-          }
         }
       }
+    },
+    setAvailableAreas: (state, action: PayloadAction<Area[]>) => {
+      state.availableAreas = action.payload
+    },
+    setSelectedArea: (state, action: PayloadAction<string | null>) => {
+      state.selectedArea = action.payload
+    },
+    setIsAreasLoaded: (state, action: PayloadAction<boolean>) => {
+      state.isAreasLoaded = action.payload
     },
   },
 })
@@ -533,6 +540,11 @@ export const {
   setOAuthHasValidToken,
   resetOAuthState,
   ensureValidExploreContext,
+
+  // Area selection actions
+  setAvailableAreas,
+  setSelectedArea,
+  setIsAreasLoaded,
 } = assistantSlice.actions
 
 export default assistantSlice.reducer

@@ -6,7 +6,7 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 
 const useSendCloudRunMessage = () => {
   const { extensionSDK } = useContext(ExtensionContext)
-  const { settings, examples, currentExplore, semanticModels, currentExploreThread, history } = useSelector(
+  const { settings, examples, currentExplore, semanticModels, currentExploreThread, history, selectedArea, availableAreas } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
   
@@ -74,6 +74,10 @@ const useSendCloudRunMessage = () => {
         // Get current thread and its messages - use currentExploreThread or find from history
         const threadToUse = currentExploreThread || history?.find((t: any) => t.uuid === conversationId)
         
+        // Get explore keys for selected area if area is selected
+        const selectedAreaData = selectedArea ? availableAreas.find(area => area.area === selectedArea) : null
+        const restrictedExploreKeys = selectedAreaData ? selectedAreaData.explore_keys : []
+        
         // Build the payload for the Cloud Run service with conversation context
         const payload = {
           prompt,
@@ -85,13 +89,18 @@ const useSendCloudRunMessage = () => {
           semantic_models: semanticModels,
           model_name: '',
           vertex_model: vertexModel,
-          test_mode: false
+          test_mode: false,
+          // Add area context
+          selected_area: selectedArea,
+          restricted_explore_keys: restrictedExploreKeys
         }
 
         console.log('Sending payload to Cloud Run:', {
           prompt: payload.prompt,
           conversation_id: payload.conversation_id,
           current_explore: payload.current_explore,
+          selected_area: payload.selected_area,
+          restricted_explore_keys: payload.restricted_explore_keys,
           model_name: '',
           // Don't log the entire examples and semantic_models objects as they're large
           golden_queries_keys: Object.keys(payload.golden_queries?.exploreSamples || {}),
@@ -106,7 +115,7 @@ const useSendCloudRunMessage = () => {
         throw error
       }
     },
-    [currentExplore, examples, semanticModels, CLOUD_RUN_URL, identityToken, currentExploreThread, history],
+    [currentExplore, examples, semanticModels, CLOUD_RUN_URL, identityToken, currentExploreThread, history, selectedArea, availableAreas],
   )
 
   // Test function for Cloud Run settings

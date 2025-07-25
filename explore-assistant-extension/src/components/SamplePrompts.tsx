@@ -14,6 +14,9 @@ const SamplePrompts = () => {
   const {
     currentExplore: { modelName, exploreId, exploreKey },
     examples: { exploreSamples },
+    selectedArea,
+    selectedExplores,
+    availableAreas,
   } = useSelector((state: RootState) => state.assistant as AssistantState)
 
   // Ensure we have a valid explore context when component mounts
@@ -23,22 +26,52 @@ const SamplePrompts = () => {
     }
   }, [modelName, exploreId, exploreKey, dispatch])
 
-  // Use exploreKey directly if available, otherwise construct from modelName:exploreId
-  let currentExploreKey = exploreKey
-  if (!currentExploreKey && modelName && exploreId) {
-    currentExploreKey = `${modelName}:${exploreId}`
-  }
-
-  // Don't show samples if we don't have a valid explore context
-  if (!currentExploreKey) {
+  // Check if user has selected an area and one or more explores
+  if (!selectedArea || !selectedExplores || selectedExplores.length === 0) {
     return (
       <div className="text-gray-500 p-4 text-center">
-        <p>Please select an explore to see sample prompts</p>
+        <p>Please select a business area and one or more data models to see sample prompts</p>
       </div>
     )
   }
 
-  const samples = exploreSamples[currentExploreKey]
+  // Get all sample prompts for the selected explores
+  const getSelectedExploresSamples = () => {
+    const allSamples: any[] = []
+    
+    selectedExplores.forEach(exploreKey => {
+      const samples = exploreSamples[exploreKey]
+      if (samples && Array.isArray(samples)) {
+        // Add explore context to each sample for identification
+        const samplesWithContext = samples.map(sample => ({
+          ...sample,
+          sourceExplore: exploreKey,
+          sourceExploreName: getExploreDisplayName(exploreKey)
+        }))
+        allSamples.push(...samplesWithContext)
+      }
+    })
+    
+    return allSamples
+  }
+
+  // Helper to get display name for an explore
+  const getExploreDisplayName = (exploreKey: string) => {
+    if (!selectedArea) return exploreKey
+    
+    const area = availableAreas.find(a => a.area === selectedArea)
+    const details = area?.explore_details?.[exploreKey]
+    
+    if (details?.display_name) {
+      return details.display_name
+    }
+    
+    // Fallback: create display name from explore key
+    const fallbackDisplayName = exploreKey.split(':')[1]?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || exploreKey
+    return fallbackDisplayName
+  }
+
+  const allSelectedSamples = getSelectedExploresSamples()
 
   const handleSubmit = (prompt: string) => {
     // Don't reset chat completely - preserve the current explore context
@@ -59,41 +92,60 @@ const SamplePrompts = () => {
     return String(item)
   }
 
-  // Helper function to extract category from any format
+  // Helper function to extract category from any format, including explore context
   const getCategory = (item: any): string => {
     if (typeof item === 'object' && item !== null) {
+      // If we have source explore info, use it for better categorization
+      if (item.sourceExploreName) {
+        const baseCategory = item.category || item.type || item.tag || 'Sample'
+        return `${baseCategory} (${item.sourceExploreName})`
+      }
       return item.category || item.type || item.tag || 'Sample'
     }
     return 'Sample'
   }
 
   // Filter out invalid samples and ensure we have valid prompt text
-  const validSamples = samples?.filter(item => {
+  const validSamples = allSelectedSamples?.filter(item => {
     const promptText = getPromptText(item)
     return promptText && promptText.trim().length > 0
   }) || []
 
-  if (validSamples.length === 0) return <></>
+  if (validSamples.length === 0) {
+    return (
+      <div className="text-gray-500 p-4 text-center">
+        <p>No sample prompts available for the selected data models</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="flex flex-wrap max-w-5xl">
-      {validSamples.map((item, index: number) => {
-        const promptText = getPromptText(item)
-        const category = getCategory(item)
-        
-        return (
-          <div
-            className="flex flex-col w-56 min-h-44 bg-gray-200/50 hover:bg-gray-200 rounded-lg cursor-pointer text-sm p-4 m-2"
-            key={index}
-            onClick={() => {
-              handleSubmit(promptText)
-            }}
-          >
-            <div className="flex-grow font-light line-clamp-5">{promptText}</div>
-            <div className="mt-2 font-semibold justify-end">{category}</div>
-          </div>
-        )
-      })}
+    <div className="flex flex-col max-w-5xl">
+      <div className="mb-4 text-center">
+        <p className="text-sm text-gray-600">
+          Sample prompts for <span className="font-semibold">{selectedArea}</span> area
+          {selectedExplores.length > 1 ? ` (${selectedExplores.length} data models selected)` : ''}
+        </p>
+      </div>
+      <div className="flex flex-wrap">
+        {validSamples.map((item, index: number) => {
+          const promptText = getPromptText(item)
+          const category = getCategory(item)
+          
+          return (
+            <div
+              className="flex flex-col w-56 min-h-44 bg-gray-200/50 hover:bg-gray-200 rounded-lg cursor-pointer text-sm p-4 m-2"
+              key={index}
+              onClick={() => {
+                handleSubmit(promptText)
+              }}
+            >
+              <div className="flex-grow font-light line-clamp-5">{promptText}</div>
+              <div className="mt-2 font-semibold justify-end">{category}</div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

@@ -42,6 +42,12 @@ export interface RefinementExamples {
 export interface Area {
   area: string
   explore_keys: string[]
+  explore_details: {
+    [exploreKey: string]: {
+      description: string
+      display_name: string
+    }
+  }
 }
 
 interface Field {
@@ -117,6 +123,7 @@ export interface AssistantState {
     exploreId: string
   }
   selectedArea: string | null
+  selectedExplores: string[] // Array of selected explore keys
   availableAreas: Area[]
   isAreasLoaded: boolean
   sidePanel: {
@@ -180,6 +187,7 @@ export const initialState: AssistantState = {
     exploreId: ''
   },
   selectedArea: null,
+  selectedExplores: [],
   availableAreas: [],
   isAreasLoaded: false,
   sidePanel: {
@@ -471,7 +479,7 @@ export const assistantSlice = createSlice({
       if (!state.currentExplore.exploreKey || !state.currentExplore.modelName || !state.currentExplore.exploreId) {
         const availableExplores = Object.keys(state.examples.exploreSamples)
         if (availableExplores.length > 0) {
-          const firstExplore = availableExplores[0]
+          // Could implement logic to set first explore here if needed
         }
       }
     },
@@ -480,6 +488,11 @@ export const assistantSlice = createSlice({
     },
     setSelectedArea: (state, action: PayloadAction<string | null>) => {
       state.selectedArea = action.payload
+      // Clear selected explores when area changes
+      state.selectedExplores = []
+    },
+    setSelectedExplores: (state, action: PayloadAction<string[]>) => {
+      state.selectedExplores = action.payload
     },
     setIsAreasLoaded: (state, action: PayloadAction<boolean>) => {
       state.isAreasLoaded = action.payload
@@ -544,6 +557,7 @@ export const {
   // Area selection actions
   setAvailableAreas,
   setSelectedArea,
+  setSelectedExplores,
   setIsAreasLoaded,
 } = assistantSlice.actions
 

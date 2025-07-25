@@ -6,7 +6,7 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 
 const useSendCloudRunMessage = () => {
   const { extensionSDK } = useContext(ExtensionContext)
-  const { settings, examples, currentExplore, semanticModels, currentExploreThread, history, selectedArea, availableAreas } = useSelector(
+  const { settings, examples, currentExplore, semanticModels, currentExploreThread, history, selectedArea, selectedExplores, availableAreas } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
   
@@ -76,7 +76,17 @@ const useSendCloudRunMessage = () => {
         
         // Get explore keys for selected area if area is selected
         const selectedAreaData = selectedArea ? availableAreas.find(area => area.area === selectedArea) : null
-        const restrictedExploreKeys = selectedAreaData ? selectedAreaData.explore_keys : []
+        
+        // Use selected explores if any are chosen, otherwise use all explores from the area
+        let restrictedExploreKeys: string[] = []
+        if (selectedExplores && selectedExplores.length > 0) {
+          // User has specifically selected explores
+          restrictedExploreKeys = selectedExplores
+        } else if (selectedAreaData) {
+          // User selected an area but no specific explores, use all from the area
+          restrictedExploreKeys = selectedAreaData.explore_keys
+        }
+        // If no area or explores selected, restrictedExploreKeys remains empty (no restrictions)
         
         // Build the payload for the Cloud Run service with conversation context
         const payload = {
@@ -100,6 +110,7 @@ const useSendCloudRunMessage = () => {
           conversation_id: payload.conversation_id,
           current_explore: payload.current_explore,
           selected_area: payload.selected_area,
+          selected_explores: selectedExplores,
           restricted_explore_keys: payload.restricted_explore_keys,
           model_name: '',
           // Don't log the entire examples and semantic_models objects as they're large
@@ -115,7 +126,7 @@ const useSendCloudRunMessage = () => {
         throw error
       }
     },
-    [currentExplore, examples, semanticModels, CLOUD_RUN_URL, identityToken, currentExploreThread, history, selectedArea, availableAreas],
+    [currentExplore, examples, semanticModels, CLOUD_RUN_URL, identityToken, currentExploreThread, history, selectedArea, selectedExplores, availableAreas],
   )
 
   // Test function for Cloud Run settings

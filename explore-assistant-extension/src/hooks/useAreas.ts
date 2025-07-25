@@ -31,7 +31,7 @@ export const useAreas = () => {
           body: {
             model: modelName || "explore_assistant",
             view: "areas", // This will be the new view/explore for areas
-            fields: [`areas.area`, `areas.explore_key`],
+            fields: [`areas.area`, `areas.explore_key`, `areas.description`],
           }
         })
       )
@@ -69,13 +69,14 @@ export const useAreas = () => {
         return
       }
       
-      // Group explore_keys by area
-      const areasMap: Record<string, string[]> = {}
+      // Group explore_keys by area and collect descriptions
+      const areasMap: Record<string, { explore_keys: string[], explore_details: Record<string, { description: string, display_name: string }> }> = {}
       
       response.forEach((row: any) => {
         try {
           const area = row['areas.area']
           const exploreKey = row['areas.explore_key']
+          const description = row['areas.description'] || ''
           
           if (!area || !exploreKey) {
             console.error('Missing area or explore_key in response row', row)
@@ -83,12 +84,21 @@ export const useAreas = () => {
           }
           
           if (!areasMap[area]) {
-            areasMap[area] = []
+            areasMap[area] = {
+              explore_keys: [],
+              explore_details: {}
+            }
           }
           
           // Add explore_key if not already present
-          if (!areasMap[area].includes(exploreKey)) {
-            areasMap[area].push(exploreKey)
+          if (!areasMap[area].explore_keys.includes(exploreKey)) {
+            areasMap[area].explore_keys.push(exploreKey)
+          }
+          
+          // Add explore details with description
+          areasMap[area].explore_details[exploreKey] = {
+            description: description,
+            display_name: exploreKey.split(':')[1]?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || exploreKey
           }
         } catch (err) {
           console.error('Error processing areas row:', err, row)
@@ -96,9 +106,10 @@ export const useAreas = () => {
       })
       
       // Convert to Area array
-      const areas: Area[] = Object.entries(areasMap).map(([area, explore_keys]) => ({
+      const areas: Area[] = Object.entries(areasMap).map(([area, data]) => ({
         area,
-        explore_keys
+        explore_keys: data.explore_keys,
+        explore_details: data.explore_details
       }))
       
       console.log('Processed areas:', areas)

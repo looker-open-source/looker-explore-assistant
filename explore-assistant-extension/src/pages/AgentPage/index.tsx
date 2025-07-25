@@ -24,6 +24,7 @@ import {
   updateCurrentThread,
   updateLastHistoryEntry,
   setSelectedArea,
+  setSelectedExplores,
 } from '../../slices/assistantSlice'
 import MessageThread from './MessageThread'
 import clsx from 'clsx'
@@ -36,6 +37,9 @@ import {
   Select,
   SelectChangeEvent,
   Tooltip,
+  Chip,
+  OutlinedInput,
+  Box,
 } from '@mui/material'
 import { getRelativeTimeString } from '../../utils/time'
 
@@ -73,6 +77,7 @@ const AgentPage = () => {
     isBigQueryMetadataLoaded,
     isSemanticModelLoaded,
     selectedArea,
+    selectedExplores,
     availableAreas,
     isAreasLoaded,
   } = useSelector((state: RootState) => state.assistant as AssistantState)
@@ -85,6 +90,29 @@ const AgentPage = () => {
       exploreId: exploreParts[1],
     }
   })
+
+  // Get explores for the selected area
+  const getExploresForSelectedArea = () => {
+    if (!selectedArea) return []
+    const area = availableAreas.find(a => a.area === selectedArea)
+    return area ? area.explore_keys : []
+  }
+
+  // Get explore details for display
+  const getExploreDetails = (exploreKey: string) => {
+    if (!selectedArea) return { display_name: exploreKey, description: '' }
+    const area = availableAreas.find(a => a.area === selectedArea)
+    const details = area?.explore_details?.[exploreKey]
+    
+    // Return details if found, otherwise create fallback display name
+    if (details) {
+      return details
+    }
+    
+    // Fallback: create a display name from the explore key
+    const fallbackDisplayName = exploreKey.split(':')[1]?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || exploreKey
+    return { display_name: fallbackDisplayName, description: '' }
+  }
 
   const scrollIntoView = useCallback(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -315,6 +343,33 @@ const AgentPage = () => {
     }
   }
 
+  const handleExploreSelectionChange = (event: SelectChangeEvent<string[]>) => {
+    const value = event.target.value
+    // Handle both string and string[] types
+    const selectedExplores = typeof value === 'string' ? value.split(',') : value
+    dispatch(setSelectedExplores(selectedExplores))
+    
+    // Reset chat when changing explore selection
+    if (currentExploreThread && currentExploreThread.messages.length > 0) {
+      dispatch(resetChat());
+      
+      // Add a message to inform the user that the explores have changed
+      const exploreNames = selectedExplores.length > 0 
+        ? selectedExplores.map(key => key.split(':')[1]?.replace(/_/g, ' ')).join(', ')
+        : 'all explores'
+      
+      dispatch(
+        addMessage({
+          uuid: uuidv4(),
+          message: `Now focusing on: ${exploreNames} for this conversation.`,
+          actor: 'system',
+          createdAt: Date.now(),
+          type: 'text',
+        }),
+      );
+    }
+  }
+
   const isAgentReady = isBigQueryMetadataLoaded && isSemanticModelLoaded && isAreasLoaded
   if (!isAgentReady) {
     console.log('AgentPage - isBigQueryMetadataLoaded:', isBigQueryMetadataLoaded, ' isSemanticModelLoaded:', isSemanticModelLoaded, ' isAreasLoaded:', isAreasLoaded)
@@ -471,14 +526,16 @@ const AgentPage = () => {
                   </p>
                 </div>
                 
-                {/* Area Selector */}
+                {/* Area and Explore Selectors */}
                 {availableAreas && availableAreas.length > 0 && (
-                  <div className="mb-6 mx-auto" style={{ width: '400px' }}>
+                  <div className="mb-6 mx-auto space-y-4" style={{ width: '600px' }}>
                     <div className="mb-3">
                       <p className="text-sm text-gray-600 text-center">
-                        Choose a business area to focus your questions and restrict the data models used in responses.
+                        Choose a business area to focus your questions and optionally select specific data models.
                       </p>
                     </div>
+                    
+                    {/* Area Selector */}
                     <FormControl fullWidth variant="outlined" size="small">
                       <InputLabel id="area-select-label">Select Business Area</InputLabel>
                       <Select
@@ -487,7 +544,7 @@ const AgentPage = () => {
                         onChange={handleAreaChange}
                         label="Select Business Area"
                         className="bg-white"
-                        style={{ minWidth: '400px' }}
+                        style={{ minWidth: '600px' }}
                       >
                         <MenuItem value="">
                           <em>All Areas (No Restriction)</em>
@@ -499,6 +556,55 @@ const AgentPage = () => {
                         ))}
                       </Select>
                     </FormControl>
+
+                    {/* Explore Selector - only show when area is selected */}
+                    {selectedArea && (
+                      <FormControl fullWidth variant="outlined" size="small">
+                        <InputLabel id="explore-select-label">Select Data Models (Optional)</InputLabel>
+                        <Select
+                          labelId="explore-select-label"
+                          multiple
+                          value={selectedExplores}
+                          onChange={handleExploreSelectionChange}
+                          input={<OutlinedInput label="Select Data Models (Optional)" />}
+                          renderValue={(selected) => (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {(selected as string[]).map((value) => {
+                                const details = getExploreDetails(value)
+                                return (
+                                  <Chip
+                                    key={value}
+                                    label={details.display_name}
+                                    size="small"
+                                    variant="outlined"
+                                  />
+                                )
+                              })}
+                            </Box>
+                          )}
+                          className="bg-white"
+                          style={{ minWidth: '600px' }}
+                        >
+                          {getExploresForSelectedArea().map((exploreKey) => {
+                            const details = getExploreDetails(exploreKey)
+                            return (
+                              <MenuItem key={exploreKey} value={exploreKey}>
+                                <div className="flex flex-col">
+                                  <div className="font-medium">
+                                    {details.display_name}
+                                  </div>
+                                  {details.description && (
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {details.description}
+                                    </div>
+                                  )}
+                                </div>
+                              </MenuItem>
+                            )
+                          })}
+                        </Select>
+                      </FormControl>
+                    )}
                   </div>
                 )}
                 

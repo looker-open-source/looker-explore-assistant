@@ -12,6 +12,9 @@ looker.ini
 
 .vertex_cf_auth_token
 
+# Webpack cache
+.webpack_cache
+explore-assistant-extension/.webpack_cache
 
 explore-assistant-backend/terraform/backend.tf
 __pycache__

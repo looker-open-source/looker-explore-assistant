@@ -56,6 +56,10 @@ module.exports = {
     path: __dirname + '/dist',
     filename: 'explore_assistant.js',
   },
+  cache: {
+    type: 'filesystem',
+    cacheDirectory: path.resolve(__dirname, '.webpack_cache'),
+  },
   module: {
     rules: [
       {
@@ -64,6 +68,10 @@ module.exports = {
         exclude: /node_modules/,
         include: /src/,
         sideEffects: false,
+        options: {
+          cacheDirectory: true,
+          cacheCompression: false,
+        },
       },
       {
         test: /\.(css|scss|sass)$/i,

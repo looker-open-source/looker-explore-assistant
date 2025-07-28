@@ -113,7 +113,7 @@ const SamplePrompts = () => {
 
   if (validSamples.length === 0) {
     return (
-      <div className="text-gray-500 p-4 text-center">
+      <div className="text-2xl text-gray-400">
         <p>No sample prompts available for the selected data models</p>
       </div>
     )
@@ -121,8 +121,8 @@ const SamplePrompts = () => {
 
   return (
     <div className="flex flex-col max-w-5xl">
-      <div className="mb-4 text-center">
-        <p className="text-sm text-gray-600">
+      <div className="mb-4  ml-2 ">
+        <p className="text-l text-gray-400">
           Sample prompts for <span className="font-semibold">{selectedArea}</span> area
           {selectedExplores.length > 1 ? ` (${selectedExplores.length} data models selected)` : ''}
         </p>

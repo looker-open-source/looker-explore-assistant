@@ -4,7 +4,9 @@ import MenuIcon from '@mui/icons-material/Menu'
 import SettingsIcon from '@mui/icons-material/Settings'
 import AddIcon from '@mui/icons-material/Add'
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline'
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
 import { useDispatch, useSelector } from 'react-redux'
+import { useHistory } from 'react-router-dom'
 import {
   clearHistory,
   ExploreThread,
@@ -25,9 +27,10 @@ interface SidebarProps {
 
 const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const dispatch = useDispatch()
+  const history = useHistory()
   const [isExpanded, setIsExpanded] = React.useState(expanded)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
-  const { isChatMode, isQuerying, history } = useSelector(
+  const { isChatMode, isQuerying, history: chatHistory } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
 
@@ -63,7 +66,11 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
     dispatch(clearHistory())
   }
 
-  const reverseHistory = [...history].reverse() as ExploreThread[]
+  const navigateToPromotion = () => {
+    history.push('/promotion')
+  }
+
+  const reverseHistory = [...chatHistory].reverse() as ExploreThread[]
 
   return (
     <div
@@ -131,7 +138,7 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
               )}
             </div>
             <div className="flex flex-col space-y-4">
-              {history.length == 0 && (
+              {chatHistory.length == 0 && (
                 <div className="text-gray-400">No recent chats</div>
               )}
               {reverseHistory.map((item) => (
@@ -163,6 +170,23 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
         )}
       </nav>
       <div className="mt-auto p-4 border-t">
+        <Tooltip title={expanded ? '' : 'Query Promotion'} placement="top" arrow>
+          <div
+            className={`mr-2 flex flex-row text-gray-400 items-center cursor-pointer p-2 transition-all duration-300 ease-in-out hover:text-gray-600`}
+            onClick={navigateToPromotion}
+          >
+            <WorkspacePremiumIcon />
+            <div
+              className={`
+                   whitespace-nowrap transition-all duration-300 ease-in-out
+                  ${isExpanded ? 'mx-3 opacity-100' : 'opacity-0'}
+                  
+                  `}
+            >
+              {isExpanded && 'Query Promotion'}
+            </div>
+          </div>
+        </Tooltip>
         <Tooltip title={expanded ? '' : 'Settings'} placement="top" arrow>
           <div
             className={`mr-2 flex flex-row text-gray-400 items-center cursor-pointer p-2 transition-all duration-300 ease-in-out`}

@@ -12,6 +12,7 @@ import {
   setInitialTestsCompleted,
 } from './slices/assistantSlice'
 import AgentPage from './pages/AgentPage'
+import QueryPromotionPage from './pages/QueryPromotionPage'
 import SettingsModal from './pages/AgentPage/Settings'
 import { Box, CircularProgress, Typography, Button } from '@material-ui/core'
 
@@ -114,6 +115,9 @@ const ExploreApp = () => {
       <Switch>
         <Route path="/index" exact>
           <AgentPage />
+        </Route>
+        <Route path="/promotion" exact>
+          <QueryPromotionPage />
         </Route>
         <Route>
           <Redirect to="/index" />

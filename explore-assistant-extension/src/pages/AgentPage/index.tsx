@@ -509,31 +509,23 @@ const AgentPage = () => {
           ) : (
             <>
               <div className="flex flex-col space-y-4 mx-auto max-w-3xl p-4">
-                <h1 className="text-5xl font-bold">
+                <h1 className="text-2xl font-bold">
                   <span className="bg-clip-text text-transparent  bg-gradient-to-r from-pink-500 to-violet-500">
                     Hello.
                   </span>
                 </h1>
-                <h1 className="text-5xl text-gray-400">
-                  How can I help you today?
+                <h1 className="text-l text-gray-400">
+                  How can I help you today? 
+                  Choose a business area to focus your questions and optionally select specific data models.
                 </h1>
               </div>
 
-              <div className="flex flex-col max-w-3xl m-auto mt-16">
-                <div className="text-md p-2 max-w-3xl">
-                  <p className="text-gray-500 mb-4">
-                    Just start asking questions about your data. I'll automatically select the most relevant data model for you.
-                  </p>
-                </div>
+              <div className="flex flex-col max-w-3xl m-auto mt-4">
                 
                 {/* Area and Explore Selectors */}
                 {availableAreas && availableAreas.length > 0 && (
                   <div className="mb-6 mx-auto space-y-4" style={{ width: '600px' }}>
-                    <div className="mb-3">
-                      <p className="text-sm text-gray-600 text-center">
-                        Choose a business area to focus your questions and optionally select specific data models.
-                      </p>
-                    </div>
+                    
                     
                     {/* Area Selector */}
                     <FormControl fullWidth variant="outlined" size="small">

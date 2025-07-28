@@ -1054,6 +1054,100 @@ Output only the suggested prompt, nothing else."""
         logging.error(f"Error generating suggested prompt: {e}")
         return None
 
+def create_looker_query_and_get_links(explore_params: Dict[str, Any], explore_key: str = None) -> Dict[str, str]:
+    """
+    Create a Looker query using the SDK and return the query slug and share URLs
+    
+    Args:
+        explore_params: Query parameters dictionary
+        explore_key: Optional explore key in "model:view" format to extract model and view
+    
+    Returns:
+        Dict with keys: 'query_slug', 'share_url', 'expanded_share_url'
+        Returns empty dict if creation fails
+    """
+    try:
+        # Initialize Looker SDK
+        looker_sdk = get_looker_sdk()
+        if not looker_sdk:
+            logging.error("Failed to initialize Looker SDK for query creation")
+            return {}
+
+        # Extract model and view from explore_key if provided and not already in explore_params
+        model = explore_params.get('model', '')
+        view = explore_params.get('view', '')
+        
+        if explore_key and (not model or not view):
+            if ':' in explore_key:
+                extracted_model, extracted_view = explore_key.split(':', 1)
+                if not model:
+                    model = extracted_model
+                if not view:
+                    view = extracted_view
+                logging.info(f"Extracted from explore_key '{explore_key}': model='{model}', view='{view}'")
+            else:
+                logging.warning(f"explore_key '{explore_key}' does not contain model:view format")
+
+        # Prepare query parameters from explore_params
+        query_params = {
+            'model': model,
+            'view': view,
+            'fields': explore_params.get('fields', []),
+            'pivots': explore_params.get('pivots', []),
+            'fill_fields': explore_params.get('fill_fields', []),
+            'filters': explore_params.get('filters', {}),
+            'filter_expression': explore_params.get('filter_expression', ''),
+            'sorts': explore_params.get('sorts', []),
+            'limit': str(explore_params.get('limit', 500)),
+            'column_limit': str(explore_params.get('column_limit', 50)),
+            'total': explore_params.get('total', False),
+            'row_total': explore_params.get('row_total', False),
+            'subtotals': explore_params.get('subtotals', []),
+            'vis_config': explore_params.get('vis_config', {}),
+            'filter_config': explore_params.get('filter_config', {}),
+            'visible_ui_sections': explore_params.get('visible_ui_sections', ''),
+            'slug': explore_params.get('slug', ''),
+            'dynamic_fields': explore_params.get('dynamic_fields', ''),
+            'client_id': explore_params.get('client_id', ''),
+            'share': explore_params.get('share', True),
+            'expanded_share': explore_params.get('expanded_share', True),
+            'url': explore_params.get('url', ''),
+            'query_timezone': explore_params.get('query_timezone', 'America/Los_Angeles'),
+            'has_table_calculations': explore_params.get('has_table_calculations', False)
+        }
+
+        logging.info(f"Creating Looker query with model: '{query_params['model']}', view: '{query_params['view']}'")
+        
+        # Validate that we have model and view
+        if not query_params['model'] or not query_params['view']:
+            logging.error(f"Missing model or view for query creation. Model: '{query_params['model']}', View: '{query_params['view']}'")
+            return {}
+        
+        # Create the query
+        query_response = looker_sdk.create_query(query_params)
+        
+        if query_response and query_response.id:
+            result = {
+                'query_slug': query_response.slug or '',
+                'share_url': query_response.share_url or '',
+                'expanded_share_url': query_response.expanded_share_url or ''
+            }
+            
+            logging.info(f"Successfully created Looker query with ID: {query_response.id}")
+            logging.info(f"Query slug: {result['query_slug']}")
+            logging.info(f"Share URL: {result['share_url']}")
+            logging.info(f"Expanded share URL: {result['expanded_share_url']}")
+            
+            return result
+        else:
+            logging.error("Failed to create Looker query - no response or missing ID")
+            return {}
+            
+    except Exception as e:
+        logging.error(f"Error creating Looker query: {e}")
+        logging.error(f"Traceback: {traceback.format_exc()}")
+        return {}
+
 def save_suggested_silver_query(auth_header: str, explore_key: str, prompt_history: list, 
                                explore_params: Dict[str, Any], user_email: str) -> bool:
     """
@@ -1069,6 +1163,18 @@ def save_suggested_silver_query(auth_header: str, explore_key: str, prompt_histo
         if not suggested_prompt:
             logging.warning("Failed to generate suggested prompt, using first prompt from history as fallback")
             suggested_prompt = prompt_history[0] if prompt_history else "Unable to generate suggested prompt"
+
+        # Create Looker query and get share links
+        logging.info("Creating Looker query and generating share links...")
+        logging.info(f"Explore key for query creation: '{explore_key}'")
+        logging.info(f"Explore params fields: {explore_params.get('fields', [])}")
+        logging.info(f"Explore params model: '{explore_params.get('model', 'NOT_SET')}'")
+        logging.info(f"Explore params view: '{explore_params.get('view', 'NOT_SET')}'")
+        
+        query_links = create_looker_query_and_get_links(explore_params, explore_key)
+        if not query_links:
+            logging.warning("Failed to create Looker query and get share links")
+            query_links = {'query_slug': '', 'share_url': '', 'expanded_share_url': ''}
 
         # Create BigQuery client using default credentials (Cloud Run service account)
         client = bigquery.Client(project=bq_project_id)
@@ -1086,11 +1192,17 @@ def save_suggested_silver_query(auth_header: str, explore_key: str, prompt_histo
             'feedback_type': 'user_correction',
             'id': str(uuid.uuid4()),  # Generate UUID for the id field
             'created_date': time.strftime('%Y-%m-%d', time.gmtime(current_time)),  # Date for partitioning
-            'suggested_new_prompt': suggested_prompt  # New field with LLM-generated suggested prompt
+            'suggested_new_prompt': suggested_prompt,  # LLM-generated suggested prompt
+            'query_slug': query_links.get('query_slug', ''),  # Looker query slug
+            'share_url': query_links.get('share_url', ''),  # Looker share URL
+            'expanded_share_url': query_links.get('expanded_share_url', '')  # Looker expanded share URL
         }
         
         logging.info(f"Saving suggested golden query to BigQuery: {explore_key} for user {user_email}")
         logging.info(f"Generated suggested prompt: {suggested_prompt}")
+        logging.info(f"Query slug: {query_links.get('query_slug', 'Not available')}")
+        logging.info(f"Share URL: {query_links.get('share_url', 'Not available')}")
+        logging.info(f"Expanded share URL: {query_links.get('expanded_share_url', 'Not available')}")
         
         # Reference to the table
         table_id = f"{bq_project_id}.{bq_dataset_id}.{bq_suggested_table}"
@@ -1117,10 +1229,416 @@ def save_suggested_silver_query(auth_header: str, explore_key: str, prompt_histo
             'user_id': user_email,
             'timestamp': time.time(),
             'feedback_type': 'user_correction',
-            'suggested_new_prompt': suggested_prompt if 'suggested_prompt' in locals() else 'Not generated'
+            'suggested_new_prompt': suggested_prompt if 'suggested_prompt' in locals() else 'Not generated',
+            'query_slug': query_links.get('query_slug', '') if 'query_links' in locals() else '',
+            'share_url': query_links.get('share_url', '') if 'query_links' in locals() else '',
+            'expanded_share_url': query_links.get('expanded_share_url', '') if 'query_links' in locals() else ''
         }
         logging.info(f"FALLBACK LOG - Suggested query data: {json.dumps(fallback_data, indent=2)}")
         return False
+
+# Query Promotion Functions
+def is_authorized_for_promotion(user_email: str) -> bool:
+    """
+    Check if user is authorized to promote queries
+    You can customize this based on your authorization system
+    """
+    try:
+        # For now, allow all authenticated users to promote
+        # In production, you might check against specific roles or groups
+        PROMOTION_ROLES = ['admin', 'Admin', 'ml_engineer']
+        
+        # You could integrate with your existing auth system here
+        # For example, check user roles in Looker or another system
+        # looker_user = find_looker_user_by_email(user_email)
+        # if looker_user:
+        #     # extract the role for each of the role_ids
+        #     user_roles = looker_user.get('roles', [])
+        #     # for each role, call Looker to see what the name of the role is
+        #     for role in user_roles:
+        #         role_info = looker_sdk.role(role)
+        #         # Check if any role is on the list
+        #         if role_info and role_info.name in PROMOTION_ROLES:
+        #             logging.info(f"User {user_email} has authorized role: {role_info.name}")
+        #             return True
+        #     logging.info(f"User {user_email} is not authorized to promote. Role IDs: {user_roles}")
+        #     return False  # Allow all Looker users for now
+            
+        # # Fallback: allow specific email domains or users
+        # ALLOWED_DOMAINS = ['your-company.com']  # Replace with your domain
+        # if any(domain in user_email for domain in ALLOWED_DOMAINS):
+        #     return True
+            
+        # logging.warning(f"User {user_email} not authorized for promotion")
+        # return False
+        return True
+
+    except Exception as e:
+        logging.error(f"Error checking authorization for {user_email}: {e}")
+        return False
+
+def get_queries_for_promotion(table_name: str, limit: int = 50, offset: int = 0) -> list:
+    """
+    Get queries from bronze/silver tables for promotion
+    """
+    try:
+        client = bigquery.Client(project=bq_project_id)
+        
+        # Determine table name and appropriate query based on table schema
+        if table_name == 'bronze':
+            full_table_name = f"{bq_project_id}.{bq_dataset_id}.bronze_queries"
+            # Bronze table now has 'id' field for consistency
+            query = f"""
+            SELECT 
+                id,
+                explore_key,
+                input_question,
+                output_description,
+                created_at,
+                user_email,
+                query_run_count,
+                query_slug,
+                CAST(NULL AS STRING) as suggested_new_prompt,
+                CAST(NULL AS STRING) as share_url
+            FROM `{full_table_name}`
+            ORDER BY created_at DESC
+            LIMIT {limit}
+            OFFSET {offset}
+            """
+        elif table_name == 'silver':
+            full_table_name = f"{bq_project_id}.{bq_dataset_id}.{bq_suggested_table}"
+            # Silver table has 'id' field and different schema
+            query = f"""
+            SELECT 
+                id,
+                explore_key,
+                prompt as input_question,
+                CAST(NULL AS STRING) as output_description,
+                created_at,
+                user_id as user_email,
+                CAST(NULL AS INT64) as query_run_count,
+                suggested_new_prompt,
+                query_slug,
+                share_url
+            FROM `{full_table_name}`
+            ORDER BY created_at DESC
+            LIMIT {limit}
+            OFFSET {offset}
+            """
+        else:
+            raise ValueError(f"Invalid table name: {table_name}")
+        
+        results = client.query(query).to_dataframe()
+        
+        # Fill NaN values with appropriate defaults to avoid JSON serialization issues
+        results = results.fillna({
+            'id': '',
+            'explore_key': '',
+            'input_question': '',
+            'output_description': '',
+            'created_at': '',
+            'user_email': '',
+            'query_run_count': 0,
+            'suggested_new_prompt': '',
+            'query_slug': '',
+            'share_url': ''
+        })
+        
+        # Convert to list of dicts
+        queries = []
+        for _, row in results.iterrows():
+            query_dict = {
+                'id': str(row['id']) if row['id'] is not None else '',
+                'explore_key': str(row['explore_key']) if row['explore_key'] is not None else '',
+                'input_question': str(row.get('input_question', '')) if row.get('input_question') is not None else '',
+                'output_description': str(row.get('output_description', '')) if row.get('output_description') is not None else '',
+                'created_at': str(row['created_at']) if row['created_at'] is not None else '',
+                'user_email': str(row.get('user_email', '')) if row.get('user_email') is not None else '',
+                'query_run_count': int(row.get('query_run_count', 0)) if row.get('query_run_count') is not None else 0,
+                'suggested_new_prompt': str(row.get('suggested_new_prompt', '')) if row.get('suggested_new_prompt') is not None else '',
+                'query_slug': str(row.get('query_slug', '')) if row.get('query_slug') is not None else '',
+                'share_url': str(row.get('share_url', '')) if row.get('share_url') is not None else '',
+                'source_table': table_name
+            }
+            queries.append(query_dict)
+        
+        logging.info(f"Retrieved {len(queries)} queries from {table_name} table")
+        return queries
+        
+    except Exception as e:
+        logging.error(f"Error getting queries for promotion from {table_name}: {e}")
+        raise e
+
+def promote_query_atomic(query_id: str, source_table: str, target_table: str, 
+                        promoted_by: str, reason: str = '') -> Dict[str, Any]:
+    """
+    Atomic promotion operation using BigQuery transactions
+    """
+    try:
+        client = bigquery.Client(project=bq_project_id)
+        
+        # Determine source table name
+        if source_table == 'bronze':
+            source_table_name = f"{bq_project_id}.{bq_dataset_id}.bronze_queries"
+        elif source_table == 'silver':
+            source_table_name = f"{bq_project_id}.{bq_dataset_id}.{bq_suggested_table}"
+        else:
+            raise ValueError(f"Invalid source table: {source_table}")
+        
+        # Target table is always golden queries (explore_assistant examples)
+        target_table_name = f"{bq_project_id}.{bq_dataset_id}.golden_queries"
+        
+        # Generate new UUID for the promoted query
+        new_query_id = str(uuid.uuid4())
+        current_timestamp = datetime.now()
+        
+        # First, get the source query data - both tables now have proper 'id' field
+        get_query = f"""
+        SELECT * FROM `{source_table_name}`
+        WHERE id = @query_id
+        """
+        
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("query_id", "STRING", query_id)
+            ]
+        )
+        
+        source_data = client.query(get_query, job_config=job_config).to_dataframe()
+        
+        if source_data.empty:
+            raise ValueError(f"Query {query_id} not found in {source_table}")
+        
+        source_row = source_data.iloc[0]
+        
+        # Ensure golden queries table exists
+        ensure_golden_queries_table_exists()
+        
+        # Prepare the promoted query data
+        promoted_query = {
+            'id': new_query_id,
+            'explore_key': source_row['explore_key'],
+            'prompt': source_row.get('input_question', source_row.get('prompt', '')),
+            'explore_params': source_row.get('explore_params', '{}'),
+            'user_id': promoted_by,
+            'timestamp': current_timestamp.timestamp(),
+            'created_at': current_timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            'approved': True,  # Mark as approved since it's being promoted
+            'feedback_type': f'promoted_from_{source_table}',
+            'created_date': current_timestamp.strftime('%Y-%m-%d'),
+            'suggested_new_prompt': source_row.get('suggested_new_prompt', ''),
+            'query_slug': source_row.get('query_slug', ''),
+            'share_url': source_row.get('share_url', ''),
+            'expanded_share_url': source_row.get('expanded_share_url', ''),
+            'source_table': source_table,
+            'source_query_id': query_id,
+            'promoted_by': promoted_by,
+            'promotion_reason': reason,
+            'promoted_at': current_timestamp.isoformat()
+        }
+        
+        # Insert into golden queries table
+        table = client.get_table(target_table_name)
+        errors = client.insert_rows_json(table, [promoted_query])
+        
+        if errors:
+            raise Exception(f"Failed to insert into golden queries: {errors}")
+        
+        # Delete from source table
+        delete_query = f"""
+        DELETE FROM `{source_table_name}`
+        WHERE id = @query_id
+        """
+        
+        delete_job = client.query(delete_query, job_config=job_config)
+        delete_job.result()  # Wait for completion
+        
+        # Log the promotion for audit trail
+        log_promotion(query_id, source_table, target_table, promoted_by, reason, new_query_id)
+        
+        logging.info(f"Successfully promoted query {query_id} from {source_table} to {target_table}")
+        
+        return {
+            'new_query_id': new_query_id,
+            'source_query_id': query_id,
+            'source_table': source_table,
+            'target_table': target_table,
+            'promoted_by': promoted_by
+        }
+        
+    except Exception as e:
+        logging.error(f"Error promoting query {query_id}: {e}")
+        raise e
+
+def log_promotion(source_query_id: str, source_table: str, target_table: str, 
+                 promoted_by: str, reason: str, new_query_id: str):
+    """
+    Log promotion for audit trail
+    """
+    try:
+        client = bigquery.Client(project=bq_project_id)
+        
+        # Ensure promotion log table exists
+        ensure_promotion_log_table_exists()
+        
+        promotion_log = {
+            'id': str(uuid.uuid4()),
+            'source_query_id': source_query_id,
+            'new_query_id': new_query_id,
+            'source_table': source_table,
+            'target_table': target_table,
+            'promoted_by': promoted_by,
+            'promoted_at': datetime.now().isoformat(),
+            'promotion_reason': reason,
+            'timestamp': datetime.now().timestamp()
+        }
+        
+        table_id = f"{bq_project_id}.{bq_dataset_id}.promotion_log"
+        table = client.get_table(table_id)
+        errors = client.insert_rows_json(table, [promotion_log])
+        
+        if errors:
+            logging.error(f"Failed to log promotion: {errors}")
+        else:
+            logging.info(f"Promotion logged successfully")
+            
+    except Exception as e:
+        logging.error(f"Error logging promotion: {e}")
+
+def get_promotion_history_data(limit: int = 50, offset: int = 0) -> list:
+    """
+    Get promotion history for audit trail
+    """
+    try:
+        client = bigquery.Client(project=bq_project_id)
+        
+        query = f"""
+        SELECT 
+            id,
+            source_query_id,
+            new_query_id,
+            source_table,
+            target_table,
+            promoted_by,
+            promoted_at,
+            promotion_reason
+        FROM `{bq_project_id}.{bq_dataset_id}.promotion_log`
+        ORDER BY promoted_at DESC
+        LIMIT {limit}
+        OFFSET {offset}
+        """
+        
+        results = client.query(query).to_dataframe()
+        
+        # Convert to list of dicts
+        history = []
+        for _, row in results.iterrows():
+            history_item = {
+                'id': row['id'],
+                'source_query_id': row['source_query_id'],
+                'new_query_id': row['new_query_id'],
+                'source_table': row['source_table'],
+                'target_table': row['target_table'],
+                'promoted_by': row['promoted_by'],
+                'promoted_at': str(row['promoted_at']),
+                'promotion_reason': row['promotion_reason']
+            }
+            history.append(history_item)
+        
+        return history
+        
+    except Exception as e:
+        logging.error(f"Error getting promotion history: {e}")
+        return []
+
+def ensure_golden_queries_table_exists():
+    """
+    Ensure the golden queries table exists
+    """
+    try:
+        client = bigquery.Client(project=bq_project_id)
+        table_id = f"{bq_project_id}.{bq_dataset_id}.golden_queries"
+        
+        try:
+            table = client.get_table(table_id)
+            logging.info(f"Golden queries table {table_id} already exists")
+            return True
+        except Exception:
+            logging.info(f"Creating golden queries table {table_id}")
+        
+        # Define schema similar to silver queries but with promotion fields
+        schema = [
+            bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("explore_key", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("prompt", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("explore_params", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("user_id", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("timestamp", "FLOAT", mode="NULLABLE"),
+            bigquery.SchemaField("created_at", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("approved", "BOOLEAN", mode="NULLABLE"),
+            bigquery.SchemaField("feedback_type", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("created_date", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("suggested_new_prompt", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("query_slug", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("share_url", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("expanded_share_url", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("source_table", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("source_query_id", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("promoted_by", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("promotion_reason", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("promoted_at", "STRING", mode="NULLABLE")
+        ]
+        
+        table_ref = client.dataset(bq_dataset_id, project=bq_project_id).table("golden_queries")
+        table = bigquery.Table(table_ref, schema=schema)
+        table.description = "Golden queries promoted from bronze and silver queries"
+        
+        table = client.create_table(table)
+        logging.info(f"Successfully created golden queries table: {table_id}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Failed to create golden queries table: {e}")
+        raise e
+
+def ensure_promotion_log_table_exists():
+    """
+    Ensure the promotion log table exists for audit trail
+    """
+    try:
+        client = bigquery.Client(project=bq_project_id)
+        table_id = f"{bq_project_id}.{bq_dataset_id}.promotion_log"
+        
+        try:
+            table = client.get_table(table_id)
+            logging.info(f"Promotion log table {table_id} already exists")
+            return True
+        except Exception:
+            logging.info(f"Creating promotion log table {table_id}")
+        
+        schema = [
+            bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("source_query_id", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("new_query_id", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("source_table", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("target_table", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("promoted_by", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("promoted_at", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("promotion_reason", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("timestamp", "FLOAT", mode="NULLABLE")
+        ]
+        
+        table_ref = client.dataset(bq_dataset_id, project=bq_project_id).table("promotion_log")
+        table = bigquery.Table(table_ref, schema=schema)
+        table.description = "Audit log for query promotions"
+        
+        table = client.create_table(table)
+        logging.info(f"Successfully created promotion log table: {table_id}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Failed to create promotion log table: {e}")
+        raise e
 
 def create_mcp_flask_app():
     """Create Flask app with MCP endpoints"""
@@ -1224,6 +1742,157 @@ def create_mcp_flask_app():
     
     logging.info("Registered endpoint: / (POST)")
     
+    # Query Promotion Endpoints
+    @app.route("/admin/queries/<table_name>", methods=["GET", "OPTIONS"])
+    def list_queries_for_promotion(table_name):
+        """List bronze/silver queries available for promotion"""
+        logging.info(f"Received {request.method} request to list queries from {table_name}")
+        
+        if request.method == "OPTIONS":
+            response = Response()
+            response.headers.update(get_response_headers())
+            response.status_code = 200
+            return response
+        
+        try:
+            # Get Bearer token from Authorization header
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.lower().startswith("bearer "):
+                return jsonify({'error': 'Missing or invalid Authorization header'}), 401, get_response_headers()
+            
+            # Extract and validate user
+            user_email = extract_user_email_from_token(auth_header)
+            if not user_email:
+                return jsonify({'error': 'Token validation failed'}), 401, get_response_headers()
+            
+            # Check if user is authorized for promotion
+            if not is_authorized_for_promotion(user_email):
+                return jsonify({'error': 'Unauthorized for query promotion'}), 403, get_response_headers()
+            
+            # Validate table name
+            if table_name not in ['bronze', 'silver']:
+                return jsonify({'error': 'Invalid table name. Use bronze or silver'}), 400, get_response_headers()
+            
+            # Get pagination parameters
+            limit = min(int(request.args.get('limit', 50)), 100)  # Max 100 items
+            offset = int(request.args.get('offset', 0))
+            
+            # Query the specified table
+            queries = get_queries_for_promotion(table_name, limit, offset)
+            
+            return jsonify({
+                'queries': queries,
+                'table_name': table_name,
+                'count': len(queries),
+                'limit': limit,
+                'offset': offset
+            }), 200, get_response_headers()
+            
+        except Exception as e:
+            logging.error(f"Error listing queries for promotion: {e}")
+            return jsonify({'error': str(e)}), 500, get_response_headers()
+    
+    @app.route("/admin/promote", methods=["POST", "OPTIONS"])
+    def promote_query():
+        """Promote a query from bronze/silver to golden queries table"""
+        logging.info(f"Received {request.method} request to promote query")
+        
+        if request.method == "OPTIONS":
+            response = Response()
+            response.headers.update(get_response_headers())
+            response.status_code = 200
+            return response
+        
+        try:
+            # Get Bearer token from Authorization header
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.lower().startswith("bearer "):
+                return jsonify({'error': 'Missing or invalid Authorization header'}), 401, get_response_headers()
+            
+            # Extract and validate user
+            user_email = extract_user_email_from_token(auth_header)
+            if not user_email:
+                return jsonify({'error': 'Token validation failed'}), 401, get_response_headers()
+            
+            # Check if user is authorized for promotion
+            if not is_authorized_for_promotion(user_email):
+                return jsonify({'error': 'Unauthorized for query promotion'}), 403, get_response_headers()
+            
+            # Get request data
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'Missing request body'}), 400, get_response_headers()
+            
+            query_id = data.get('queryId')
+            source_table = data.get('sourceTable')  # 'bronze' or 'silver'
+            promotion_reason = data.get('reason', 'Manual promotion')
+            
+            if not query_id or not source_table:
+                return jsonify({'error': 'queryId and sourceTable are required'}), 400, get_response_headers()
+            
+            if source_table not in ['bronze', 'silver']:
+                return jsonify({'error': 'sourceTable must be bronze or silver'}), 400, get_response_headers()
+            
+            # Perform atomic promotion
+            result = promote_query_atomic(query_id, source_table, 'golden', user_email, promotion_reason)
+            
+            return jsonify({
+                'success': True,
+                'promoted_query_id': result['new_query_id'],
+                'source_table': source_table,
+                'target_table': 'golden',
+                'promoted_by': user_email,
+                'message': f'Query promoted from {source_table} to golden'
+            }), 200, get_response_headers()
+            
+        except Exception as e:
+            logging.error(f"Promotion failed: {e}")
+            return jsonify({'error': str(e)}), 500, get_response_headers()
+    
+    @app.route("/admin/promotion-history", methods=["GET", "OPTIONS"])
+    def get_promotion_history():
+        """Get promotion history with audit trail"""
+        logging.info(f"Received {request.method} request to get promotion history")
+        
+        if request.method == "OPTIONS":
+            response = Response()
+            response.headers.update(get_response_headers())
+            response.status_code = 200
+            return response
+        
+        try:
+            # Get Bearer token from Authorization header
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.lower().startswith("bearer "):
+                return jsonify({'error': 'Missing or invalid Authorization header'}), 401, get_response_headers()
+            
+            # Extract and validate user
+            user_email = extract_user_email_from_token(auth_header)
+            if not user_email:
+                return jsonify({'error': 'Token validation failed'}), 401, get_response_headers()
+            
+            # Check if user is authorized for promotion
+            if not is_authorized_for_promotion(user_email):
+                return jsonify({'error': 'Unauthorized for query promotion'}), 403, get_response_headers()
+            
+            # Get pagination parameters
+            limit = min(int(request.args.get('limit', 50)), 100)
+            offset = int(request.args.get('offset', 0))
+            
+            # Get promotion history
+            history = get_promotion_history_data(limit, offset)
+            
+            return jsonify({
+                'promotions': history,
+                'count': len(history),
+                'limit': limit,
+                'offset': offset
+            }), 200, get_response_headers()
+            
+        except Exception as e:
+            logging.error(f"Error getting promotion history: {e}")
+            return jsonify({'error': str(e)}), 500, get_response_headers()
+
     @app.route("/health", methods=["GET"])
     def health_check():
         """Health check endpoint"""
@@ -1365,8 +2034,10 @@ def ensure_bronze_queries_table_exists():
             # Check if the new fields exist, add them if they don't
             existing_field_names = {field.name for field in table.schema}
             required_fields = {
+                'id': bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
                 'explore_params': bigquery.SchemaField("explore_params", "STRING", mode="NULLABLE"),
-                'query_url_params': bigquery.SchemaField("query_url_params", "STRING", mode="NULLABLE")
+                'query_url_params': bigquery.SchemaField("query_url_params", "STRING", mode="NULLABLE"),
+                'query_slug': bigquery.SchemaField("query_slug", "STRING", mode="NULLABLE")
             }
             
             fields_to_add = []
@@ -1382,6 +2053,10 @@ def ensure_bronze_queries_table_exists():
                 table.schema = new_schema
                 table = client.update_table(table, ["schema"])
                 logging.info(f"Successfully updated bronze queries table schema")
+                
+                # If we just added the id field, we need to populate it for existing records
+                if any(field.name == 'id' for field in fields_to_add):
+                    migrate_bronze_queries_add_ids()
             
             return True
             
@@ -1390,6 +2065,7 @@ def ensure_bronze_queries_table_exists():
         
         # Define the complete table schema for new table creation
         schema = [
+            bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
             bigquery.SchemaField("explore_key", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("model_name", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("explore_name", "STRING", mode="REQUIRED"),
@@ -1401,7 +2077,8 @@ def ensure_bronze_queries_table_exists():
             bigquery.SchemaField("source", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("user_email", "STRING", mode="NULLABLE"),
             bigquery.SchemaField("query_run_count", "INTEGER", mode="NULLABLE"),
-            bigquery.SchemaField("original_query_url", "STRING", mode="NULLABLE")
+            bigquery.SchemaField("original_query_url", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("query_slug", "STRING", mode="NULLABLE")
         ]
         
         # Create table reference
@@ -1421,6 +2098,32 @@ def ensure_bronze_queries_table_exists():
         logging.error(f"Failed to create bronze queries table: {e}")
         raise Exception(f"Failed to create bronze queries table: {e}")
 
+def migrate_bronze_queries_add_ids():
+    """
+    Migrate existing bronze queries to add UUID ids for records that don't have them
+    """
+    try:
+        client = bigquery.Client()
+        bronze_table_id = f"{bq_project_id}.{bq_dataset_id}.bronze_queries"
+        
+        logging.info("Starting migration to add IDs to bronze queries...")
+        
+        # Update all records without id to have a UUID
+        update_query = f"""
+        UPDATE `{bronze_table_id}`
+        SET id = GENERATE_UUID()
+        WHERE id IS NULL
+        """
+        
+        job = client.query(update_query)
+        job.result()  # Wait for completion
+        
+        logging.info(f"Successfully added UUIDs to bronze queries without IDs")
+        
+    except Exception as e:
+        logging.error(f"Failed to migrate bronze queries: {e}")
+        # Don't raise - this is a migration that can fail without breaking the system
+
 def ensure_silver_queries_table_exists():
     """
     Create the silver_queries table if it doesn't exist, or update schema if needed.
@@ -1434,20 +2137,36 @@ def ensure_silver_queries_table_exists():
             table = client.get_table(silver_table_id)
             logging.info(f"Silver queries table {silver_table_id} already exists")
             
-            # Check if the new suggested_new_prompt field exists, add it if it doesn't
+            # Check if new fields exist, add them if they don't
             existing_field_names = {field.name for field in table.schema}
+            new_fields = []
+            
             if 'suggested_new_prompt' not in existing_field_names:
-                logging.info("Adding suggested_new_prompt field to existing silver queries table")
-                new_field = bigquery.SchemaField("suggested_new_prompt", "STRING", mode="NULLABLE")
-                table.schema = table.schema + [new_field]
+                new_fields.append(bigquery.SchemaField("suggested_new_prompt", "STRING", mode="NULLABLE"))
+                logging.info("Will add suggested_new_prompt field to existing silver queries table")
+            
+            if 'query_slug' not in existing_field_names:
+                new_fields.append(bigquery.SchemaField("query_slug", "STRING", mode="NULLABLE"))
+                logging.info("Will add query_slug field to existing silver queries table")
+                
+            if 'share_url' not in existing_field_names:
+                new_fields.append(bigquery.SchemaField("share_url", "STRING", mode="NULLABLE"))
+                logging.info("Will add share_url field to existing silver queries table")
+                
+            if 'expanded_share_url' not in existing_field_names:
+                new_fields.append(bigquery.SchemaField("expanded_share_url", "STRING", mode="NULLABLE"))
+                logging.info("Will add expanded_share_url field to existing silver queries table")
+            
+            if new_fields:
+                table.schema = table.schema + new_fields
                 table = client.update_table(table, ["schema"])
-                logging.info("Successfully added suggested_new_prompt field to silver queries table")
+                logging.info(f"Successfully added {len(new_fields)} new fields to silver queries table")
             
             return True
         except Exception as table_error:
             logging.info(f"Silver queries table {silver_table_id} does not exist, creating it: {table_error}")
 
-        # Define the table schema (including the new suggested_new_prompt field)
+        # Define the table schema (including all fields)
         schema = [
             bigquery.SchemaField("explore_key", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("prompt", "STRING", mode="REQUIRED"),
@@ -1460,6 +2179,9 @@ def ensure_silver_queries_table_exists():
             bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("created_date", "STRING", mode="NULLABLE"),
             bigquery.SchemaField("suggested_new_prompt", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("query_slug", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("share_url", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("expanded_share_url", "STRING", mode="NULLABLE"),
         ]
 
         # Create table reference
@@ -1506,7 +2228,7 @@ def generate_bronze_queries_for_explore(model_name: str, explore_name: str, expl
                 'model': 'system__activity',
                 'explore': 'history',
                 'view': 'history',  # Add the required view field
-                'fields': ['history.query_run_count', 'query.model', 'query.view', 'query.formatted_fields', 'query.formatted_filters', 'query.formatted_pivots', 'query.sorts', 'query.limit', 'query.share_url'],
+                'fields': ['history.query_run_count', 'query.model', 'query.view', 'query.formatted_fields', 'query.formatted_filters', 'query.formatted_pivots', 'query.sorts', 'query.limit', 'query.share_url', 'query.slug'],
                 'filters': {
                     'history.created_date': f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
                     'query.model': model_name,
@@ -1676,13 +2398,19 @@ For each query, provide ONLY the natural language question on a single line, sta
                                             explore_params['pivots'] = pivots
                                             query_url_params['pivots'] = pivots
                                         
+                                        # Extract only the query slug (share URLs are not reliable for historical queries)
+                                        query_slug = original_query.get('query.slug', '')
+                                        
+                                        logging.info(f"Bronze query slug: {query_slug}")
+                                        
                                         bronze_queries.append({
                                             'input': question,
                                             'output': 'Generated from historical query patterns',
                                             'explore_params': explore_params,  # Store structured query parameters
                                             'query_url_params': query_url_params,  # Store URL-compatible parameters
                                             'query_run_count': original_query.get('history.query_run_count'),
-                                            'original_query_url': original_query.get('query.share_url')
+                                            'original_query_url': original_query.get('query.share_url', ''),  # Keep for backward compatibility
+                                            'query_slug': query_slug
                                         })
                 
                 except Exception as ai_error:
@@ -1707,6 +2435,7 @@ For each query, provide ONLY the natural language question on a single line, sta
             
             for query in bronze_queries:
                 rows_to_insert.append({
+                    'id': str(uuid.uuid4()),  # Generate unique ID for each bronze query
                     'explore_key': explore_key,
                     'model_name': model_name,
                     'explore_name': explore_name,
@@ -1718,7 +2447,8 @@ For each query, provide ONLY the natural language question on a single line, sta
                     'source': 'auto_generated',
                     'user_email': user_email,
                     'query_run_count': query.get('query_run_count'),
-                    'original_query_url': query.get('original_query_url')
+                    'original_query_url': query.get('original_query_url'),
+                    'query_slug': query.get('query_slug', '')
                 })
             
             # Insert the data
@@ -1728,7 +2458,10 @@ For each query, provide ONLY the natural language question on a single line, sta
                 logging.error(f"BigQuery insertion errors: {errors}")
                 raise Exception(f"Failed to store bronze queries: {errors}")
             
+            # Log summary of stored queries with slug information
+            queries_with_slugs = sum(1 for query in bronze_queries if query.get('query_slug'))
             logging.info(f"Successfully stored {len(bronze_queries)} bronze queries for {explore_key}")
+            logging.info(f"Queries with slugs: {queries_with_slugs}")
             
         except Exception as bq_error:
             logging.error(f"BigQuery storage failed: {bq_error}")

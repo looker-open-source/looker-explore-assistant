@@ -52,8 +52,9 @@ npm run build  # Production bundle
 ```bash
 cd explore-assistant-cloud-function  
 pip install -r requirements.txt
-python run_local.sh  # Flask server on localhost:8001
+python3 run_local.sh  # Flask server on localhost:8001
 ```
+#### use python3 vs python for local dev.
 
 ### BigQuery Setup
 ```bash

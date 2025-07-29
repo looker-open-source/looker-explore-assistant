@@ -121,6 +121,11 @@ export const useQueryPromotion = () => {
         reason: reason
       }
 
+      console.log('Promoting query with payload:', payload)
+      console.log('Using endpoint:', endpoint)
+      console.log('Query ID type and value:', typeof queryId, queryId)
+      console.log('Source table type and value:', typeof sourceTable, sourceTable)
+
       const result = await callPromotionAPI(endpoint, {
         method: 'POST',
         body: JSON.stringify(payload)

@@ -1807,34 +1807,50 @@ def create_mcp_flask_app():
             # Get Bearer token from Authorization header
             auth_header = request.headers.get("Authorization")
             if not auth_header or not auth_header.lower().startswith("bearer "):
+                logging.error("Missing or invalid Authorization header")
                 return jsonify({'error': 'Missing or invalid Authorization header'}), 401, get_response_headers()
             
             # Extract and validate user
             user_email = extract_user_email_from_token(auth_header)
             if not user_email:
+                logging.error("Token validation failed")
                 return jsonify({'error': 'Token validation failed'}), 401, get_response_headers()
+            
+            logging.info(f"User {user_email} attempting to promote query")
             
             # Check if user is authorized for promotion
             if not is_authorized_for_promotion(user_email):
+                logging.error(f"User {user_email} is not authorized for query promotion")
                 return jsonify({'error': 'Unauthorized for query promotion'}), 403, get_response_headers()
             
             # Get request data
             data = request.get_json()
             if not data:
+                logging.error("Missing request body")
                 return jsonify({'error': 'Missing request body'}), 400, get_response_headers()
             
-            query_id = data.get('queryId')
-            source_table = data.get('sourceTable')  # 'bronze' or 'silver'
+            # Handle both camelCase and snake_case field names for compatibility
+            query_id = data.get('query_id') or data.get('queryId')
+            source_table = data.get('source_table') or data.get('sourceTable')  # 'bronze' or 'silver'
             promotion_reason = data.get('reason', 'Manual promotion')
             
+            logging.info(f"Promotion request data: {data}")
+            logging.info(f"Extracted query_id: {query_id}, source_table: {source_table}")
+            
             if not query_id or not source_table:
-                return jsonify({'error': 'queryId and sourceTable are required'}), 400, get_response_headers()
+                logging.error(f"Missing required fields - query_id: {query_id}, source_table: {source_table}")
+                return jsonify({'error': 'query_id and source_table are required'}), 400, get_response_headers()
             
             if source_table not in ['bronze', 'silver']:
+                logging.error(f"Invalid source table: {source_table}")
                 return jsonify({'error': 'sourceTable must be bronze or silver'}), 400, get_response_headers()
+            
+            logging.info(f"Starting promotion of query {query_id} from {source_table} to golden")
             
             # Perform atomic promotion
             result = promote_query_atomic(query_id, source_table, 'golden', user_email, promotion_reason)
+            
+            logging.info(f"Successfully promoted query {query_id}. New query ID: {result['new_query_id']}")
             
             return jsonify({
                 'success': True,
@@ -1847,6 +1863,7 @@ def create_mcp_flask_app():
             
         except Exception as e:
             logging.error(f"Promotion failed: {e}")
+            logging.error(f"Traceback: {traceback.format_exc()}")
             return jsonify({'error': str(e)}), 500, get_response_headers()
     
     @app.route("/admin/promotion-history", methods=["GET", "OPTIONS"])

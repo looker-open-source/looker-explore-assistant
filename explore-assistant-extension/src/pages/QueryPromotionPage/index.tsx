@@ -156,6 +156,39 @@ const QueryPromotionPage: React.FC = () => {
     return null
   }
 
+  const handlePromoteQuery = async (query: any) => {
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+    
+    try {
+      console.log('Promoting query:', query)
+      
+      // Determine source and target tables
+      const sourceTable = query.source_table || (tabValue === 0 ? 'bronze' : 'silver')
+      const targetTable = 'golden'
+      const reason = `Promoted from ${sourceTable} via Query Promotion UI`
+      
+      const result = await promoteQuery(query.id, sourceTable, targetTable, reason)
+      
+      console.log('Promotion result:', result)
+      setSuccess(`Successfully promoted query ${query.id.substring(0, 8)}... to golden queries`)
+      
+      // Refresh the current table to remove the promoted query
+      if (tabValue === 2) {
+        loadPromotionHistory()
+      } else {
+        loadQueries(tabValue === 0 ? 'bronze' : 'silver')
+      }
+      
+    } catch (err) {
+      console.error('Error promoting query:', err)
+      setError(`Failed to promote query: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const renderQueryTable = (tableQueries: any[]) => {
     if (tableQueries.length === 0) {
       return (
@@ -203,7 +236,12 @@ const QueryPromotionPage: React.FC = () => {
                       </Tooltip>
                     )}
                     <Tooltip title="Promote to Golden">
-                      <IconButton size="small" color="primary">
+                      <IconButton 
+                        size="small" 
+                        color="primary"
+                        onClick={() => handlePromoteQuery(query)}
+                        disabled={loading}
+                      >
                         <PromoteIcon />
                       </IconButton>
                     </Tooltip>

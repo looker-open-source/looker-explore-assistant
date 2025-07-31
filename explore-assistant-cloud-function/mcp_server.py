@@ -12,6 +12,8 @@ import json
 import uuid
 import logging
 import traceback
+from pydantic import ValidationError
+from llm_utils import parse_llm_response, VertexAIResponse
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Tuple
 from flask import Flask, request, Response, jsonify
@@ -121,8 +123,25 @@ def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Opt
             logging.error(f"Vertex AI API call failed: {response.status_code} - {response.text}")
             return None
         
+        response_data = response.json()
+        
+        # Log token usage information if available
+        usage_metadata = response_data.get('usageMetadata', {})
+        if usage_metadata:
+            prompt_tokens = usage_metadata.get('promptTokenCount', 0)
+            total_tokens = usage_metadata.get('totalTokenCount', 0)
+            cached_tokens = usage_metadata.get('cachedContentTokenCount', 0)
+            
+            logging.info(f"📊 Token Usage - Prompt: {prompt_tokens}, Total: {total_tokens}, Cached: {cached_tokens}")
+            
+            # Warn if approaching token limits
+            if prompt_tokens > 5000:
+                logging.warning(f"⚠️ High prompt token usage: {prompt_tokens} tokens")
+            if total_tokens > 7000:
+                logging.warning(f"⚠️ High total token usage: {total_tokens} tokens - approaching model limits")
+        
         logging.info("Vertex AI API call successful")
-        return response.json()
+        return response_data
         
     except Exception as e:
         logging.error(f"Error calling Vertex AI API: {e}")
@@ -194,8 +213,9 @@ def find_looker_user_by_email(email: str) -> Optional[Dict[str, Any]]:
             'is_disabled': user.is_disabled,
             'role_ids': user.role_ids
         }
-        
-        logging.info(f"Found Looker user: {user_dict['id']} - {user_dict['email']}")
+
+        # Log the found user details
+        logging.info(f"Found Looker user: {user_dict['id']} - {user_dict['email']} - {user_dict['role_ids']}")
         return user_dict
         
     except Exception as e:
@@ -205,14 +225,78 @@ def find_looker_user_by_email(email: str) -> Optional[Dict[str, Any]]:
         return None
 
 def extract_vertex_response_text(vertex_response: Dict[str, Any]) -> Optional[str]:
-    """Extract text from Vertex AI response"""
+    """
+    Extract and parse text from Vertex AI response, with robust validation and JSON parsing.
+    Returns parsed object if valid JSON or raw text fallback.
+    """
     try:
+        logging.info(f"🔍 extract_vertex_response_text - Input: {vertex_response}")
+        
+        # Check for MAX_TOKENS or other finish reasons that indicate incomplete responses
         candidates = vertex_response.get('candidates', [])
         if candidates:
-            content = candidates[0].get('content', {})
-            parts = content.get('parts', [])
-            if parts:
-                return parts[0].get('text', '')
+            finish_reason = candidates[0].get('finishReason')
+            if finish_reason == 'MAX_TOKENS':
+                logging.error("❌ VERTEX AI RESPONSE TRUNCATED: Hit maximum token limit")
+                logging.error("💡 Consider reducing prompt size or using a model with higher token limits")
+                usage_metadata = vertex_response.get('usageMetadata', {})
+                logging.error(f"📊 Token usage: {usage_metadata}")
+                return None
+            elif finish_reason and finish_reason != 'STOP':
+                logging.warning(f"⚠️ Unexpected finish reason: {finish_reason}")
+        
+        # Validate structure using pydantic
+        resp_model = VertexAIResponse.parse_obj(vertex_response)
+        # Extract raw text
+        first = resp_model.candidates[0]
+        content = first.get('content', {})
+        parts = content.get('parts', []) or []
+        if not parts:
+            logging.warning("❌ No parts found in response content")
+            return None
+        raw_text = parts[0].get('text') if isinstance(parts[0], dict) else parts[0]
+        logging.info(f"🔍 Extracted raw text: '{raw_text}' (type: {type(raw_text)})")
+        
+        # Attempt to parse JSON from raw_text
+        parsed = parse_llm_response(raw_text)
+        logging.info(f"🔍 Parsed result: {parsed} (type: {type(parsed)})")
+        
+        # Validate response size for brevity
+        final_result = parsed if parsed is not None else raw_text
+        if isinstance(final_result, str) and len(final_result) > 2000:
+            logging.warning(f"⚠️ Response too verbose ({len(final_result)} chars), truncating for brevity")
+            final_result = final_result[:2000] + "..."
+        elif isinstance(final_result, dict):
+            # Check if dict is too large when serialized
+            dict_str = str(final_result)
+            if len(dict_str) > 3000:
+                logging.warning(f"⚠️ Dict response too large ({len(dict_str)} chars), may need simplification")
+        
+        return final_result
+    except ValidationError as ve:
+        logging.warning(f"Vertex AI response schema mismatch: {ve}")
+        # Fallback extraction
+        try:
+            candidates = vertex_response.get('candidates', [])
+            logging.info(f"🔍 Fallback - candidates: {candidates}")
+            if candidates:
+                # Check finish reason in fallback as well
+                finish_reason = candidates[0].get('finishReason')
+                if finish_reason == 'MAX_TOKENS':
+                    logging.error("❌ FALLBACK: Response truncated due to MAX_TOKENS")
+                    return None
+                
+                content = candidates[0].get('content', {})
+                parts = content.get('parts', []) or []
+                logging.info(f"🔍 Fallback - parts: {parts}")
+                if parts:
+                    raw_text = parts[0].get('text', '') if isinstance(parts[0], dict) else parts[0]
+                    logging.info(f"🔍 Fallback - raw text: '{raw_text}' (type: {type(raw_text)})")
+                    parsed = parse_llm_response(raw_text)
+                    logging.info(f"🔍 Fallback - parsed: {parsed} (type: {type(parsed)})")
+                    return parsed if parsed is not None else raw_text
+        except Exception as e:
+            logging.error(f"Fallback extraction error: {e}")
         return None
     except Exception as e:
         logging.error(f"Error extracting Vertex AI response: {e}")
@@ -234,6 +318,7 @@ def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries:
         # Filter golden queries by restricted explore keys if provided
         filtered_golden_queries = golden_queries
         if restricted_explore_keys:
+            logging.info(f"Filtering golden queries by restricted keys: {restricted_explore_keys}")
             filtered_golden_queries = {}
             for key, value in golden_queries.items():
                 if key == 'exploreEntries':
@@ -243,6 +328,7 @@ def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries:
                         if entry.get('golden_queries.explore_id') in restricted_explore_keys
                     ]
                     filtered_golden_queries[key] = filtered_entries
+                    logging.info(f"Filtered {key}: {len(filtered_entries)} entries after filtering")
                 else:
                     # For other keys, filter based on explore keys
                     if isinstance(value, dict):
@@ -251,8 +337,17 @@ def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries:
                             if k in restricted_explore_keys
                         }
                         filtered_golden_queries[key] = filtered_value
+                        logging.info(f"Filtered {key}: {len(filtered_value)} entries after filtering")
                     else:
                         filtered_golden_queries[key] = value
+                        logging.info(f"Copied {key} without filtering (not a dict)")
+        else:
+            logging.info("No restricted explore keys - using all golden queries")
+        
+        logging.info(f"Final filtered golden queries keys: {list(filtered_golden_queries.keys())}")
+        if 'exploreEntries' in filtered_golden_queries:
+            entries_count = len(filtered_golden_queries['exploreEntries']) if isinstance(filtered_golden_queries['exploreEntries'], list) else len(filtered_golden_queries['exploreEntries']) if isinstance(filtered_golden_queries['exploreEntries'], dict) else 0
+            logging.info(f"exploreEntries count: {entries_count}")
         
         # Build system prompt with conversation context
         newline_char = "\n"
@@ -260,19 +355,62 @@ def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries:
         if restricted_explore_keys:
             restriction_text = f"{newline_char}IMPORTANT: You must only select explores from this restricted list: {restricted_explore_keys}{newline_char}"
         
+        # Extract just the explore names and basic info to reduce token usage
+        available_explores = []
+        
+        # Get explore names from exploreEntries
+        if 'exploreEntries' in filtered_golden_queries:
+            entries = filtered_golden_queries['exploreEntries']
+            if isinstance(entries, list):
+                for entry in entries:
+                    if isinstance(entry, dict):
+                        explore_id = entry.get('golden_queries.explore_id') or entry.get('explore_id')
+                        if explore_id:
+                            available_explores.append(explore_id)
+            elif isinstance(entries, dict):
+                available_explores.extend(list(entries.keys()))
+        
+        # Get explore names from other sections if available
+        for key in ['exploreGenerationExamples', 'exploreRefinementExamples', 'exploreSamples']:
+            if key in filtered_golden_queries and isinstance(filtered_golden_queries[key], dict):
+                available_explores.extend(list(filtered_golden_queries[key].keys()))
+        
+        # Remove duplicates and ensure we have explores to choose from
+        available_explores = list(set(available_explores))
+        
+        if not available_explores:
+            logging.warning("❌ No available explores found in filtered golden queries")
+            # Fallback to restricted keys if available
+            if restricted_explore_keys:
+                available_explores = restricted_explore_keys
+            else:
+                logging.error("❌ No explores available for selection")
+        
+        logging.info(f"🔍 Available explores for selection: {available_explores}")
+        
+        # Optimization: If only one explore is available, skip LLM call and return it directly
+        if len(available_explores) == 1:
+            single_explore = available_explores[0]
+            logging.info(f"✅ Only one explore available ({single_explore}) - skipping LLM call for efficiency")
+            logging.info("=== EXPLORE DETERMINATION COMPLETE (OPTIMIZED) ===")
+            return single_explore
+        
+        # Create a concise explore list instead of full golden queries dump
+        explores_text = "\n".join([f"- {explore}" for explore in available_explores])
+        
         system_prompt = f"""You are a Looker Explore Assistant. Your job is to determine which Looker explore is most appropriate for answering a user's question.
 
 IMPORTANT: You must analyze the user's question independently and select the BEST explore for their needs, regardless of any previous explore selections or model information.
 {restriction_text}
-Available Explores and Examples:
-{json.dumps(filtered_golden_queries, indent=2)}
+Available Explores:
+{explores_text}
 
 {f"Conversation Context:{newline_char}{conversation_context}{newline_char}" if conversation_context else ""}
 
 Instructions:
 1. Analyze the user's current prompt: "{prompt}"
 2. Consider the conversation context to understand what the user has been asking about
-3. Compare against ALL available explores and their examples
+3. Compare against the available explores
 4. Determine which explore would be BEST suited to answer this question
 5. {"Restrict your selection to the provided explore keys only" if restricted_explore_keys else "Ignore any previous explore selections - choose the optimal explore for this specific question"}
 6. Return ONLY the explore key (e.g., "order_items", "events", etc.) as a single string
@@ -280,6 +418,11 @@ Instructions:
 Current user prompt: {prompt}
 
 Response format: Return only the explore key as plain text (no JSON, no explanation)"""
+
+        logging.info(f"🔍 System prompt length: {len(system_prompt)} characters")
+        logging.info(f"🔍 System prompt preview: {system_prompt[:500]}...")
+        if len(system_prompt) > 10000:
+            logging.warning(f"⚠️ System prompt is very long ({len(system_prompt)} chars) - may cause issues")
 
         # Format request for Vertex AI
         vertex_request = {
@@ -291,9 +434,10 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
             ],
             "generationConfig": {
                 "temperature": 0.1,
-                "topP": 0.8,
-                "topK": 40,
-                "maxOutputTokens": 100
+                "topP": 0.4,  # Reduced for focused responses
+                "topK": 20,  # Reduced for brevity
+                "maxOutputTokens": 1000,  # Small for explore selection
+                "candidateCount": 1
             }
         }
         
@@ -303,11 +447,36 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
             logging.error("❌ Failed to get response from Vertex AI")
             return None
         
+        logging.info(f"✅ Got Vertex AI response: {vertex_response}")
+        
         # Extract the explore key from response
         response_text = extract_vertex_response_text(vertex_response)
+        logging.info(f"🔍 Extracted response text: '{response_text}' (type: {type(response_text)})")
+        
         if response_text:
-            # Clean up the response - remove any extra whitespace or formatting
-            explore_key = response_text.strip().replace('"', '').replace('\n', '')
+            # Handle different response types
+            if isinstance(response_text, dict):
+                logging.warning(f"❌ Response is dict, not string: {response_text}")
+                # Try to extract string from common dict patterns
+                if 'explore_key' in response_text:
+                    explore_key = str(response_text['explore_key'])
+                elif 'explore' in response_text:
+                    explore_key = str(response_text['explore'])
+                else:
+                    logging.error(f"❌ Cannot extract explore key from dict response: {response_text}")
+                    return None
+            elif isinstance(response_text, list):
+                logging.warning(f"❌ Response is list, not string: {response_text}")
+                if response_text and isinstance(response_text[0], str):
+                    explore_key = response_text[0]
+                else:
+                    logging.error(f"❌ Cannot extract explore key from list response: {response_text}")
+                    return None
+            else:
+                # Clean up the response - remove any extra whitespace or formatting
+                explore_key = str(response_text).strip().replace('"', '').replace('\n', '')
+            
+            logging.info(f"🔍 Cleaned explore key: '{explore_key}'")
             
             # Validate that the determined explore is in the restricted list if restrictions apply
             if restricted_explore_keys and explore_key not in restricted_explore_keys:
@@ -318,7 +487,7 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
             logging.info("=== EXPLORE DETERMINATION COMPLETE ===")
             return explore_key
         
-        logging.error("❌ Failed to extract explore key from response")
+        logging.error("❌ Failed to extract explore key from response - response_text is None or empty")
         return None
         
     except Exception as e:
@@ -334,13 +503,29 @@ def generate_explore_params(auth_header: str, prompt: str, explore_key: str,
         logging.info(f"Original prompt: {prompt}")
         logging.info(f"Has conversation context: {bool(conversation_context)}")
         
-        # Step 1: Synthesize conversation context into a clear, standalone query
-        synthesized_query = synthesize_conversation_context(auth_header, prompt, conversation_context)
-        if not synthesized_query:
-            logging.warning("❌ SYNTHESIS FAILED - Using original prompt")
+        # Optimization: Skip synthesis step if there's no meaningful conversation context
+        if not conversation_context or conversation_context.strip() == "":
+            logging.info("✅ No conversation context - skipping synthesis step for efficiency")
             synthesized_query = prompt
         else:
+            # Check if conversation context is minimal (only contains headers but no actual previous prompts)
+            context_lines = [line.strip() for line in conversation_context.split('\n') if line.strip()]
+            meaningful_lines = [line for line in context_lines if not line.startswith(('Previous prompts', 'Current prompt is', 'The user\'s current', 'Recent conversation'))]
+            
+            if len(meaningful_lines) == 0:
+                logging.info("✅ Conversation context contains no meaningful history - skipping synthesis step for efficiency")
+                synthesized_query = prompt
+            else:
+                logging.info(f"📝 Found {len(meaningful_lines)} meaningful context lines - proceeding with synthesis")
+                # Step 1: Synthesize conversation context into a clear, standalone query
+                synthesized_query = synthesize_conversation_context(auth_header, prompt, conversation_context)
+        
+        # The synthesis function now always returns a string (either synthesized or fallback to original)
+        if synthesized_query and synthesized_query != prompt:
             logging.info(f"✅ SYNTHESIS SUCCESS - Original: '{prompt}' -> Synthesized: '{synthesized_query}'")
+        else:
+            logging.info(f"✅ SYNTHESIS FALLBACK/SKIPPED - Using original prompt: '{prompt}'")
+            synthesized_query = prompt
         
         logging.info(f"Using query for explore params: {synthesized_query}")
         
@@ -350,8 +535,10 @@ def generate_explore_params(auth_header: str, prompt: str, explore_key: str,
         
         logging.info(f"=== GENERATE_EXPLORE_PARAMS RESULT ===")
         if result:
-            logging.info(f"Result keys: {list(result.keys())}")
-            if 'explore_params' in result:
+            # Safely log keys only if result is a dict
+            keys_log = list(result.keys()) if isinstance(result, dict) else 'Not a dict'
+            logging.info(f"Result keys: {keys_log}")
+            if isinstance(result, dict) and 'explore_params' in result:
                 logging.info(f"Explore params fields: {result['explore_params'].get('fields', [])}")
         else:
             logging.warning("No result from generate_explore_params_from_query")
@@ -373,27 +560,26 @@ def synthesize_conversation_context(auth_header: str, current_prompt: str, conve
         if not conversation_context or conversation_context.strip() == "":
             logging.info("No conversation context, returning original prompt")
             return current_prompt
+        
+        # Monitor conversation context size to prevent token overflow
+        if len(conversation_context) > 2000:
+            logging.warning(f"⚠️ Large conversation context ({len(conversation_context)} chars) - truncating to prevent token issues")
+            # Truncate to last 1500 characters to preserve recent context
+            conversation_context = "..." + conversation_context[-1500:]
             
-        synthesis_prompt = f"""You are an expert at understanding user conversations about data analysis. Your task is to synthesize a conversation history and the current user prompt into a single, clear, comprehensive query that captures the user's complete intent.
+        synthesis_prompt = f"""Synthesize conversation and current prompt into one clear query.
 
-CONVERSATION HISTORY:
-{conversation_context}
-
-CURRENT USER PROMPT:
-{current_prompt}
-
-Your task:
-1. Analyze the conversation history to understand what the user has been working on
-2. Interpret the current prompt in the context of the conversation
-3. Combine them into a single, clear, standalone query that fully captures what the user wants
+HISTORY: {conversation_context}
+CURRENT: {current_prompt}
 
 Rules:
-- If the current prompt is a refinement (like "use a table", "make it a chart", "show top 10"), incorporate the context from previous queries
-- The output should be a complete, standalone question that someone could understand without seeing the conversation history
-- Focus on the data analysis intent, not the visualization preferences
-- Be specific about what data fields, time periods, filters, etc. the user wants
+- Combine history context with current request
+- Output one standalone query only
+- Be concise and specific
 
-Output only the synthesized query, nothing else."""
+Output only the synthesized query."""
+
+        logging.info(f"🔍 Synthesis prompt size: ~{len(synthesis_prompt)} characters")
 
         # Format request for Vertex AI
         vertex_request = {
@@ -409,28 +595,62 @@ Output only the synthesized query, nothing else."""
             ],
             "generationConfig": {
                 "temperature": 0.1,
-                "topP": 0.8,
-                "topK": 40,
-                "maxOutputTokens": 512,
-                "responseMimeType": "text/plain"
+                "topP": 0.5,  # Reduced for more focused responses
+                "topK": 20,  # Reduced for brevity
+                "maxOutputTokens": 1000,  # Small for synthesis
+                "responseMimeType": "text/plain",
+                "candidateCount": 1
             }
         }
         
         # Call Vertex AI using service account
         vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
         if not vertex_response:
-            return None
+            logging.warning("❌ SYNTHESIS: No response from Vertex AI, using original prompt")
+            return current_prompt
+        
+        logging.info(f"🔍 SYNTHESIS: Got Vertex AI response: {vertex_response}")
         
         # Extract the synthesized query
         synthesized_query = extract_vertex_response_text(vertex_response)
+        logging.info(f"🔍 SYNTHESIS: Extracted text: '{synthesized_query}' (type: {type(synthesized_query)})")
+        
         if synthesized_query:
-            synthesized_query = synthesized_query.strip()
+            # Handle different response types
+            if isinstance(synthesized_query, dict):
+                logging.warning(f"❌ SYNTHESIS: Response is dict, trying to extract text: {synthesized_query}")
+                # Try to find text in common fields
+                if 'text' in synthesized_query:
+                    synthesized_query = str(synthesized_query['text'])
+                elif 'content' in synthesized_query:
+                    synthesized_query = str(synthesized_query['content'])
+                elif 'query' in synthesized_query:
+                    synthesized_query = str(synthesized_query['query'])
+                else:
+                    logging.warning("❌ SYNTHESIS: Cannot extract text from dict, using original prompt")
+                    return current_prompt
+            elif isinstance(synthesized_query, list):
+                logging.warning(f"❌ SYNTHESIS: Response is list, taking first element: {synthesized_query}")
+                if synthesized_query and isinstance(synthesized_query[0], str):
+                    synthesized_query = synthesized_query[0]
+                else:
+                    logging.warning("❌ SYNTHESIS: Cannot extract text from list, using original prompt")
+                    return current_prompt
+            
+            synthesized_query = str(synthesized_query).strip()
+            
+            # Validate that we got a meaningful synthesis
+            if not synthesized_query or synthesized_query.lower() in ['none', 'null', 'undefined']:
+                logging.warning("❌ SYNTHESIS: Got empty or invalid result, using original prompt")
+                return current_prompt
+            
             logging.info(f"=== SYNTHESIS RESULT ===")
-            logging.info(f"Synthesized query: {synthesized_query}")
+            logging.info(f"✅ Synthesized query: {synthesized_query}")
             return synthesized_query
         
-        logging.warning("Failed to extract synthesized query from Vertex AI response")
-        return None
+        logging.warning("❌ SYNTHESIS: Failed to extract synthesized query from Vertex AI response")
+        logging.warning(f"❌ SYNTHESIS: Falling back to original prompt: '{current_prompt}'")
+        return current_prompt
         
     except Exception as e:
         logging.error(f"Error synthesizing conversation context: {e}")
@@ -441,65 +661,73 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
                                      current_explore: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Second LLM call: Generate explore parameters from a clear, synthesized query"""
     try:
-        # Get relevant golden queries for this specific explore
-        relevant_examples = {}
-        if 'exploreEntries' in golden_queries and explore_key in golden_queries['exploreEntries']:
-            relevant_examples['exploreEntries'] = {explore_key: golden_queries['exploreEntries'][explore_key]}
-        
-        if 'exploreGenerationExamples' in golden_queries and explore_key in golden_queries['exploreGenerationExamples']:
-            relevant_examples['exploreGenerationExamples'] = {explore_key: golden_queries['exploreGenerationExamples'][explore_key]}
-        
-        if 'exploreRefinementExamples' in golden_queries and explore_key in golden_queries['exploreRefinementExamples']:
-            relevant_examples['exploreRefinementExamples'] = {explore_key: golden_queries['exploreRefinementExamples'][explore_key]}
-        
-        if 'exploreSamples' in golden_queries and explore_key in golden_queries['exploreSamples']:
-            relevant_examples['exploreSamples'] = {explore_key: golden_queries['exploreSamples'][explore_key]}
-        
         # Get semantic model for this explore
         explore_semantic_model = semantic_models.get(explore_key, {})
         
-        # Format table context for this explore
+        # Format table context for this explore - limit fields to prevent token overflow
         dimensions = explore_semantic_model.get('dimensions', [])
         measures = explore_semantic_model.get('measures', [])
         explore_description = explore_semantic_model.get('description', '')
         
-        def format_row(field):
+        # Limit fields to most relevant ones to reduce token usage
+        MAX_FIELDS_PER_TYPE = 15  # Reduced from 20 to further limit tokens
+        
+        def format_field_concise(field):
             name = field.get('name', '')
-            type_val = field.get('type', '')
             label = field.get('label', '')
-            description = field.get('description', '')
-            tags = ', '.join(field.get('tags', []))
-            return f"| {name} | {type_val} | {label} | {description} | {tags} |"
+            description = field.get('description', '')[:50]  # Further reduced from 100 to 50 chars
+            return f"- {name}: {label}" + (f" ({description})" if description else "")
 
+        # Take only the first N fields to manage token usage
+        limited_dimensions = dimensions[:MAX_FIELDS_PER_TYPE] if dimensions else []
+        limited_measures = measures[:MAX_FIELDS_PER_TYPE] if measures else []
+        
+        # If we have too many fields, be even more aggressive
+        total_fields = len(limited_dimensions) + len(limited_measures)
+        if total_fields > 25:  # If still too many fields, truncate further
+            logging.warning(f"⚠️ Too many fields ({total_fields}), further reducing for token efficiency")
+            limited_dimensions = dimensions[:10] if dimensions else []
+            limited_measures = measures[:10] if measures else []
+        
         table_context = f"""
-# Looker Explore Metadata
-Explore: {explore_key}
-{f"Additional instructions: {explore_description}" if explore_description else ""}
+# Looker Explore: {explore_key}
+{f"Description: {explore_description[:150]}" if explore_description else ""}
 
-## Dimensions (for grouping data):
-| Field Id | Field Type | Label | Description | Tags |
-|----------|------------|-------|-------------|------|
-{chr(10).join([format_row(dim) for dim in dimensions])}
+## Available Dimensions ({len(limited_dimensions)} of {len(dimensions)}):
+{chr(10).join([format_field_concise(dim) for dim in limited_dimensions])}
 
-## Measures (for calculations):
-| Field Id | Field Type | Label | Description | Tags |
-|----------|------------|-------|-------------|------|
-{chr(10).join([format_row(measure) for measure in measures])}
+## Available Measures ({len(limited_measures)} of {len(measures)}):
+{chr(10).join([format_field_concise(measure) for measure in limited_measures])}
 """
 
-        # Build system prompt for explore parameter generation
-        system_prompt = f"""You are a Looker Explore Assistant. Generate Looker explore parameters based on the user's natural language question.
+        # Get a limited number of relevant examples to prevent token overflow
+        example_text = ""
+        max_examples = 2  # Further reduced from 3 to 2
+        
+        # Try to get a few representative examples
+        if 'exploreGenerationExamples' in golden_queries and explore_key in golden_queries['exploreGenerationExamples']:
+            examples = golden_queries['exploreGenerationExamples'][explore_key]
+            if isinstance(examples, list) and examples:
+                limited_examples = examples[:max_examples]
+                example_text = f"\nExample queries:\n"  # Shortened header
+                for i, ex in enumerate(limited_examples, 1):
+                    input_text = ex.get('input', '')[:80]  # Reduced from 100 to 80 chars
+                    example_text += f"{i}. {input_text}\n"
+        
+        # Calculate approximate prompt size for monitoring
+        prompt_estimate = len(table_context) + len(example_text) + len(query) + 800  # Reduced base estimate
+        if prompt_estimate > 6000:  # More conservative limit for token management
+            logging.warning(f"⚠️ Large prompt detected (~{prompt_estimate} chars) - may hit token limits")
+
+        # Build system prompt for explore parameter generation - streamlined for token efficiency
+        system_prompt = f"""Generate Looker explore parameters for: "{query}"
 
 {table_context}
+{example_text}
 
-Relevant Examples for this explore:
-{json.dumps(relevant_examples, indent=2)}
+IMPORTANT: Be extremely concise. Return minimal JSON only.
 
-Instructions:
-1. Analyze the user's query: "{query}"
-2. Generate appropriate Looker query parameters using the available fields
-3. Return a JSON object with the following structure:
-
+Return JSON:
 {{
   "explore_key": "{explore_key}",
   "explore_params": {{
@@ -507,29 +735,36 @@ Instructions:
     "filters": {{}},
     "sorts": ["field1"],
     "limit": "500",
-    "vis_config": {{
-      "type": "table"
-    }}
+    "vis_config": {{"type": "table"}}
   }},
   "message_type": "explore",
-  "summary": "Description of what this explore shows"
+  "summary": "Brief description"
 }}
 
-VALID VIS_CONFIG TYPES:
-- Single Number: single_value
-- Tables: table, looker_grid, looker_single_record
-- Charts: looker_column, looker_bar, looker_scatter, looker_line, looker_area, looker_pie, looker_donut_multiples, looker_funnel, looker_timeline, looker_waterfall, looker_boxplot
-- Maps: looker_map, looker_google_map, looker_geo_coordinates, looker_geo_choropleth
-
-IMPORTANT: 
-- Always include relevant fields that answer the user's question
-- For table requests, use "table" or "looker_grid" as the vis_config type
-- For chart requests, choose the most appropriate chart type from the valid options above
-- For geographic data, use appropriate map visualizations
-- The query has already been processed to be clear and standalone
-
-User query: "{query}"
+Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_line, looker_area, looker_pie
 """
+
+        logging.info(f"🔍 Generated prompt size: ~{len(system_prompt)} characters")
+        if len(system_prompt) > 8000:
+            logging.warning(f"⚠️ Large system prompt ({len(system_prompt)} chars) - may cause token issues")
+
+        # Dynamically adjust maxOutputTokens based on prompt size to prevent MAX_TOKENS
+        # Much more conservative limits for concise outputs
+        base_tokens = 1024
+        prompt_char_count = len(system_prompt)
+        
+        # Rough estimate: 1 token ≈ 4 characters for English text
+        estimated_prompt_tokens = prompt_char_count // 4
+        
+        # Very conservative token allocation to force brevity
+        if estimated_prompt_tokens > 4000:
+            max_output_tokens = 4000  # Very small for large prompts
+        elif estimated_prompt_tokens > 2000:
+            max_output_tokens = 2000  # Small for medium prompts
+        else:
+            max_output_tokens = base_tokens  # Conservative baseline
+            
+        logging.info(f"📊 Estimated prompt tokens: {estimated_prompt_tokens}, Using maxOutputTokens: {max_output_tokens}")
 
         # Format request for Vertex AI
         vertex_request = {
@@ -544,11 +779,12 @@ User query: "{query}"
                 }
             ],
             "generationConfig": {
-                "temperature": 0.1,
-                "topP": 0.8,
-                "topK": 40,
-                "maxOutputTokens": 2048,
-                "responseMimeType": "application/json"
+                "temperature": 0.1,  # Low temperature for consistency
+                "topP": 0.5,  # Reduced from 0.8 to encourage more focused, concise responses
+                "topK": 20,  # Reduced from 40 to limit vocabulary and encourage brevity
+                "maxOutputTokens": max_output_tokens,  # Dynamic based on prompt size
+                "responseMimeType": "application/json",
+                "candidateCount": 1  # Only generate one candidate to reduce processing
             }
         }
         
@@ -557,16 +793,28 @@ User query: "{query}"
         if not vertex_response:
             return None
         
-        # Extract and parse the JSON response
+        # Extract and parse the JSON response (may already be dict)
         response_text = extract_vertex_response_text(vertex_response)
         if response_text:
             try:
-                result = json.loads(response_text)
+                # Handle dict directly
+                if isinstance(response_text, dict):
+                    result = response_text
+                # Handle list by taking first dict element or fallback
+                elif isinstance(response_text, list):
+                    if response_text and isinstance(response_text[0], dict):
+                        result = response_text[0]
+                    else:
+                        logging.warning(f"Unexpected list response from LLM: {response_text}")
+                        return create_context_aware_fallback(query, explore_key, "", semantic_models)
+                else:
+                    result = json.loads(response_text)
                 logging.info(f"Generated explore params for {explore_key} from synthesized query")
-                logging.info(f"Response structure: {list(result.keys())}")
+                if isinstance(result, dict):
+                    logging.info(f"Response structure: {list(result.keys())}")
                 
                 # Ensure the response has the expected structure
-                if 'explore_params' not in result:
+                if isinstance(result, dict) and 'explore_params' not in result:
                     # If the AI returned explore parameters directly, wrap them
                     if 'fields' in result or 'filters' in result:
                         result = {
@@ -752,15 +1000,56 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
         )
         
         if not determined_explore_key:
+            logging.warning("❌ AI couldn't determine explore, attempting fallback...")
             # If AI couldn't determine explore, try to use first available explore as fallback
-            if golden_queries.get('exploreEntries'):
-                first_explore = list(golden_queries['exploreEntries'].keys())[0]
-                logging.warning(f"Failed to determine explore, using first available: {first_explore}")
+            entries = golden_queries.get('exploreEntries')
+            first_explore = None
+            
+            logging.info(f"🔍 Fallback debugging - exploreEntries type: {type(entries)}")
+            logging.info(f"🔍 Fallback debugging - exploreEntries content: {entries}")
+            
+            if isinstance(entries, dict) and entries:
+                first_explore = next(iter(entries.keys()))
+                logging.info(f"✅ Found first explore from dict: {first_explore}")
+            elif isinstance(entries, list) and entries:
+                # If list of explore keys
+                if isinstance(entries[0], str):
+                    first_explore = entries[0]
+                    logging.info(f"✅ Found first explore from list: {first_explore}")
+                elif isinstance(entries[0], dict):
+                    # If list of explore objects, try to extract key
+                    first_explore = entries[0].get('explore_id') or entries[0].get('id') or entries[0].get('key')
+                    logging.info(f"✅ Found first explore from list object: {first_explore}")
+                else:
+                    logging.warning(f"❌ Unexpected list entry type: {type(entries[0])}")
+            else:
+                logging.warning(f"❌ No valid exploreEntries found - entries: {entries}")
+                
+            # Also check other possible sources for explores
+            if not first_explore:
+                logging.info("🔍 Checking other golden query sections for explores...")
+                for key, value in golden_queries.items():
+                    if isinstance(value, dict) and value:
+                        first_explore = next(iter(value.keys()))
+                        logging.info(f"✅ Found first explore from {key}: {first_explore}")
+                        break
+                        
+            if first_explore:
+                logging.warning(f"✅ Fallback successful - using first available: {first_explore}")
                 determined_explore_key = first_explore
             else:
+                logging.error("❌ No fallback explore available")
+                available_keys = list(golden_queries.keys()) if isinstance(golden_queries, dict) else []
+                logging.error(f"❌ Available golden query keys: {available_keys}")
                 return {
                     'error': 'Failed to determine appropriate explore and no fallback available',
-                    'message_type': 'error'
+                    'message_type': 'error',
+                    'debug_info': {
+                        'golden_queries_keys': available_keys,
+                        'exploreEntries_type': str(type(entries)),
+                        'exploreEntries_content': str(entries)[:500] if entries else 'None',
+                        'restricted_explore_keys': restricted_explore_keys
+                    }
                 }
         
         logging.info(f"Determined explore key: {determined_explore_key}")
@@ -796,8 +1085,9 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
             }
         
         # Add conversation tracking to response
-        result['conversation_id'] = conversation_id
-        result['prompt_added_to_history'] = prompt
+        if isinstance(result, dict):
+            result['conversation_id'] = conversation_id
+            result['prompt_added_to_history'] = prompt
         
         # Check for feedback pattern and save suggested golden query if detected
         has_feedback, approved_explore_params = detect_feedback_pattern(prompt_history, thread_messages, prompt)
@@ -805,13 +1095,13 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
             # Save the suggested golden query with the APPROVED explore_params
             save_success = save_suggested_silver_query(
                 auth_header, 
-                result.get('explore_key', ''), 
+                result.get('explore_key', '') if isinstance(result, dict) else '', 
                 prompt_history,  # Pass entire prompt history
                 approved_explore_params,  # Use the approved params
                 user_email
             )
             
-            if save_success:
+            if save_success and isinstance(result, dict):
                 result['feedback_message'] = "Thank you for your feedback. This is being saved as an improved example."
                 logging.info("Successfully saved suggested golden query with approved explore_params")
         elif has_feedback:
@@ -1024,9 +1314,10 @@ Output only the suggested prompt, nothing else."""
             "generationConfig": {
                 "temperature": 0.2,
                 "topP": 0.8,
-                "topK": 40,
-                "maxOutputTokens": 256,
-                "responseMimeType": "text/plain"
+                "topK": 20,
+                "maxOutputTokens": 1000,  
+                "responseMimeType": "text/plain",
+                "candidateCount": 1  # Only generate one candidate to reduce processing
             }
         }
         
@@ -1179,23 +1470,18 @@ def save_suggested_silver_query(auth_header: str, explore_key: str, prompt_histo
         # Create BigQuery client using default credentials (Cloud Run service account)
         client = bigquery.Client(project=bq_project_id)
         
-        # Prepare the record to insert
+        # Prepare the record to insert - using standardized field names
         current_time = time.time()
         suggested_query = {
-            'explore_key': explore_key,
-            'prompt': json.dumps(prompt_history),  # Store complete prompt history as JSON string
-            'explore_params': json.dumps(explore_params),  # Store as JSON string
-            'user_id': user_email,
-            'timestamp': current_time,
-            'created_at': time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(current_time)),
-            'approved': False,  
-            'feedback_type': 'user_correction',
             'id': str(uuid.uuid4()),  # Generate UUID for the id field
-            'created_date': time.strftime('%Y-%m-%d', time.gmtime(current_time)),  # Date for partitioning
-            'suggested_new_prompt': suggested_prompt,  # LLM-generated suggested prompt
-            'query_slug': query_links.get('query_slug', ''),  # Looker query slug
-            'share_url': query_links.get('share_url', ''),  # Looker share URL
-            'expanded_share_url': query_links.get('expanded_share_url', '')  # Looker expanded share URL
+            'explore_id': explore_key,  # Standardized field name
+            'input': json.dumps(prompt_history),  # Store complete prompt history as JSON string - standardized field name
+            'output': json.dumps(explore_params),  # Store as JSON string - standardized field name
+            'created_at': datetime.fromtimestamp(current_time).isoformat(),  # Convert to ISO format string
+            'user_id': user_email,
+            'feedback_type': 'user_correction',
+            'link': query_links.get('share_url', ''),  # Use single standardized link field
+            'conversation_history': json.dumps(prompt_history)  # Silver-specific field for conversation context
         }
         
         logging.info(f"Saving suggested golden query to BigQuery: {explore_key} for user {user_email}")
@@ -1223,7 +1509,7 @@ def save_suggested_silver_query(auth_header: str, explore_key: str, prompt_histo
         logging.error(f"Error saving suggested golden query to BigQuery: {e}")
         # Still log the data for debugging even if BigQuery fails
         fallback_data = {
-            'explore_key': explore_key,
+            'explore_id': explore_key,
             'prompt_history': prompt_history,  # Use prompt_history instead of original_prompt
             'explore_params': explore_params,
             'user_id': user_email,
@@ -1246,32 +1532,42 @@ def is_authorized_for_promotion(user_email: str) -> bool:
     try:
         # For now, allow all authenticated users to promote
         # In production, you might check against specific roles or groups
-        PROMOTION_ROLES = ['admin', 'Admin', 'ml_engineer']
+        PROMOTION_ROLES = ['Admin', 'Developer']
         
-        # You could integrate with your existing auth system here
-        # For example, check user roles in Looker or another system
-        # looker_user = find_looker_user_by_email(user_email)
-        # if looker_user:
-        #     # extract the role for each of the role_ids
-        #     user_roles = looker_user.get('roles', [])
-        #     # for each role, call Looker to see what the name of the role is
-        #     for role in user_roles:
-        #         role_info = looker_sdk.role(role)
-        #         # Check if any role is on the list
-        #         if role_info and role_info.name in PROMOTION_ROLES:
-        #             logging.info(f"User {user_email} has authorized role: {role_info.name}")
-        #             return True
-        #     logging.info(f"User {user_email} is not authorized to promote. Role IDs: {user_roles}")
-        #     return False  # Allow all Looker users for now
+        looker_user = find_looker_user_by_email(user_email)
+        if looker_user:
+            # extract the role for each of the role_ids (note: it's 'role_ids', not 'roles')
+            user_role_ids = looker_user.get('role_ids', [])
+            # sort ascending numerically, not by string
+            user_role_ids.sort(key=lambda x: int(x))
+            logging.info(f"User {user_email} has role IDs: {user_role_ids}")
             
-        # # Fallback: allow specific email domains or users
-        # ALLOWED_DOMAINS = ['your-company.com']  # Replace with your domain
-        # if any(domain in user_email for domain in ALLOWED_DOMAINS):
-        #     return True
+            # Initialize Looker SDK
+            sdk = get_looker_sdk()
+            if not sdk:
+                logging.error("Failed to initialize Looker SDK for role checking")
+                return True  # Fallback to allow access if SDK fails
+            
+            # for each role, call Looker to see what the name of the role is
+            for role_id in user_role_ids:
+                try:
+                    role_info = sdk.role(role_id)
+                    logging.info(f"Checking role for user {user_email}: {role_info.name if role_info else 'Unknown'}")
+                    # Check if any role is on the list
+                    if role_info and role_info.name in PROMOTION_ROLES:
+                        logging.info(f"User {user_email} has authorized role: {role_info.name}")
+                        return True
+                except Exception as role_error:
+                    logging.warning(f"Failed to get role info for role ID {role_id}: {role_error}")
+                    continue
+                    
+            logging.info(f"User {user_email} is not authorized to promote. Role IDs: {user_role_ids}")
+            
+            
             
         # logging.warning(f"User {user_email} not authorized for promotion")
         # return False
-        return True
+        return False
 
     except Exception as e:
         logging.error(f"Error checking authorization for {user_email}: {e}")
@@ -1284,22 +1580,27 @@ def get_queries_for_promotion(table_name: str, limit: int = 50, offset: int = 0)
     try:
         client = bigquery.Client(project=bq_project_id)
         
+        # Ensure tables exist and run migrations if necessary
+        if table_name == 'bronze':
+            ensure_bronze_queries_table_exists()
+        elif table_name == 'silver':
+            ensure_silver_queries_table_exists()
+        
         # Determine table name and appropriate query based on table schema
         if table_name == 'bronze':
             full_table_name = f"{bq_project_id}.{bq_dataset_id}.bronze_queries"
-            # Bronze table now has 'id' field for consistency
+            
+            # Bronze table query - using standardized field names
             query = f"""
             SELECT 
                 id,
-                explore_key,
-                input_question,
-                output_description,
+                explore_id,
+                input,
+                output,
                 created_at,
                 user_email,
                 query_run_count,
-                query_slug,
-                CAST(NULL AS STRING) as suggested_new_prompt,
-                CAST(NULL AS STRING) as share_url
+                link
             FROM `{full_table_name}`
             ORDER BY created_at DESC
             LIMIT {limit}
@@ -1307,19 +1608,19 @@ def get_queries_for_promotion(table_name: str, limit: int = 50, offset: int = 0)
             """
         elif table_name == 'silver':
             full_table_name = f"{bq_project_id}.{bq_dataset_id}.{bq_suggested_table}"
-            # Silver table has 'id' field and different schema
+            
+            # Silver table query - using standardized field names
             query = f"""
             SELECT 
                 id,
-                explore_key,
-                prompt as input_question,
-                CAST(NULL AS STRING) as output_description,
+                explore_id,
+                input,
+                output,
                 created_at,
-                user_id as user_email,
-                CAST(NULL AS INT64) as query_run_count,
-                suggested_new_prompt,
-                query_slug,
-                share_url
+                user_id,
+                feedback_type,
+                link,
+                conversation_history
             FROM `{full_table_name}`
             ORDER BY created_at DESC
             LIMIT {limit}
@@ -1331,35 +1632,57 @@ def get_queries_for_promotion(table_name: str, limit: int = 50, offset: int = 0)
         results = client.query(query).to_dataframe()
         
         # Fill NaN values with appropriate defaults to avoid JSON serialization issues
-        results = results.fillna({
+        # Using standardized field names
+        fillna_dict = {
             'id': '',
-            'explore_key': '',
-            'input_question': '',
-            'output_description': '',
+            'explore_id': '',
+            'input': '',
+            'output': '',
             'created_at': '',
-            'user_email': '',
-            'query_run_count': 0,
-            'suggested_new_prompt': '',
-            'query_slug': '',
-            'share_url': ''
-        })
+            'link': ''
+        }
         
-        # Convert to list of dicts
+        # Add table-specific fields
+        if table_name == 'bronze':
+            fillna_dict.update({
+                'user_email': '',
+                'query_run_count': 0
+            })
+        elif table_name == 'silver':
+            fillna_dict.update({
+                'user_id': '',
+                'feedback_type': '',
+                'conversation_history': ''
+            })
+        
+        results = results.fillna(fillna_dict)
+        
+        # Convert to list of dicts using standardized field names
         queries = []
         for _, row in results.iterrows():
             query_dict = {
                 'id': str(row['id']) if row['id'] is not None else '',
-                'explore_key': str(row['explore_key']) if row['explore_key'] is not None else '',
-                'input_question': str(row.get('input_question', '')) if row.get('input_question') is not None else '',
-                'output_description': str(row.get('output_description', '')) if row.get('output_description') is not None else '',
+                'explore_id': str(row['explore_id']) if row['explore_id'] is not None else '',
+                'input': str(row.get('input', '')) if row.get('input') is not None else '',
+                'output': str(row.get('output', '')) if row.get('output') is not None else '',
                 'created_at': str(row['created_at']) if row['created_at'] is not None else '',
-                'user_email': str(row.get('user_email', '')) if row.get('user_email') is not None else '',
-                'query_run_count': int(row.get('query_run_count', 0)) if row.get('query_run_count') is not None else 0,
-                'suggested_new_prompt': str(row.get('suggested_new_prompt', '')) if row.get('suggested_new_prompt') is not None else '',
-                'query_slug': str(row.get('query_slug', '')) if row.get('query_slug') is not None else '',
-                'share_url': str(row.get('share_url', '')) if row.get('share_url') is not None else '',
+                'link': str(row.get('link', '')) if row.get('link') is not None else '',
                 'source_table': table_name
             }
+            
+            # Add table-specific fields
+            if table_name == 'bronze':
+                query_dict.update({
+                    'user_email': str(row.get('user_email', '')) if row.get('user_email') is not None else '',
+                    'query_run_count': int(row.get('query_run_count', 0)) if row.get('query_run_count') is not None else 0
+                })
+            elif table_name == 'silver':
+                query_dict.update({
+                    'user_id': str(row.get('user_id', '')) if row.get('user_id') is not None else '',
+                    'feedback_type': str(row.get('feedback_type', '')) if row.get('feedback_type') is not None else '',
+                    'conversation_history': str(row.get('conversation_history', '')) if row.get('conversation_history') is not None else ''
+                })
+            
             queries.append(query_dict)
         
         logging.info(f"Retrieved {len(queries)} queries from {table_name} table")
@@ -1376,6 +1699,15 @@ def promote_query_atomic(query_id: str, source_table: str, target_table: str,
     """
     try:
         client = bigquery.Client(project=bq_project_id)
+        
+        # Ensure source table exists and is migrated
+        if source_table == 'bronze':
+            ensure_bronze_queries_table_exists()
+        elif source_table == 'silver':
+            ensure_silver_queries_table_exists()
+        
+        # Ensure target table exists and is migrated
+        ensure_golden_queries_table_exists()
         
         # Determine source table name
         if source_table == 'bronze':
@@ -1414,27 +1746,15 @@ def promote_query_atomic(query_id: str, source_table: str, target_table: str,
         # Ensure golden queries table exists
         ensure_golden_queries_table_exists()
         
-        # Prepare the promoted query data
+        # Prepare the promoted query data - only include core fields that exist in golden queries
         promoted_query = {
             'id': new_query_id,
-            'explore_key': source_row['explore_key'],
-            'prompt': source_row.get('input_question', source_row.get('prompt', '')),
-            'explore_params': source_row.get('explore_params', '{}'),
-            'user_id': promoted_by,
-            'timestamp': current_timestamp.timestamp(),
-            'created_at': current_timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-            'approved': True,  # Mark as approved since it's being promoted
-            'feedback_type': f'promoted_from_{source_table}',
-            'created_date': current_timestamp.strftime('%Y-%m-%d'),
-            'suggested_new_prompt': source_row.get('suggested_new_prompt', ''),
-            'query_slug': source_row.get('query_slug', ''),
-            'share_url': source_row.get('share_url', ''),
-            'expanded_share_url': source_row.get('expanded_share_url', ''),
-            'source_table': source_table,
-            'source_query_id': query_id,
+            'explore_id': source_row['explore_id'],
+            'input': source_row.get('input', ''),  # Use 'input' field for standardization
+            'output': source_row.get('output', ''),  # Use 'output' field for standardization
+            'link': source_row.get('link', ''),  # Use standardized 'link' field
             'promoted_by': promoted_by,
-            'promotion_reason': reason,
-            'promoted_at': current_timestamp.isoformat()
+            'promoted_at': current_timestamp  # Use timestamp format
         }
         
         # Insert into golden queries table
@@ -1551,54 +1871,246 @@ def get_promotion_history_data(limit: int = 50, offset: int = 0) -> list:
         logging.error(f"Error getting promotion history: {e}")
         return []
 
-def ensure_golden_queries_table_exists():
+def migrate_golden_table_explore_key_to_id():
     """
-    Ensure the golden queries table exists
+    Migrate golden table from explore_key column to explore_id column
     """
     try:
         client = bigquery.Client(project=bq_project_id)
+        golden_table_id = f"{bq_project_id}.{bq_dataset_id}.golden_queries"
+        
+        logging.info("Migrating golden table from explore_key to explore_id...")
+        
+        # Add the explore_id column
+        alter_query = f"""
+        ALTER TABLE `{golden_table_id}`
+        ADD COLUMN explore_id STRING
+        """
+        
+        job = client.query(alter_query)
+        job.result()  # Wait for completion
+        
+        # Copy data from explore_key to explore_id
+        update_query = f"""
+        UPDATE `{golden_table_id}`
+        SET explore_id = explore_key
+        WHERE explore_id IS NULL
+        """
+        
+        job = client.query(update_query)
+        job.result()  # Wait for completion
+        
+        # Drop the old explore_key column (optional - might want to keep for rollback)
+        # For now, let's keep both columns to be safe
+        logging.info("Successfully migrated golden table to use explore_id")
+        
+    except Exception as e:
+        logging.error(f"Failed to migrate golden table explore_key to explore_id: {e}")
+        # Don't raise - this is a migration that can fail without breaking the system
+
+def ensure_bronze_queries_table_exists():
+    """
+    Create the bronze_queries table with the correct schema, dropping and recreating if schema is wrong
+    """
+    try:
+        client = bigquery.Client(project=bq_project_id)
+        bronze_table_id = f"{bq_project_id}.{bq_dataset_id}.bronze_queries"
+        
+        # Define the correct schema for bronze queries
+        correct_schema = [
+            bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("explore_id", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("input", "STRING", mode="REQUIRED"),  # Standardized to match golden
+            bigquery.SchemaField("output", "STRING", mode="NULLABLE"),  # Standardized to match golden
+            bigquery.SchemaField("created_at", "TIMESTAMP", mode="REQUIRED"),
+            bigquery.SchemaField("user_email", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("query_run_count", "INTEGER", mode="NULLABLE"),  # Bronze-specific field
+            bigquery.SchemaField("link", "STRING", mode="NULLABLE")  # Standardized to match golden
+        ]
+        
+        expected_field_names = {field.name for field in correct_schema}
+        
+        try:
+            table = client.get_table(bronze_table_id)
+            existing_field_names = {field.name for field in table.schema}
+            
+            # If schema doesn't match exactly, drop and recreate
+            if existing_field_names != expected_field_names:
+                logging.info(f"Bronze table schema mismatch. Expected: {expected_field_names}, Got: {existing_field_names}")
+                logging.info("Dropping and recreating bronze queries table...")
+                client.delete_table(bronze_table_id)
+                raise Exception("Table dropped, will recreate")
+            else:
+                logging.info(f"Bronze queries table {bronze_table_id} has correct schema")
+                return True
+                
+        except Exception:
+            logging.info(f"Creating bronze queries table {bronze_table_id} with correct schema")
+        
+        # Create table with correct schema
+        table_ref = client.dataset(bq_dataset_id, project=bq_project_id).table("bronze_queries")
+        table = bigquery.Table(table_ref, schema=correct_schema)
+        table.description = "Bronze queries generated from historical Looker query patterns"
+        
+        table = client.create_table(table)
+        logging.info(f"Successfully created bronze queries table: {bronze_table_id}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Failed to ensure bronze queries table: {e}")
+        raise e
+
+def ensure_silver_queries_table_exists():
+    """
+    Create the silver_queries table with the correct schema, dropping and recreating if schema is wrong
+    """
+    try:
+        client = bigquery.Client(project=bq_project_id)
+        silver_table_id = f"{bq_project_id}.{bq_dataset_id}.{bq_suggested_table}"
+
+        # Define the correct schema for silver queries
+        correct_schema = [
+            bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("explore_id", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("input", "STRING", mode="REQUIRED"),  # Standardized to match golden
+            bigquery.SchemaField("output", "STRING", mode="NULLABLE"),  # Standardized to match golden
+            bigquery.SchemaField("created_at", "TIMESTAMP", mode="REQUIRED"),
+            bigquery.SchemaField("user_id", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("feedback_type", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("link", "STRING", mode="NULLABLE"),  # Standardized to match golden
+            bigquery.SchemaField("conversation_history", "STRING", mode="NULLABLE")  # Silver-specific field
+        ]
+        
+        expected_field_names = {field.name for field in correct_schema}
+
+        try:
+            table = client.get_table(silver_table_id)
+            existing_field_names = {field.name for field in table.schema}
+            
+            # If schema doesn't match exactly, drop and recreate
+            if existing_field_names != expected_field_names:
+                logging.info(f"Silver table schema mismatch. Expected: {expected_field_names}, Got: {existing_field_names}")
+                logging.info("Dropping and recreating silver queries table...")
+                client.delete_table(silver_table_id)
+                raise Exception("Table dropped, will recreate")
+            else:
+                logging.info(f"Silver queries table {silver_table_id} has correct schema")
+                return True
+                
+        except Exception:
+            logging.info(f"Creating silver queries table {silver_table_id} with correct schema")
+
+        # Create table with correct schema
+        table_ref = client.dataset(bq_dataset_id, project=bq_project_id).table(bq_suggested_table)
+        table = bigquery.Table(table_ref, schema=correct_schema)
+        table.description = "Silver queries - suggested improvements from user feedback"
+
+        table = client.create_table(table)
+        logging.info(f"Successfully created silver queries table: {silver_table_id}")
+        return True
+
+    except Exception as e:
+        logging.error(f"Failed to ensure silver queries table: {e}")
+        raise e
+
+def generate_bronze_queries_for_explore(model_name: str, explore_name: str, explore_key: str, user_email: str) -> Dict[str, Any]:
+    """
+    Generate bronze queries for a specific explore (placeholder implementation)
+    """
+    try:
+        # Ensure bronze table exists
+        ensure_bronze_queries_table_exists()
+        
+        # For now, return a simple success message
+        # This function would be implemented to generate actual bronze queries
+        return {
+            "status": "success",
+            "message": f"Bronze query generation initiated for {model_name}.{explore_name}",
+            "explore_key": explore_key,
+            "user_email": user_email
+        }
+        
+    except Exception as e:
+        logging.error(f"Error generating bronze queries: {e}")
+        raise e
+
+def ensure_golden_queries_table_exists():
+    """
+    Ensure the golden queries table exists with the correct schema
+    Only adds missing columns, never drops golden table data
+    """
+    try:
+        logging.info("=== ENSURE_GOLDEN_QUERIES_TABLE_EXISTS CALLED ===")
+        client = bigquery.Client(project=bq_project_id)
         table_id = f"{bq_project_id}.{bq_dataset_id}.golden_queries"
+        logging.info(f"Checking/creating golden queries table: {table_id}")
+        
+        # Define the golden queries schema - this is the authoritative schema
+        golden_schema = [
+            bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("explore_id", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("input", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("output", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("link", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("promoted_by", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("promoted_at", "STRING", mode="NULLABLE")
+        ]
         
         try:
             table = client.get_table(table_id)
             logging.info(f"Golden queries table {table_id} already exists")
-            return True
-        except Exception:
-            logging.info(f"Creating golden queries table {table_id}")
+            
+            # Only add missing columns to golden table (never drop)
+            current_schema = {field.name: field for field in table.schema}
+            missing_fields = []
+            
+            for field in golden_schema:
+                if field.name not in current_schema:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                logging.info(f"Adding missing fields to golden queries table: {[f.name for f in missing_fields]}")
+                
+                for field in missing_fields:
+                    try:
+                        field_type_mapping = {
+                            "STRING": "STRING",
+                            "FLOAT": "FLOAT64", 
+                            "INTEGER": "INT64",
+                            "BOOLEAN": "BOOL",
+                            "TIMESTAMP": "TIMESTAMP"
+                        }
+                        
+                        bq_field_type = field_type_mapping.get(field.field_type, field.field_type)
+                        
+                        alter_query = f"""
+                        ALTER TABLE `{table_id}`
+                        ADD COLUMN {field.name} {bq_field_type}
+                        """
+                        
+                        logging.info(f"Executing: {alter_query}")
+                        job = client.query(alter_query)
+                        job.result()
+                        logging.info(f"Successfully added column {field.name}")
+                    except Exception as col_error:
+                        logging.error(f"Failed to add column {field.name}: {col_error}")
+            else:
+                logging.info("Golden queries table has all required columns")
+            
+        except Exception as table_not_found:
+            logging.info(f"Golden queries table {table_id} doesn't exist, creating it...")
+            
+            table_ref = client.dataset(bq_dataset_id, project=bq_project_id).table("golden_queries")
+            table = bigquery.Table(table_ref, schema=golden_schema)
+            table.description = "Golden queries - promoted examples for training"
+            
+            table = client.create_table(table)
+            logging.info(f"Successfully created golden queries table: {table_id}")
         
-        # Define schema similar to silver queries but with promotion fields
-        schema = [
-            bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("explore_key", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("prompt", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("explore_params", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("user_id", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("timestamp", "FLOAT", mode="NULLABLE"),
-            bigquery.SchemaField("created_at", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("approved", "BOOLEAN", mode="NULLABLE"),
-            bigquery.SchemaField("feedback_type", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("created_date", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("suggested_new_prompt", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("query_slug", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("share_url", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("expanded_share_url", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("source_table", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("source_query_id", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("promoted_by", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("promotion_reason", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("promoted_at", "STRING", mode="NULLABLE")
-        ]
-        
-        table_ref = client.dataset(bq_dataset_id, project=bq_project_id).table("golden_queries")
-        table = bigquery.Table(table_ref, schema=schema)
-        table.description = "Golden queries promoted from bronze and silver queries"
-        
-        table = client.create_table(table)
-        logging.info(f"Successfully created golden queries table: {table_id}")
         return True
         
     except Exception as e:
-        logging.error(f"Failed to create golden queries table: {e}")
+        logging.error(f"Failed to ensure golden queries table exists: {e}")
         raise e
 
 def ensure_promotion_log_table_exists():
@@ -2034,466 +2546,6 @@ def create_mcp_flask_app():
     
     logging.info("MCP Flask app created with Vertex AI endpoints")
     return app
-
-def ensure_bronze_queries_table_exists():
-    """
-    Create the bronze_queries table if it doesn't exist, or update schema if needed
-    """
-    try:
-        client = bigquery.Client()
-        bronze_table_id = f"{bq_project_id}.{bq_dataset_id}.bronze_queries"
-        
-        # Check if table exists
-        try:
-            table = client.get_table(bronze_table_id)
-            logging.info(f"Bronze queries table {bronze_table_id} already exists")
-            
-            # Check if the new fields exist, add them if they don't
-            existing_field_names = {field.name for field in table.schema}
-            required_fields = {
-                'id': bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
-                'explore_params': bigquery.SchemaField("explore_params", "STRING", mode="NULLABLE"),
-                'query_url_params': bigquery.SchemaField("query_url_params", "STRING", mode="NULLABLE"),
-                'query_slug': bigquery.SchemaField("query_slug", "STRING", mode="NULLABLE")
-            }
-            
-            fields_to_add = []
-            for field_name, field_schema in required_fields.items():
-                if field_name not in existing_field_names:
-                    fields_to_add.append(field_schema)
-                    logging.info(f"Need to add field: {field_name}")
-            
-            if fields_to_add:
-                logging.info(f"Adding {len(fields_to_add)} missing fields to bronze queries table")
-                # Create new schema with existing fields plus new fields
-                new_schema = list(table.schema) + fields_to_add
-                table.schema = new_schema
-                table = client.update_table(table, ["schema"])
-                logging.info(f"Successfully updated bronze queries table schema")
-                
-                # If we just added the id field, we need to populate it for existing records
-                if any(field.name == 'id' for field in fields_to_add):
-                    migrate_bronze_queries_add_ids()
-            
-            return True
-            
-        except Exception as table_error:
-            logging.info(f"Bronze queries table {bronze_table_id} does not exist, creating it: {table_error}")
-        
-        # Define the complete table schema for new table creation
-        schema = [
-            bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("explore_key", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("model_name", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("explore_name", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("input_question", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("output_description", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("explore_params", "STRING", mode="NULLABLE"),  # Store query parameters as JSON
-            bigquery.SchemaField("query_url_params", "STRING", mode="NULLABLE"),  # Store URL parameters
-            bigquery.SchemaField("created_at", "TIMESTAMP", mode="REQUIRED"),
-            bigquery.SchemaField("source", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("user_email", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("query_run_count", "INTEGER", mode="NULLABLE"),
-            bigquery.SchemaField("original_query_url", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("query_slug", "STRING", mode="NULLABLE")
-        ]
-        
-        # Create table reference
-        table_ref = client.dataset(bq_dataset_id, project=bq_project_id).table("bronze_queries")
-        table = bigquery.Table(table_ref, schema=schema)
-        
-        # Set table description
-        table.description = "Bronze queries generated from historical Looker query patterns for explore assistant training"
-        
-        # Create the table
-        table = client.create_table(table)
-        logging.info(f"Successfully created bronze queries table: {bronze_table_id}")
-        
-        return True
-        
-    except Exception as e:
-        logging.error(f"Failed to create bronze queries table: {e}")
-        raise Exception(f"Failed to create bronze queries table: {e}")
-
-def migrate_bronze_queries_add_ids():
-    """
-    Migrate existing bronze queries to add UUID ids for records that don't have them
-    """
-    try:
-        client = bigquery.Client()
-        bronze_table_id = f"{bq_project_id}.{bq_dataset_id}.bronze_queries"
-        
-        logging.info("Starting migration to add IDs to bronze queries...")
-        
-        # Update all records without id to have a UUID
-        update_query = f"""
-        UPDATE `{bronze_table_id}`
-        SET id = GENERATE_UUID()
-        WHERE id IS NULL
-        """
-        
-        job = client.query(update_query)
-        job.result()  # Wait for completion
-        
-        logging.info(f"Successfully added UUIDs to bronze queries without IDs")
-        
-    except Exception as e:
-        logging.error(f"Failed to migrate bronze queries: {e}")
-        # Don't raise - this is a migration that can fail without breaking the system
-
-def ensure_silver_queries_table_exists():
-    """
-    Create the silver_queries table if it doesn't exist, or update schema if needed.
-    """
-    try:
-        client = bigquery.Client(project=bq_project_id)
-        silver_table_id = f"{bq_project_id}.{bq_dataset_id}.{bq_suggested_table}"
-
-        # Check if table exists
-        try:
-            table = client.get_table(silver_table_id)
-            logging.info(f"Silver queries table {silver_table_id} already exists")
-            
-            # Check if new fields exist, add them if they don't
-            existing_field_names = {field.name for field in table.schema}
-            new_fields = []
-            
-            if 'suggested_new_prompt' not in existing_field_names:
-                new_fields.append(bigquery.SchemaField("suggested_new_prompt", "STRING", mode="NULLABLE"))
-                logging.info("Will add suggested_new_prompt field to existing silver queries table")
-            
-            if 'query_slug' not in existing_field_names:
-                new_fields.append(bigquery.SchemaField("query_slug", "STRING", mode="NULLABLE"))
-                logging.info("Will add query_slug field to existing silver queries table")
-                
-            if 'share_url' not in existing_field_names:
-                new_fields.append(bigquery.SchemaField("share_url", "STRING", mode="NULLABLE"))
-                logging.info("Will add share_url field to existing silver queries table")
-                
-            if 'expanded_share_url' not in existing_field_names:
-                new_fields.append(bigquery.SchemaField("expanded_share_url", "STRING", mode="NULLABLE"))
-                logging.info("Will add expanded_share_url field to existing silver queries table")
-            
-            if new_fields:
-                table.schema = table.schema + new_fields
-                table = client.update_table(table, ["schema"])
-                logging.info(f"Successfully added {len(new_fields)} new fields to silver queries table")
-            
-            return True
-        except Exception as table_error:
-            logging.info(f"Silver queries table {silver_table_id} does not exist, creating it: {table_error}")
-
-        # Define the table schema (including all fields)
-        schema = [
-            bigquery.SchemaField("explore_key", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("prompt", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("explore_params", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("user_id", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("timestamp", "FLOAT", mode="NULLABLE"),
-            bigquery.SchemaField("created_at", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("approved", "BOOLEAN", mode="NULLABLE"),
-            bigquery.SchemaField("feedback_type", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("created_date", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("suggested_new_prompt", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("query_slug", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("share_url", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("expanded_share_url", "STRING", mode="NULLABLE"),
-        ]
-
-        # Create table reference
-        table_ref = client.dataset(bq_dataset_id, project=bq_project_id).table(bq_suggested_table)
-        table = bigquery.Table(table_ref, schema=schema)
-        table.description = "Suggested golden queries for Looker Explore Assistant"
-
-        # Create the table
-        table = client.create_table(table)
-        logging.info(f"Successfully created silver queries table: {silver_table_id}")
-        return True
-
-    except Exception as e:
-        logging.error(f"Failed to create silver queries table: {e}")
-        raise Exception(f"Failed to create silver queries table: {e}")
-
-def generate_bronze_queries_for_explore(model_name: str, explore_name: str, explore_key: str, user_email: str = None) -> Dict[str, Any]:
-    """
-    Generate bronze queries for a specific explore by analyzing recent query history
-    and using Vertex AI to create natural language descriptions.
-    """
-    try:
-        # Ensure the bronze queries table exists
-        ensure_bronze_queries_table_exists()
-        
-        # Initialize Looker SDK
-        looker_sdk = get_looker_sdk()
-        if not looker_sdk:
-            raise Exception("Failed to initialize Looker SDK")
-        
-        logging.info(f"Generating bronze queries for explore: {explore_key}")
-        
-        # Fetch recent query history for this explore (last 30 days)
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=30)
-        
-        # Query Looker's query history using the system activity explore
-        # This replicates the logic from generate_examples.py
-        history_queries = []
-        
-        try:
-            # Use Looker API to get query history for this specific explore
-            query_params = {
-                'model': 'system__activity',
-                'explore': 'history',
-                'view': 'history',  # Add the required view field
-                'fields': ['history.query_run_count', 'query.model', 'query.view', 'query.formatted_fields', 'query.formatted_filters', 'query.formatted_pivots', 'query.sorts', 'query.limit', 'query.share_url', 'query.slug'],
-                'filters': {
-                    'history.created_date': f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
-                    'query.model': model_name,
-                    'query.view': explore_name
-                },
-                'sorts': ['history.query_run_count desc'],
-                'limit': 50  # Get top 50 most-run queries
-            }
-            
-            # Create and run the query
-            query_response = looker_sdk.create_query(query_params)
-            if query_response and query_response.id:
-                results = looker_sdk.run_query(query_response.id, 'json')
-                if results:
-                    history_queries = json.loads(results)
-                    
-        except Exception as e:
-            logging.warning(f"Could not fetch query history: {e}")
-            # If we can't get history, check if the explore exists at least
-            try:
-                explore_info = looker_sdk.lookml_model_explore(model_name, explore_name)
-                if not explore_info:
-                    raise Exception(f"Explore {model_name}:{explore_name} not found")
-            except Exception as explore_error:
-                raise Exception(f"Explore validation failed: {explore_error}")
-            
-            # If explore exists but no history, return specific error
-            raise Exception("The explore is not yet used, so no queries could be retrieved.")
-        
-        if not history_queries or len(history_queries) == 0:
-            raise Exception("The explore is not yet used, so no queries could be retrieved.")
-        
-        logging.info(f"Found {len(history_queries)} historical queries for analysis")
-        
-        # Fetch explore metadata to provide context to the AI
-        try:
-            explore_metadata = looker_sdk.lookml_model_explore(
-                model_name, 
-                explore_name, 
-                fields='dimensions,measures,dimension_groups'
-            )
-        except Exception as e:
-            logging.warning(f"Could not fetch explore metadata: {e}")
-            explore_metadata = None
-        
-        # Prepare context for Vertex AI
-        context_parts = []
-        if explore_metadata:
-            # Add dimensions
-            if hasattr(explore_metadata, 'dimensions') and explore_metadata.dimensions:
-                dims = [d.name for d in explore_metadata.dimensions if d.name]
-                context_parts.append(f"Available dimensions: {', '.join(dims[:20])}")  # Limit to first 20
-            
-            # Add measures
-            if hasattr(explore_metadata, 'measures') and explore_metadata.measures:
-                measures = [m.name for m in explore_metadata.measures if m.name]
-                context_parts.append(f"Available measures: {', '.join(measures[:20])}")  # Limit to first 20
-        
-        explore_context = '\n'.join(context_parts) if context_parts else f"Explore: {model_name}.{explore_name}"
-        
-        # Process queries with Vertex AI to generate natural language descriptions
-        bronze_queries = []
-        
-        try:
-            # Process queries in batches to avoid token limits
-            batch_size = 10
-            for i in range(0, min(len(history_queries), 30), batch_size):  # Process max 30 queries
-                batch = history_queries[i:i+batch_size]
-                
-                # Prepare prompt for this batch
-                query_descriptions = []
-                for idx, query_data in enumerate(batch):
-                    query_desc = f"Query {i+idx+1}:\n"
-                    if query_data.get('query.formatted_fields'):
-                        query_desc += f"Fields: {query_data['query.formatted_fields']}\n"
-                    if query_data.get('query.formatted_filters'):
-                        query_desc += f"Filters: {query_data['query.formatted_filters']}\n"
-                    if query_data.get('query.formatted_pivots'):
-                        query_desc += f"Pivots: {query_data['query.formatted_pivots']}\n"
-                    if query_data.get('query.sorts'):
-                        query_desc += f"Sorts: {query_data['query.sorts']}\n"
-                    if query_data.get('query.limit'):
-                        query_desc += f"Limit: {query_data['query.limit']}\n"
-                    query_descriptions.append({
-                        'description': query_desc,
-                        'query_data': query_data
-                    })
-                
-                prompt = f"""
-You are analyzing Looker queries for the explore "{model_name}.{explore_name}".
-
-{explore_context}
-
-Please convert these Looker queries into natural language questions that a business user might ask. Each question should be clear, business-focused, and reflect what the query is trying to answer.
-
-Queries to convert:
-{chr(10).join([q['description'] for q in query_descriptions])}
-
-For each query, provide ONLY the natural language question on a single line, starting with "Q{i+1}: ". Keep questions concise and business-oriented.
-"""
-                
-                # Use existing Vertex AI API function instead of SDK
-                vertex_request = {
-                    "contents": [
-                        {
-                            "role": "user",
-                            "parts": [{"text": prompt}]
-                        }
-                    ],
-                    "generationConfig": {
-                        "temperature": 0.1,
-                        "topP": 0.8,
-                        "topK": 40,
-                        "maxOutputTokens": 1024
-                    }
-                }
-                
-                try:
-                    vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
-                    if vertex_response:
-                        response_text = extract_vertex_response_text(vertex_response)
-                        if response_text:
-                            # Parse the response to extract individual questions
-                            lines = response_text.strip().split('\n')
-                            for line_idx, line in enumerate(lines):
-                                line = line.strip()
-                                if line.startswith('Q') and ':' in line:
-                                    question = line.split(':', 1)[1].strip()
-                                    if question and line_idx < len(query_descriptions):
-                                        original_query = query_descriptions[line_idx]['query_data']
-                                        
-                                        # Extract query parameters from the historical query
-                                        explore_params = {}
-                                        query_url_params = {}
-                                        
-                                        # Parse fields from formatted_fields
-                                        if original_query.get('query.formatted_fields'):
-                                            fields_str = original_query['query.formatted_fields']
-                                            # Clean up the fields string and split into list
-                                            fields = [f.strip() for f in fields_str.split(',') if f.strip()]
-                                            explore_params['fields'] = fields
-                                            query_url_params['fields'] = fields
-                                        
-                                        # Parse filters from formatted_filters
-                                        if original_query.get('query.formatted_filters'):
-                                            filters_str = original_query['query.formatted_filters']
-                                            # For now, store as string - could be parsed more sophisticatedly
-                                            explore_params['filters'] = filters_str
-                                            query_url_params['f'] = filters_str
-                                        
-                                        # Parse sorts
-                                        if original_query.get('query.sorts'):
-                                            sorts_str = original_query['query.sorts']
-                                            sorts = [s.strip() for s in sorts_str.split(',') if s.strip()]
-                                            explore_params['sorts'] = sorts
-                                            query_url_params['sorts'] = sorts
-                                        
-                                        # Parse limit
-                                        if original_query.get('query.limit'):
-                                            explore_params['limit'] = str(original_query['query.limit'])
-                                            query_url_params['limit'] = str(original_query['query.limit'])
-                                        
-                                        # Parse pivots if available
-                                        if original_query.get('query.formatted_pivots'):
-                                            pivots_str = original_query['query.formatted_pivots']
-                                            pivots = [p.strip() for p in pivots_str.split(',') if p.strip()]
-                                            explore_params['pivots'] = pivots
-                                            query_url_params['pivots'] = pivots
-                                        
-                                        # Extract only the query slug (share URLs are not reliable for historical queries)
-                                        query_slug = original_query.get('query.slug', '')
-                                        
-                                        logging.info(f"Bronze query slug: {query_slug}")
-                                        
-                                        bronze_queries.append({
-                                            'input': question,
-                                            'output': 'Generated from historical query patterns',
-                                            'explore_params': explore_params,  # Store structured query parameters
-                                            'query_url_params': query_url_params,  # Store URL-compatible parameters
-                                            'query_run_count': original_query.get('history.query_run_count'),
-                                            'original_query_url': original_query.get('query.share_url', ''),  # Keep for backward compatibility
-                                            'query_slug': query_slug
-                                        })
-                
-                except Exception as ai_error:
-                    logging.error(f"Vertex AI processing failed for batch {i}: {ai_error}")
-                    continue
-        
-        except Exception as ai_setup_error:
-            logging.error(f"Vertex AI setup failed: {ai_setup_error}")
-            raise Exception(f"AI service failed to generate queries: {ai_setup_error}")
-        
-        if not bronze_queries:
-            raise Exception("No bronze queries could be generated from the available data.")
-        
-        # Store bronze queries in BigQuery
-        try:
-            client = bigquery.Client()
-            bronze_table_id = f"{bq_project_id}.{bq_dataset_id}.bronze_queries"
-            
-            # Prepare rows for insertion
-            rows_to_insert = []
-            current_timestamp = datetime.now()
-            
-            for query in bronze_queries:
-                rows_to_insert.append({
-                    'id': str(uuid.uuid4()),  # Generate unique ID for each bronze query
-                    'explore_key': explore_key,
-                    'model_name': model_name,
-                    'explore_name': explore_name,
-                    'input_question': query['input'],
-                    'output_description': query['output'],
-                    'explore_params': json.dumps(query.get('explore_params', {})),  # Store as JSON string
-                    'query_url_params': json.dumps(query.get('query_url_params', {})),  # Store as JSON string
-                    'created_at': current_timestamp.isoformat(),
-                    'source': 'auto_generated',
-                    'user_email': user_email,
-                    'query_run_count': query.get('query_run_count'),
-                    'original_query_url': query.get('original_query_url'),
-                    'query_slug': query.get('query_slug', '')
-                })
-            
-            # Insert the data
-            errors = client.insert_rows_json(bronze_table_id, rows_to_insert)
-            
-            if errors:
-                logging.error(f"BigQuery insertion errors: {errors}")
-                raise Exception(f"Failed to store bronze queries: {errors}")
-            
-            # Log summary of stored queries with slug information
-            queries_with_slugs = sum(1 for query in bronze_queries if query.get('query_slug'))
-            logging.info(f"Successfully stored {len(bronze_queries)} bronze queries for {explore_key}")
-            logging.info(f"Queries with slugs: {queries_with_slugs}")
-            
-        except Exception as bq_error:
-            logging.error(f"BigQuery storage failed: {bq_error}")
-            raise Exception(f"Failed to store bronze queries: {bq_error}")
-        
-        return {
-            'success': True,
-            'message': f'Successfully generated {len(bronze_queries)} bronze queries for {explore_key}',
-            'queries_generated': len(bronze_queries),
-            'explore_key': explore_key
-        }
-        
-    except Exception as e:
-        logging.error(f"Bronze query generation failed: {e}")
-        raise e
 
 # For running directly as a Flask app (Cloud Run)
 if __name__ == "__main__":

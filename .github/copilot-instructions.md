@@ -103,10 +103,58 @@ Always include:
 3. Current date for timeframe queries
 4. Conversation context synthesis
 
+**Field Naming**: Use `explore_id` (not `explore_key`) throughout BigQuery operations and queries.
+
 ### State Management
 - Use Redux Toolkit with typed selectors
 - Persist conversation history in localStorage via redux-persist
 - Load semantic models and examples on app initialization
+
+## BigQuery Table Architecture (Simplified Management)
+
+### Three-Tier Query Progression System
+- **Bronze Queries** → **Silver Queries** → **Golden Queries**
+- **Disposable Staging Strategy**: Bronze/Silver tables drop and recreate on schema mismatch
+- **Data Preservation**: Golden table only adds missing columns, never drops data
+
+### Standardized Field Schema
+All tables use consistent field names with `explore_id` (not `explore_key`):
+
+```python
+# Core fields that migrate through all tables
+CORE_FIELDS = ["id", "explore_id", "input", "output", "link", "promoted_by", "promoted_at"]
+
+# Bronze-specific fields (don't migrate)
+BRONZE_FIELDS = ["user_email", "query_run_count"]
+
+# Silver-specific fields (don't migrate) 
+SILVER_FIELDS = ["user_id", "feedback_type", "conversation_history"]
+```
+
+### Table Management Functions
+```python
+# Disposable tables - drop/recreate on schema mismatch
+ensure_bronze_queries_table_exists()  # Bronze staging
+ensure_silver_queries_table_exists()  # Silver feedback staging
+
+# Preserve data - only add missing core fields
+ensure_golden_queries_table_exists()  # Golden training data
+
+# Promotion only uses core fields
+promote_query_atomic(query_id, source_table, "golden", promoted_by)
+```
+
+### Query Promotion Workflow
+1. **Bronze**: Raw query patterns with run counts
+2. **Silver**: User feedback with conversation history
+3. **Golden**: Core training data (7 fields only)
+4. **Promotion**: Atomic operation with audit logging
+
+### Key Benefits of Simplified Architecture
+- **No Migration Complexity**: Bronze/Silver recreated fresh vs complex schema migrations
+- **HTTP 500 Prevention**: Promotion only inserts fields that exist in golden table
+- **Enhanced Context**: Silver queries store full conversation history
+- **Data Safety**: Golden table data always preserved during schema updates
 
 ## Common Debugging Workflows
 

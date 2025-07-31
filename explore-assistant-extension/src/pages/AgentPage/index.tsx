@@ -82,14 +82,14 @@ const AgentPage = () => {
     isAreasLoaded,
   } = useSelector((state: RootState) => state.assistant as AssistantState)
 
-  const explores = Object.keys(examples.exploreSamples).map((key) => {
-    const exploreParts = key.split(':')
-    return {
-      exploreKey: key,
-      modelName: exploreParts[0],
-      exploreId: exploreParts[1],
-    }
-  })
+  // const explores = Object.keys(examples.exploreSamples).map((key) => {
+  //   const exploreParts = key.split(':')
+  //   return {
+  //     exploreKey: key,
+  //     modelName: exploreParts[0],
+  //     exploreId: exploreParts[1],
+  //   }
+  // })
 
   // Get explores for the selected area
   const getExploresForSelectedArea = () => {
@@ -110,7 +110,7 @@ const AgentPage = () => {
     }
     
     // Fallback: create a display name from the explore key
-    const fallbackDisplayName = exploreKey.split(':')[1]?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || exploreKey
+    const fallbackDisplayName = exploreKey?.split(':')[1]?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || exploreKey
     return { display_name: fallbackDisplayName, description: '' }
   }
 
@@ -182,7 +182,7 @@ const AgentPage = () => {
         console.log('Setting new explore from response.explore_key:', exploreKey)
         console.log('Current explore state before update:', currentExplore)
         
-        const parts = exploreKey.split(':')
+        const parts = exploreKey?.split(':') || []
      
         if (parts.length >= 2) {
           const [modelName, exploreId] = parts
@@ -293,8 +293,8 @@ const AgentPage = () => {
 
   const handleExploreChange = (event: SelectChangeEvent) => {
     const exploreKey = event.target.value
-    const [modelName, exploreId] = exploreKey.split(':')
-    
+    const [modelName, exploreId] = exploreKey?.split(':') || []
+
     // Update the current explore in Redux
     dispatch(
       setCurrenExplore({
@@ -346,7 +346,7 @@ const AgentPage = () => {
   const handleExploreSelectionChange = (event: SelectChangeEvent<string[]>) => {
     const value = event.target.value
     // Handle both string and string[] types
-    const selectedExplores = typeof value === 'string' ? value.split(',') : value
+    const selectedExplores = typeof value === 'string' ? value?.split(',') : value
     dispatch(setSelectedExplores(selectedExplores))
     
     // Reset chat when changing explore selection
@@ -355,7 +355,7 @@ const AgentPage = () => {
       
       // Add a message to inform the user that the explores have changed
       const exploreNames = selectedExplores.length > 0 
-        ? selectedExplores.map(key => key.split(':')[1]?.replace(/_/g, ' ')).join(', ')
+        ? selectedExplores.map(key => key?.split(':')[1]?.replace(/_/g, ' ')).join(', ')
         : 'all explores'
       
       dispatch(

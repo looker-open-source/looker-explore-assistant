@@ -7,7 +7,6 @@ import {
   AssistantState, 
   setSetting,
   setOAuthAuthenticating,
-  setOAuthValidationInProgress,
   setOAuthLastValidation,
   setOAuthError,
   setOAuthHasValidToken
@@ -68,7 +67,15 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
   }
 
   useEffect(() => {
+    // Prevent multiple simultaneous runs
+    if (isAuthenticating || validationInProgress) {
+      return
+    }
+
     const doAutoOAuth = async () => {
+      // Ensure OAuth state is clean on mount
+      dispatch(setOAuthError(null))
+      
       if (TOKEN_DEBUG) {
         console.log('===== OAuth Debug Info =====')
         console.log('Skip Auth Flag (param):', skipAutoAuthParam)
@@ -89,27 +96,32 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
       //   return
       // }
 
-      // Skip if parameters indicate we should skip, or if we've already attempted successfully
-      if (skipAutoAuthParam || skipAutoAuth || hasAttemptedOAuth.current) {
-        TOKEN_DEBUG && console.log('Skipping OAuth flow due to flags or already attempted')
+      // Skip if parameters indicate we should skip
+      if (skipAutoAuthParam || skipAutoAuth) {
+        TOKEN_DEBUG && console.log('Skipping OAuth flow due to flags')
         return
       }
       
-      // Skip if validation is in progress to avoid race conditions
-      if (validationInProgress) {
-        TOKEN_DEBUG && console.log('Token validation already in progress, skipping')
+      // Skip if we already have a valid token and have attempted OAuth
+      if (hasValidToken && hasAttemptedOAuth.current) {
+        TOKEN_DEBUG && console.log('Skipping OAuth flow - already have valid token')
         return
       }
       
-      // Skip if already authenticating to avoid duplicate OAuth flows
-      if (isAuthenticating) {
+      // Skip if already authenticating or validating to avoid duplicate OAuth flows
+      if (isAuthenticating || validationInProgress) {
         TOKEN_DEBUG && console.log('OAuth already in progress, skipping duplicate request')
         return
       }
 
-      // Must have client ID to proceed
+      // Must have client ID and extension SDK to proceed
       if (!GOOGLE_CLIENT_ID) {
         TOKEN_DEBUG && console.log('No Google Client ID configured, skipping OAuth')
+        return
+      }
+
+      if (!extensionSDK || !extensionSDK.oauth2Authenticate) {
+        TOKEN_DEBUG && console.log('Extension SDK not ready, skipping OAuth')
         return
       }
 
@@ -125,7 +137,6 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
         
         if (IDENTITY_TOKEN) {
           TOKEN_DEBUG && console.log('Checking existing token freshness...')
-          dispatch(setOAuthValidationInProgress(true))
           
           const tokenIsFresh = await isTokenFresh(IDENTITY_TOKEN)
           needsNewToken = !tokenIsFresh
@@ -134,14 +145,12 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
             TOKEN_DEBUG && console.log('Existing token is fresh and valid')
             dispatch(setOAuthLastValidation(Date.now()))
             dispatch(setOAuthHasValidToken(true))
-            dispatch(setOAuthValidationInProgress(false))
+            hasAttemptedOAuth.current = true
             return
           } else {
             TOKEN_DEBUG && console.log('Existing token is stale or invalid, will refresh')
             dispatch(setOAuthHasValidToken(false))
           }
-          
-          dispatch(setOAuthValidationInProgress(false))
         } else {
           TOKEN_DEBUG && console.log('No existing token, will obtain new one')
         }
@@ -150,7 +159,18 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
           console.log('Starting automatic OAuth flow')
           dispatch(setOAuthAuthenticating(true))
 
-          TOKEN_DEBUG && console.log('Calling extensionSDK.oauth2Authenticate')
+          TOKEN_DEBUG && console.log('Calling extensionSDK.oauth2Authenticate with params:', {
+            client_id: GOOGLE_CLIENT_ID.substring(0, 20) + '...', // Only show first 20 chars for security
+            scope: GOOGLE_SCOPES,
+            response_type: 'id_token'
+          })
+          
+          // Generate stable state and nonce values
+          const stateValue = Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
+          const nonceValue = Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
+          
+          TOKEN_DEBUG && console.log('OAuth state value:', stateValue)
+          TOKEN_DEBUG && console.log('OAuth nonce value:', nonceValue)
           
           // Add timeout for OAuth process
           const oauthPromise = extensionSDK.oauth2Authenticate(
@@ -159,7 +179,8 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
             client_id: GOOGLE_CLIENT_ID,
             scope: GOOGLE_SCOPES,
             response_type: 'id_token',
-            nonce: Math.random().toString(36).substring(2, 15), // Required for ID token
+            state: stateValue, // Required for OAuth security
+            nonce: nonceValue, // Required for ID token
             }
           )
 
@@ -206,8 +227,9 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
         dispatch(setOAuthError(error instanceof Error ? error.message : 'OAuth authentication failed'))
         dispatch(setOAuthHasValidToken(false))
         
-        // Don't reset the attempt flag so we can try again if needed
-        TOKEN_DEBUG && console.log('OAuth failed, not resetting attempt flag to allow manual retry')
+        // Reset the attempt flag on error so we can try again later
+        hasAttemptedOAuth.current = false
+        TOKEN_DEBUG && console.log('OAuth failed, resetting attempt flag to allow retry')
       } finally {
         dispatch(setOAuthAuthenticating(false))
       }
@@ -222,7 +244,7 @@ export const useAutoOAuth = (skipAutoAuthParam = false) => {
         console.log('Component was mounted for:', (Date.now() - mountTime.current) / 1000, 'seconds')
       }
     }
-  }, [GOOGLE_CLIENT_ID, IDENTITY_TOKEN, extensionSDK, dispatch, skipAutoAuthParam, skipAutoAuth])
+  }, [GOOGLE_CLIENT_ID, extensionSDK, dispatch, skipAutoAuthParam, skipAutoAuth])
 
   return { 
     isAuthenticating,

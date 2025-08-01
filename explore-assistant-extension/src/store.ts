@@ -17,6 +17,7 @@ const neverPersistKeys: (keyof AssistantState)[] = [
   'isSemanticModelLoaded',
   'currentExploreThread',
   'isChatMode',
+  'oauth', // Never persist OAuth state - should be fresh on each session
 ]
 
 // Create a transform function to filter out specific keys

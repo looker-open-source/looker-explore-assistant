@@ -61,8 +61,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   // Only request OpenID scopes for user identity - backend will use service account for API calls
   const GOOGLE_SCOPES = 'openid email profile';
   
-  // Use our hook but don't trigger auto-authentication here
-  const { isAuthenticating, hasValidToken, error: oauthHookError } = useAutoOAuth()
+  // Use our hook but don't trigger auto-authentication here since we have manual OAuth
+  const { isAuthenticating, hasValidToken, error: oauthHookError } = useAutoOAuth(true)
 
   // External OAuth hook for opening database connection window
   const { openExternalOAuthWindow, testConnection, hasOpenedWindow, connectionTestResult, isTestingConnection } = useExternalOAuth()
@@ -103,7 +103,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       }
 
       const clientId = settings['google_oauth_client_id']?.value as string;
-      console.log('Starting OAuth flow with client ID:', clientId);
+      console.log('Starting OAuth flow with client ID:', clientId.substring(0, 20) + '...');
 
       // Clear any previous error and set authenticating state
       dispatch(setOAuthError(null));
@@ -115,15 +115,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         dispatch(setSetting({ id: 'identity_token', value: '' }));
       }
 
+      // Generate stable state and nonce values
+      const stateValue = Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
+      const nonceValue = Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
+
       const response = await extensionSDK.oauth2Authenticate(
         'https://accounts.google.com/o/oauth2/v2/auth',
         {
           client_id: clientId,
           scope: GOOGLE_SCOPES,
           response_type: 'id_token', // Only request ID token
+          state: stateValue, // Required for OAuth security
           // Force consent screen to ensure fresh token
           ...(forceNew ? { prompt: 'consent' } : {}),
-          nonce: Math.random().toString(36).substring(2, 15), // Required for ID token
+          nonce: nonceValue, // Required for ID token
         }
       );
 

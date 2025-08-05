@@ -24,9 +24,17 @@ from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 import looker_sdk
 from looker_sdk.rtl import api_settings
+import spacy
 from google.cloud import bigquery
 
 logging.basicConfig(level=logging.INFO)
+
+# Load spaCy model once at module level
+try:
+    nlp = spacy.load("en_core_web_sm")
+except Exception as e:
+    nlp = None
+    logging.warning(f"spaCy model load failed: {e}")
 
 # Initialize environment variables
 project = os.environ.get("PROJECT")
@@ -37,6 +45,102 @@ vertex_model = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash-001")
 bq_project_id = os.environ.get("BQ_PROJECT_ID", "ml-accelerator-dbarr")
 bq_dataset_id = os.environ.get("BQ_DATASET_ID", "explore_assistant")
 bq_suggested_table = os.environ.get("BQ_SUGGESTED_TABLE", "silver_queries")
+
+def get_max_tokens_for_model(model_name: str) -> dict:
+    """Get maximum input and output tokens for the current model"""
+    model_limits = {
+        # Gemini 2.5 Models (anticipated)
+        "gemini-2.5-flash": {"input": 1048576, "output": 8192},
+        "gemini-2.5-flash-lite": {"input": 1048576, "output": 8192},
+        "gemini-2.5-pro": {"input": 2097152, "output": 8192},
+        
+        # Gemini 2.0 Models
+        "gemini-2.0-flash-exp": {"input": 1048576, "output": 8192},
+        "gemini-2.0-flash-001": {"input": 1048576, "output": 8192},
+        "gemini-2.0-flash": {"input": 1048576, "output": 8192},
+        "gemini-2.0-flash-thinking-exp": {"input": 32767, "output": 8192},
+        "gemini-2.0-pro": {"input": 2097152, "output": 8192},
+        
+        # Gemini 1.5 Models
+        "gemini-1.5-pro-002": {"input": 2097152, "output": 8192},
+        "gemini-1.5-pro-001": {"input": 2097152, "output": 8192},
+        "gemini-1.5-pro": {"input": 2097152, "output": 8192},
+        "gemini-1.5-flash-002": {"input": 1048576, "output": 8192},
+        "gemini-1.5-flash-001": {"input": 1048576, "output": 8192},
+        "gemini-1.5-flash": {"input": 1048576, "output": 8192},
+        "gemini-1.5-flash-8b": {"input": 1048576, "output": 8192},
+        
+        # Gemini 1.0 Models (legacy)
+        "gemini-1.0-pro": {"input": 32760, "output": 2048},
+        "gemini-pro": {"input": 32760, "output": 2048}
+    }
+    
+    # Check for exact match first
+    if model_name in model_limits:
+        return model_limits[model_name]
+    
+    # Pattern matching for version variations
+    if "gemini-2.5" in model_name.lower():
+        if "flash-lite" in model_name.lower():
+            return {"input": 1048576, "output": 8192}
+        elif "flash" in model_name.lower():
+            return {"input": 1048576, "output": 8192}
+        elif "pro" in model_name.lower():
+            return {"input": 2097152, "output": 8192}
+    
+    if "gemini-2.0" in model_name.lower():
+        if "thinking" in model_name.lower():
+            return {"input": 32767, "output": 8192}
+        elif "flash" in model_name.lower():
+            return {"input": 1048576, "output": 8192}
+        elif "pro" in model_name.lower():
+            return {"input": 2097152, "output": 8192}
+    
+    if "gemini-1.5" in model_name.lower():
+        if "flash-8b" in model_name.lower():
+            return {"input": 1048576, "output": 8192}
+        elif "flash" in model_name.lower():
+            return {"input": 1048576, "output": 8192}
+        elif "pro" in model_name.lower():
+            return {"input": 2097152, "output": 8192}
+    
+    # Default fallback for unknown models
+    logging.warning(f"Unknown model '{model_name}', using conservative defaults")
+    return {"input": 32000, "output": 2048}
+
+def calculate_max_output_tokens(system_prompt: str, model_name: str) -> int:
+    """Calculate maximum safe output tokens - always use full capacity unless input is too large"""
+    model_limits = get_max_tokens_for_model(model_name)
+    max_output = model_limits["output"]
+    max_input = model_limits["input"]
+    
+    # Rough estimate: 1 token ≈ 4 characters for English text
+    estimated_prompt_tokens = len(system_prompt) // 4
+    
+    logging.info(f"📊 Model: {model_name}")
+    logging.info(f"📊 Max input tokens: {max_input:,}")
+    logging.info(f"📊 Max output tokens: {max_output:,}")
+    logging.info(f"📊 Estimated prompt tokens: {estimated_prompt_tokens:,}")
+    
+    # Only reduce output if prompt is extremely large (>90% of input limit)
+    if estimated_prompt_tokens > max_input * 0.9:
+        logging.warning(f"⚠️ Prompt approaching input token limit ({estimated_prompt_tokens:,} / {max_input:,})")
+        return max(max_output // 4, 500)  # Conservative fallback
+    else:
+        # Use maximum output tokens available
+        logging.info(f"📊 Using FULL output capacity: {max_output:,} tokens")
+        return max_output
+
+def update_token_warning_thresholds(model_name: str) -> dict:
+    """Get appropriate warning thresholds based on model capabilities"""
+    model_limits = get_max_tokens_for_model(model_name)
+    
+    return {
+        "prompt_warning": int(model_limits["input"] * 0.8),  # Warn at 80% of input limit
+        "total_warning": int((model_limits["input"] + model_limits["output"]) * 0.8),
+        "prompt_critical": int(model_limits["input"] * 0.95),  # Critical at 95% of input limit
+        "total_critical": int((model_limits["input"] + model_limits["output"]) * 0.95)
+    }
 
 def get_response_headers():
     return {
@@ -116,6 +220,7 @@ def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Opt
         
         # Log the request for debugging
         logging.info(f"Calling Vertex AI API with service account: {vertex_api_url}")
+        logging.info(f"Using model: {vertex_model}")
         
         response = requests.post(vertex_api_url, headers=headers, json=request_body)
         
@@ -125,20 +230,33 @@ def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Opt
         
         response_data = response.json()
         
-        # Log token usage information if available
+        # Log token usage information with model-specific thresholds
         usage_metadata = response_data.get('usageMetadata', {})
         if usage_metadata:
             prompt_tokens = usage_metadata.get('promptTokenCount', 0)
             total_tokens = usage_metadata.get('totalTokenCount', 0)
             cached_tokens = usage_metadata.get('cachedContentTokenCount', 0)
             
-            logging.info(f"📊 Token Usage - Prompt: {prompt_tokens}, Total: {total_tokens}, Cached: {cached_tokens}")
+            logging.info(f"📊 Token Usage - Prompt: {prompt_tokens:,}, Total: {total_tokens:,}, Cached: {cached_tokens:,}")
             
-            # Warn if approaching token limits
-            if prompt_tokens > 5000:
-                logging.warning(f"⚠️ High prompt token usage: {prompt_tokens} tokens")
-            if total_tokens > 7000:
-                logging.warning(f"⚠️ High total token usage: {total_tokens} tokens - approaching model limits")
+            # Get model-specific warning thresholds
+            thresholds = update_token_warning_thresholds(vertex_model)
+            
+            # Model-aware warnings
+            if prompt_tokens > thresholds["prompt_critical"]:
+                logging.error(f"🚨 CRITICAL: Prompt token usage ({prompt_tokens:,}) approaching model limit for {vertex_model}")
+            elif prompt_tokens > thresholds["prompt_warning"]:
+                logging.warning(f"⚠️ High prompt token usage: {prompt_tokens:,} tokens for model {vertex_model}")
+            
+            if total_tokens > thresholds["total_critical"]:
+                logging.error(f"🚨 CRITICAL: Total token usage ({total_tokens:,}) approaching model limit for {vertex_model}")
+            elif total_tokens > thresholds["total_warning"]:
+                logging.warning(f"⚠️ High total token usage: {total_tokens:,} tokens for model {vertex_model}")
+            
+            # Log model capacity utilization
+            model_limits = get_max_tokens_for_model(vertex_model)
+            prompt_utilization = (prompt_tokens / model_limits["input"]) * 100
+            logging.info(f"📊 Model capacity utilization: {prompt_utilization:.1f}% of input limit")
         
         logging.info("Vertex AI API call successful")
         return response_data
@@ -669,29 +787,40 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
         measures = explore_semantic_model.get('measures', [])
         explore_description = explore_semantic_model.get('description', '')
         
-        # Limit fields to most relevant ones to reduce token usage
-        MAX_FIELDS_PER_TYPE = 15  # Reduced from 20 to further limit tokens
+        # Dynamic field limiting based on model capacity
+        model_limits = get_max_tokens_for_model(vertex_model)
+        
+        # Adjust field limits based on model input capacity
+        if model_limits["input"] >= 1000000:  # High-capacity models (2M+ tokens)
+            MAX_FIELDS_PER_TYPE = 25
+            description_limit = 100
+        elif model_limits["input"] >= 500000:  # Medium-capacity models (500K+ tokens)
+            MAX_FIELDS_PER_TYPE = 20
+            description_limit = 80
+        else:  # Lower-capacity models
+            MAX_FIELDS_PER_TYPE = 15
+            description_limit = 50
         
         def format_field_concise(field):
             name = field.get('name', '')
             label = field.get('label', '')
-            description = field.get('description', '')[:50]  # Further reduced from 100 to 50 chars
+            description = field.get('description', '')[:description_limit]
             return f"- {name}: {label}" + (f" ({description})" if description else "")
 
         # Take only the first N fields to manage token usage
         limited_dimensions = dimensions[:MAX_FIELDS_PER_TYPE] if dimensions else []
         limited_measures = measures[:MAX_FIELDS_PER_TYPE] if measures else []
         
-        # If we have too many fields, be even more aggressive
+        # If we still have too many fields, be more aggressive for smaller models
         total_fields = len(limited_dimensions) + len(limited_measures)
-        if total_fields > 25:  # If still too many fields, truncate further
-            logging.warning(f"⚠️ Too many fields ({total_fields}), further reducing for token efficiency")
-            limited_dimensions = dimensions[:10] if dimensions else []
-            limited_measures = measures[:10] if measures else []
+        if total_fields > 30 and model_limits["input"] < 100000:
+            logging.warning(f"⚠️ Too many fields ({total_fields}) for model capacity, reducing further")
+            limited_dimensions = dimensions[:8] if dimensions else []
+            limited_measures = measures[:8] if measures else []
         
         table_context = f"""
 # Looker Explore: {explore_key}
-{f"Description: {explore_description[:150]}" if explore_description else ""}
+{f"Description: {explore_description[:200]}" if explore_description else ""}
 
 ## Available Dimensions ({len(limited_dimensions)} of {len(dimensions)}):
 {chr(10).join([format_field_concise(dim) for dim in limited_dimensions])}
@@ -700,26 +829,29 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
 {chr(10).join([format_field_concise(measure) for measure in limited_measures])}
 """
 
-        # Get a limited number of relevant examples to prevent token overflow
+        # Get examples with dynamic limits based on model capacity
         example_text = ""
-        max_examples = 2  # Further reduced from 3 to 2
+        if model_limits["input"] >= 1000000:
+            max_examples = 3
+            max_input_chars = 120
+        elif model_limits["input"] >= 500000:
+            max_examples = 2
+            max_input_chars = 100
+        else:
+            max_examples = 1
+            max_input_chars = 80
         
-        # Try to get a few representative examples
+        # Try to get relevant examples
         if 'exploreGenerationExamples' in golden_queries and explore_key in golden_queries['exploreGenerationExamples']:
             examples = golden_queries['exploreGenerationExamples'][explore_key]
             if isinstance(examples, list) and examples:
                 limited_examples = examples[:max_examples]
-                example_text = f"\nExample queries:\n"  # Shortened header
+                example_text = f"\nExample queries:\n"
                 for i, ex in enumerate(limited_examples, 1):
-                    input_text = ex.get('input', '')[:80]  # Reduced from 100 to 80 chars
+                    input_text = ex.get('input', '')[:max_input_chars]
                     example_text += f"{i}. {input_text}\n"
         
-        # Calculate approximate prompt size for monitoring
-        prompt_estimate = len(table_context) + len(example_text) + len(query) + 800  # Reduced base estimate
-        if prompt_estimate > 6000:  # More conservative limit for token management
-            logging.warning(f"⚠️ Large prompt detected (~{prompt_estimate} chars) - may hit token limits")
-
-        # Build system prompt for explore parameter generation - streamlined for token efficiency
+        # Build system prompt for explore parameter generation
         system_prompt = f"""Generate Looker explore parameters for: "{query}"
 
 {table_context}
@@ -744,29 +876,16 @@ Return JSON:
 Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_line, looker_area, looker_pie
 """
 
-        logging.info(f"🔍 Generated prompt size: ~{len(system_prompt)} characters")
-        if len(system_prompt) > 8000:
-            logging.warning(f"⚠️ Large system prompt ({len(system_prompt)} chars) - may cause token issues")
-
-        # Dynamically adjust maxOutputTokens based on prompt size to prevent MAX_TOKENS
-        # Much more conservative limits for concise outputs
-        base_tokens = 2048
-        prompt_char_count = len(system_prompt)
+        logging.info(f"🔍 Generated prompt size: ~{len(system_prompt):,} characters")
         
-        # Rough estimate: 1 token ≈ 4 characters for English text
-        estimated_prompt_tokens = prompt_char_count // 4
+        # Calculate dynamic output tokens based on model and prompt size
+        # Use new comprehensive token management
+        max_output_tokens = calculate_max_output_tokens(system_prompt, vertex_model)
+        thresholds = update_token_warning_thresholds(vertex_model)
         
-        # Very conservative token allocation to force brevity
-        if estimated_prompt_tokens > 4000:
-            max_output_tokens = 8000  # Very small for large prompts
-        elif estimated_prompt_tokens > 2000:
-            max_output_tokens = 4000  # Small for medium prompts
-        else:
-            max_output_tokens = base_tokens  # Conservative baseline
-            
-        logging.info(f"📊 Estimated prompt tokens: {estimated_prompt_tokens}, Using maxOutputTokens: {max_output_tokens}")
+        logging.info(f"📊 Using dynamic maxOutputTokens: {max_output_tokens:,} for model {vertex_model}")
 
-        # Format request for Vertex AI
+        # Format request for Vertex AI with dynamic token allocation
         vertex_request = {
             "contents": [
                 {
@@ -779,12 +898,12 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
                 }
             ],
             "generationConfig": {
-                "temperature": 0.1,  # Low temperature for consistency
-                "topP": 0.5,  # Reduced from 0.8 to encourage more focused, concise responses
-                "topK": 20,  # Reduced from 40 to limit vocabulary and encourage brevity
-                "maxOutputTokens": max_output_tokens,  # Dynamic based on prompt size
+                "temperature": 0.1,
+                "topP": 0.5,
+                "topK": 20,
+                "maxOutputTokens": max_output_tokens,  # Dynamic based on model and prompt
                 "responseMimeType": "application/json",
-                "candidateCount": 1  # Only generate one candidate to reduce processing
+                "candidateCount": 1
             }
         }
         
@@ -793,14 +912,13 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
         if not vertex_response:
             return None
         
-        # Extract and parse the JSON response (may already be dict)
+        # Extract and parse the JSON response
         response_text = extract_vertex_response_text(vertex_response)
         if response_text:
             try:
                 # Handle dict directly
                 if isinstance(response_text, dict):
                     result = response_text
-                # Handle list by taking first dict element or fallback
                 elif isinstance(response_text, list):
                     if response_text and isinstance(response_text[0], dict):
                         result = response_text[0]
@@ -809,13 +927,13 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
                         return create_context_aware_fallback(query, explore_key, "", semantic_models)
                 else:
                     result = json.loads(response_text)
-                logging.info(f"Generated explore params for {explore_key} from synthesized query")
+                    
+                logging.info(f"Generated explore params for {explore_key} using model {vertex_model}")
                 if isinstance(result, dict):
                     logging.info(f"Response structure: {list(result.keys())}")
                 
                 # Ensure the response has the expected structure
                 if isinstance(result, dict) and 'explore_params' not in result:
-                    # If the AI returned explore parameters directly, wrap them
                     if 'fields' in result or 'filters' in result:
                         result = {
                             "explore_key": explore_key,
@@ -824,7 +942,6 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
                             "summary": f"Generated query for: {query}"
                         }
                     else:
-                        # Create a minimal response with context understanding
                         logging.warning(f"Unexpected response structure, creating fallback")
                         result = create_context_aware_fallback(query, explore_key, "", semantic_models)
                 
@@ -832,9 +949,7 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
                 explore_params = result.get('explore_params', {})
                 if not explore_params or not explore_params.get('fields'):
                     logging.warning(f"Empty explore_params detected, using context-aware fallback")
-                    logging.info(f"Original response: {result}")
                     fallback_result = create_context_aware_fallback(query, explore_key, "", semantic_models)
-                    # Preserve the original summary if it exists and is meaningful
                     if result.get('summary') and 'unable' not in result.get('summary', '').lower():
                         fallback_result['summary'] = result.get('summary')
                     result = fallback_result
@@ -844,7 +959,6 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
             except json.JSONDecodeError as e:
                 logging.error(f"Failed to parse JSON response: {e}")
                 logging.error(f"Raw response: {response_text}")
-                # Create a context-aware fallback response
                 return create_context_aware_fallback(query, explore_key, "", semantic_models)
         
         return None
@@ -1426,14 +1540,6 @@ def create_looker_query_and_get_links(explore_params: Dict[str, Any], explore_ke
             
             logging.info(f"Successfully created Looker query with ID: {query_response.id}")
             logging.info(f"Query slug: {result['query_slug']}")
-            logging.info(f"Share URL: {result['share_url']}")
-            logging.info(f"Expanded share URL: {result['expanded_share_url']}")
-            
-            return result
-        else:
-            logging.error("Failed to create Looker query - no response or missing ID")
-            return {}
-            
     except Exception as e:
         logging.error(f"Error creating Looker query: {e}")
         logging.error(f"Traceback: {traceback.format_exc()}")

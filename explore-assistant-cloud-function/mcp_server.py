@@ -750,7 +750,7 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
 
         # Dynamically adjust maxOutputTokens based on prompt size to prevent MAX_TOKENS
         # Much more conservative limits for concise outputs
-        base_tokens = 1024
+        base_tokens = 2048
         prompt_char_count = len(system_prompt)
         
         # Rough estimate: 1 token ≈ 4 characters for English text
@@ -758,9 +758,9 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
         
         # Very conservative token allocation to force brevity
         if estimated_prompt_tokens > 4000:
-            max_output_tokens = 4000  # Very small for large prompts
+            max_output_tokens = 8000  # Very small for large prompts
         elif estimated_prompt_tokens > 2000:
-            max_output_tokens = 2000  # Small for medium prompts
+            max_output_tokens = 4000  # Small for medium prompts
         else:
             max_output_tokens = base_tokens  # Conservative baseline
             

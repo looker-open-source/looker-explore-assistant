@@ -5,6 +5,19 @@
 
 set -e  # Exit on any error
 
+# Ensure we're in the correct directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+echo "Running deployment from: $(pwd)"
+
+# Verify required files exist
+if [[ ! -f "mcp_server.py" || ! -f "requirements.txt" || ! -f "Dockerfile" ]]; then
+    echo -e "${RED}Error: Required files (mcp_server.py, requirements.txt, Dockerfile) not found in current directory.${NC}"
+    echo "Make sure you're running this script from the explore-assistant-cloud-function directory."
+    exit 1
+fi
+
 # Configuration variables - Modify these before running
 PROJECT_ID="combined-genai-bi"  # Replace with your GCP project ID
 REGION="us-central1"  # Replace with your preferred region
@@ -73,6 +86,14 @@ gcloud auth configure-docker $REGION-docker.pkg.dev
 
 # Build the container image using Cloud Build
 echo -e "${YELLOW}Building container image...${NC}"
+echo -e "${YELLOW}Build context contains:${NC}"
+echo "Required files:"
+ls -la mcp_server.py requirements.txt Dockerfile llm_utils.py 2>/dev/null || echo "Some required files missing!"
+echo ""
+echo "Total files in build context:"
+find . -type f ! -path './.git/*' | wc -l
+echo ""
+
 FULL_IMAGE_NAME="$REGION-docker.pkg.dev/$PROJECT_ID/$SERVICE_NAME/$IMAGE_NAME"
 
 gcloud builds submit --tag $FULL_IMAGE_NAME .

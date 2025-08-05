@@ -2,6 +2,9 @@
 .git
 .gitignore
 *.md
+README*
+CHANGELOG*
+LICENSE*
 
 # Python
 __pycache__/
@@ -31,6 +34,7 @@ venv/
 ENV/
 env/
 .venv/
+.conda/
 
 # Testing
 .pytest_cache/
@@ -38,17 +42,18 @@ env/
 htmlcov/
 .tox/
 .nox/
+test_files/
+tests/
+*test*.py
 
 # Development files
-.env
-.env.local
-.env.development
-.env.test
-.env.production
+.env*
+*.local
 
 # Cache directories
 cache/
 .cache/
+__pycache__/
 
 # Development scripts
 run_local.sh
@@ -56,13 +61,11 @@ restart_server.sh
 get_oauth_token.sh
 test_*.py
 testing/
-testing copy/
+*copy*/
 
 # Development utilities
 scripts/
-scripts copy/
 utils/
-utils copy/
 nodes/
 
 # IDE and editor files
@@ -83,4 +86,43 @@ Thumbs.db
 
 # Deployment scripts (these are for local use)
 deploy_to_cloudrun.sh
+redeploy*.sh
 update_env_vars.sh
+fix-cors*.sh
+
+# Frontend files (if accidentally included)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tgz
+*.tar.gz
+
+# Exclude other project directories
+../explore-assistant-extension/
+../explore-assistant-examples/
+../explore-assistant-backend/
+../explore-assistant-training/
+../mcp-wrapper/
+../server/
+../static/
+
+# Exclude vector MCP (if it's not needed)
+explore-assistant-vector-mcp/
+
+# Exclude TypeScript/JavaScript files not needed for Python service
+*.ts
+*.js
+*.json
+package*.json
+webpack*.js
+babel.config.js
+postcss.config.js
+tailwind.config.js
+tsconfig.json
+
+# Exclude documentation files
+*.docx
+*.pdf
+*.png
+*.gif

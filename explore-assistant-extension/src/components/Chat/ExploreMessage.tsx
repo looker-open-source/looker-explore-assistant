@@ -21,6 +21,7 @@ interface ExploreMessageProps {
   emojis?: string[]
   fields?: string[]
   isLoading?: boolean
+  summary?: string
 }
 
 export default function ExploreMessage({
@@ -32,6 +33,7 @@ export default function ExploreMessage({
   emojis,
   fields,
   isLoading,
+  summary,
 }: ExploreMessageProps) {
   const dispatch = useDispatch()
   const { extensionSDK } = useContext(ExtensionContext)
@@ -50,7 +52,18 @@ export default function ExploreMessage({
     <>
       <Message actor="system" createdAt={Date.now()}>
         <div>
-          <div className="mb-2">Here is the explore we generated.</div>
+          {summary && (
+            <div className="mb-3 p-3 bg-blue-50 border-l-4 border-blue-400 text-blue-800 text-sm rounded">
+              <div className="font-medium mb-1">
+                {summary.toLowerCase().includes('note') ? 'Note:' : 
+                 summary.toLowerCase().includes('analysis') ? 'Analysis:' :
+                 summary.toLowerCase().includes('insight') ? 'Insight:' :
+                 summary.toLowerCase().includes('context') ? 'Context:' :
+                 'Summary:'}
+              </div>
+              <div>{summary}</div>
+            </div>
+          )}
           <div
             className="bg-gray-400 text-white rounded-md p-4 my-2 shadow-lg hover:bg-gray-500 cursor-pointer"
             onClick={openSidePanelExplore}

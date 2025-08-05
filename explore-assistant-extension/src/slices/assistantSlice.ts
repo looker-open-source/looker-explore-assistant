@@ -78,6 +78,7 @@ export interface ExploreMessage {
   createdAt: number
   type: 'explore'
   summarizedPrompt: string
+  summary?: string
 }
 
 export interface SummarizeMesage {

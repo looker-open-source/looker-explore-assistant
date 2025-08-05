@@ -130,6 +130,47 @@ const AgentPage = () => {
     scrollIntoView()
   }, [currentExploreThread, query, isQuerying])
 
+  // Helper function to flexibly extract summary from response
+  const extractSummary = (response: any): string | undefined => {
+    // Check various possible field names for summary information
+    const summaryFields = [
+      'summary',
+      'description', 
+      'explanation',
+      'note',
+      'comment',
+      'insight',
+      'analysis',
+      'interpretation',
+      'context',
+      'details',
+      'info',
+      'message',
+      'clarification',
+      'annotation'
+    ]
+    
+    for (const field of summaryFields) {
+      if (response[field] && typeof response[field] === 'string' && response[field].trim()) {
+        console.log(`Found summary in field '${field}':`, response[field])
+        return response[field].trim()
+      }
+    }
+    
+    // Also check for nested objects that might contain summary info
+    if (response.metadata && typeof response.metadata === 'object') {
+      for (const field of summaryFields) {
+        if (response.metadata[field] && typeof response.metadata[field] === 'string' && response.metadata[field].trim()) {
+          console.log(`Found summary in metadata.${field}:`, response.metadata[field])
+          return response.metadata[field].trim()
+        }
+      }
+    }
+    
+    console.log('No summary found in response fields:', Object.keys(response))
+    return undefined
+  }
+
   const submitMessage = useCallback(async () => {
     if (query === '') {
       return
@@ -230,7 +271,7 @@ const AgentPage = () => {
             uuid: uuidv4(),
             actor: 'system',
             createdAt: Date.now(),
-            summary: response.summary || '',
+            summary: extractSummary(response) || '',
             type: 'summarize',
           }),
         )
@@ -244,6 +285,7 @@ const AgentPage = () => {
             exploreParams: response.explore_params || {},
             uuid: uuidv4(),
             summarizedPrompt: response.summarized_prompt || query,
+            summary: extractSummary(response),
             actor: 'system',
             createdAt: Date.now(),
             type: 'explore',

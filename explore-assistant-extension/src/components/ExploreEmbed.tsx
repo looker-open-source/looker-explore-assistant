@@ -102,7 +102,7 @@ export const ExploreEmbed = ({
   }
 
   const animateExploreLoad = () => {
-    document.getElementById('embedcontainer')?.style.setProperty('opacity', '1')
+    ref.current?.style.setProperty('opacity', '1')
   }
 
   const setExploreLoading = (_explore: any) => {}
@@ -144,7 +144,10 @@ export const ExploreEmbed = ({
     }
 
     try {
+      // Clear any existing content before creating new embed
       el.innerHTML = ''
+      
+      // Initialize SDK (this is safe to call multiple times)
       LookerEmbedSDK.init(hostUrl)
       
       const explore = await LookerEmbedSDK.createExploreWithId(modelName + '/' + exploreId)
@@ -211,6 +214,12 @@ export const ExploreEmbed = ({
   useEffect(() => {
     // Reset connection state when exploreParams change (new query URL)
     resetConnectionState()
+    
+    // Clear container before new connection to prevent overlapping content
+    if (ref.current) {
+      ref.current.innerHTML = ''
+    }
+    
     connectToExplore()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exploreParams])
@@ -226,7 +235,7 @@ export const ExploreEmbed = ({
   
   return (
     <>
-      <EmbedContainer id="embedcontainer" ref={ref} key={embedKey} />
+      <EmbedContainer id={`embedcontainer-${embedKey}`} ref={ref} key={embedKey} />
 
       {connectionError && hasReachedMaxRetries && (
         <ErrorStatus>

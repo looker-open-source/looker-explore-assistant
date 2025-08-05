@@ -54,6 +54,7 @@ const MessageThread = ({ endOfMessageRef }: MessageThreadProps) => {
               exploreId={currentExploreThread.exploreId}
               prompt={message.summarizedPrompt}
               autoOpen={shouldAutoOpen}
+              summary={message.summary}
             />
           )
         } else if (message.type === 'summarize') {

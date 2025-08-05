@@ -88,10 +88,7 @@ const PromptInput = () => {
           </button>
         </div>
       </div>
-      <p className="text-xs text-gray-500 my-2 text-center">
-        Gemini may display inaccurate info, including about people, so
-        double-check its responses.
-      </p>
+    
     </div>
   )
 }

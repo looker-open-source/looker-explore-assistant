@@ -6,7 +6,7 @@ import { AssistantState } from '../slices/assistantSlice'
 
 export const useExternalOAuth = () => {
   const { extensionSDK, core40SDK } = useContext(ExtensionContext)
-  const { settings, examples, oauth } = useSelector(
+  const { settings, oauth } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
   
@@ -19,76 +19,116 @@ export const useExternalOAuth = () => {
   
   const EXTERNAL_OAUTH_CONNECTION_ID = settings['external_oauth_connection_id']?.value as string || '22'
 
-  // Helper function to get the first golden query for testing
-  const getFirstGoldenQuery = useCallback(() => {
-    const exploreEntries = examples.exploreEntries
-    if (!exploreEntries || exploreEntries.length === 0) {
-      return null
-    }
-    
-    // Get the first entry that has both explore_id and output
-    const firstEntry = exploreEntries.find(entry => 
-      entry['golden_queries.explore_id'] && entry['golden_queries.output']
-    )
-    
-    if (!firstEntry) {
-      return null
-    }
-    
-    return {
-      exploreId: firstEntry['golden_queries.explore_id'],
-      output: firstEntry['golden_queries.output']
-    }
-  }, [examples.exploreEntries])
-
-  const testConnection = useCallback(async (goldenQuery: { exploreId: string; output: string }): Promise<boolean> => {
-    if (!goldenQuery) {
-      console.log('No golden query provided for testing')
-      setConnectionTestResult(false)
-      return false
-    }
-
+  const testConnection = useCallback(async (): Promise<boolean> => {
     setIsTestingConnection(true)
     try {
-      const [modelName, exploreName] = goldenQuery.exploreId.split(':')
-      console.log(`Testing with simple query on ${modelName}:${exploreName}`)
+      console.log('Testing OAuth connection by finding connection with oauth_test in name...')
       
-      // Create a test query URL for reference
-      const extensionHostUrl = extensionSDK?.lookerHostData?.hostUrl || 'https://looker.mycompany.com'
-      const fullUrl = `${extensionHostUrl}/api/4.0/queries/models/${modelName}/views/${exploreName}/run/json?fields=one&sorts=one&limit=500`
-      setTestQueryUrl(fullUrl)
-      console.log('Generated test query URL:', fullUrl)
+      // First, get all connections to find one with 'oauth_test' in the name
+      const connections = await core40SDK.ok(core40SDK.all_connections())
       
-      // Run a simple test query using run_inline_query with static parameters
-      const response = await core40SDK.run_inline_query({
+      if (!connections || !Array.isArray(connections)) {
+        console.log('Failed to fetch connections')
+        setConnectionTestResult(false)
+        return false
+      }
+      
+      // Find a connection with 'oauth_test' in the name
+      const oauthTestConnection = connections.find(conn => 
+        conn.name && conn.name.toLowerCase().includes('oauth_test')
+      )
+      
+      if (!oauthTestConnection) {
+        console.log('No connection found with "oauth_test" in name')
+        setConnectionTestResult(true)
+        return true
+      }
+      
+      console.log(`Found OAuth test connection: ${oauthTestConnection.name}`)
+      
+      // Now find a model/explore that uses this connection for testing  
+      const models = await core40SDK.ok(core40SDK.all_lookml_models({ fields: 'name,explores' }))
+      
+      if (!models || !Array.isArray(models)) {
+        console.log('Failed to fetch models')
+        setConnectionTestResult(false)
+        return false
+      }
+      
+      // Search through models and explores to find one using our OAuth test connection
+      let testModel: any = null
+      let testExplore: any = null
+      
+      for (const model of models) {
+        if (model.explores && model.explores.length > 0) {
+          // Check each explore in this model
+          for (const navExplore of model.explores) {
+            try {
+              // Get full explore details to check connection_name
+              const fullExplore = await core40SDK.ok(
+                core40SDK.lookml_model_explore({
+                  lookml_model_name: model.name!,
+                  explore_name: navExplore.name!,
+                  fields: 'connection_name,name'
+                })
+              )
+              
+              if (fullExplore && fullExplore.connection_name === oauthTestConnection.name) {
+                testModel = model
+                testExplore = fullExplore
+                console.log(`Found matching explore: ${model.name}:${navExplore.name} using connection ${fullExplore.connection_name}`)
+                break
+              }
+            } catch (error) {
+              console.log(`Error fetching explore details for ${model.name}:${navExplore.name}:`, error)
+              continue
+            }
+          }
+          if (testModel && testExplore) break
+        }
+      }
+      
+      if (!testModel || !testExplore) {
+        console.log(`No explore found using connection ${oauthTestConnection.name}. Aborting ouath backend test.`)
+        setConnectionTestResult(true)
+        return true
+      }
+      console.log(`Testing with model: ${testModel.name}, explore: ${testExplore.name}`)
+      
+      // Run a simple "SELECT 1" equivalent query using dynamic fields
+      const testQuery = await core40SDK.run_inline_query({
         result_format: 'json',
         body: {
-          model: modelName,
-          view: exploreName,
-          fields: ["one"],
-          sorts: ["one"],
-          limit: "500",
-          column_limit: "50",
+          model: testModel.name!,
+          view: testExplore.name!,
+          fields: ["test_field"],
+          limit: "1",
+          column_limit: "1",
           vis_config: {},
           filter_config: {},
-          dynamic_fields: "[{\"category\":\"dimension\",\"expression\":\"1\",\"label\":\"One\",\"value_format\":null,\"value_format_name\":\"id\",\"dimension\":\"one\",\"_kind_hint\":\"dimension\",\"_type_hint\":\"number\"}]"
+          dynamic_fields: "[{\"category\":\"dimension\",\"expression\":\"1\",\"label\":\"Test Field\",\"value_format\":null,\"value_format_name\":\"id\",\"dimension\":\"test_field\",\"_kind_hint\":\"dimension\",\"_type_hint\":\"number\"}]"
         }
       })
       
-      console.log('Test query response:', response)
+      console.log('OAuth connection test query result:', testQuery)
+      
+      // Set test query URL for reference
+      const extensionHostUrl = extensionSDK?.lookerHostData?.hostUrl || 'https://looker.mycompany.com'
+      const fullUrl = `${extensionHostUrl}/api/4.0/queries/models/${testModel.name}/views/${testExplore.name}/run/json`
+      setTestQueryUrl(fullUrl)
       
       // Check if the query was successful
-      if (response.ok) {
-        console.log('Test query successful - OAuth connection is valid')
+      if (testQuery.ok) {
+        console.log('OAuth connection test successful - query executed without errors')
         setConnectionTestResult(true)
         return true
       } else {
-        console.log('Test query failed:', response.error)
+        console.log('OAuth connection test failed:', testQuery.error)
         setConnectionTestResult(false)
         return false
       }
     } catch (error) {
-      console.error('Failed to test with simple query:', error)
+      console.error('Failed to test OAuth connection:', error)
       setConnectionTestResult(false)
       return false
     } finally {
@@ -108,16 +148,9 @@ export const useExternalOAuth = () => {
       return false
     }
 
-    // Get the first golden query for testing
-    const goldenQuery = getFirstGoldenQuery()
-    if (!goldenQuery) {
-      console.log('No golden queries available - skipping external OAuth window')
-      return false
-    }
-
-    // Test the connection using golden query first
-    console.log('Testing connection with golden query before opening external OAuth window...')
-    const connectionIsValid = await testConnection(goldenQuery)
+    // Test the connection first
+    console.log('Testing connection before opening external OAuth window...')
+    const connectionIsValid = await testConnection()
     
     if (connectionIsValid) {
       console.log('Connection is already valid - no need to open external OAuth window')
@@ -139,7 +172,7 @@ export const useExternalOAuth = () => {
       console.error('Failed to open external OAuth window:', error)
       return false
     }
-  }, [extensionSDK, EXTERNAL_OAUTH_CONNECTION_ID, getFirstGoldenQuery, testConnection])
+  }, [extensionSDK, EXTERNAL_OAUTH_CONNECTION_ID, testConnection])
 
   const resetWindowState = useCallback(() => {
     hasOpenedWindow.current = false
@@ -171,15 +204,6 @@ export const useExternalOAuth = () => {
         return
       }
 
-      // For the case where there's already a valid token, we also need to check
-      // if the BigQuery examples are loaded (which means the app is ready)
-      const hasExploreEntries = examples.exploreEntries && examples.exploreEntries.length > 0
-      
-      // If we have a valid token but no explore entries yet, wait for them to load
-      if (oauth.hasValidToken && !hasExploreEntries) {
-        return
-      }
-
       // If we don't have a valid token yet, wait for OAuth to complete
       if (!oauth.hasValidToken) {
         return
@@ -189,16 +213,8 @@ export const useExternalOAuth = () => {
       hasAutoExecuted.current = true
 
       try {
-        // Get the first golden query for testing
-        const goldenQuery = getFirstGoldenQuery()
-        if (!goldenQuery) {
-          console.log('No golden queries available for auto-execution - waiting for golden queries to load')
-          hasAutoExecuted.current = false // Reset so we can try again when golden queries load
-          return
-        }
-
         // Test the connection first
-        const connectionIsValid = await testConnection(goldenQuery)
+        const connectionIsValid = await testConnection()
         
         if (!connectionIsValid) {
           // Only open external OAuth window if connection test fails
@@ -218,8 +234,6 @@ export const useExternalOAuth = () => {
     EXTERNAL_OAUTH_CONNECTION_ID,
     oauth.isAuthenticating,
     oauth.hasValidToken,
-    examples.exploreEntries, 
-    getFirstGoldenQuery,
     testConnection,
     openExternalOAuthWindow
   ])

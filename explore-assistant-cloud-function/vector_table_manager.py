@@ -5,9 +5,6 @@ Vector Table Management for Field Discovery
 This module handles the creation, population, and indexing of BigQuery tables
 used for semantic field discovery. It processes Looker field metadata and
 sample values to create vector embeddings for similarity search.
-
-MIT License
-Copyright (c) 2023 Looker Data Sciences, Inc.
 """
 
 import json

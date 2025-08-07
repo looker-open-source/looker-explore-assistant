@@ -42,10 +42,12 @@ const useGenerateBronzeQueries = () => {
     console.log('Request URL:', CLOUD_RUN_URL)
 
     const payload = {
-      operation: 'generate_bronze_queries',
-      model_name: modelName,
-      explore_name: exploreName,
-      explore_key: exploreKey
+      tool_name: 'generate_bronze_queries',
+      arguments: {
+        model_name: modelName,
+        explore_name: exploreName,
+        explore_key: exploreKey
+      }
     }
 
     try {

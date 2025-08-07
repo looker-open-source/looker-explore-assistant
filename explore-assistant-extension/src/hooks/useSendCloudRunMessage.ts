@@ -88,39 +88,43 @@ const useSendCloudRunMessage = () => {
         }
         // If no area or explores selected, restrictedExploreKeys remains empty (no restrictions)
         
-        // Build the payload for the Cloud Run service with conversation context
+        // Build the payload for the new MCP server format
         const payload = {
-          prompt,
-          conversation_id: conversationId,
-          prompt_history: promptHistory,
-          thread_messages: threadToUse?.messages || [],
-          current_explore: currentExplore,
-          golden_queries: examples,
-          semantic_models: semanticModels,
-          model_name: '',
-          vertex_model: vertexModel,
-          test_mode: false,
-          // Add area context
-          selected_area: selectedArea,
-          restricted_explore_keys: restrictedExploreKeys
+          tool_name: 'generate_explore_parameters',
+          arguments: {
+            prompt,
+            conversation_id: conversationId,
+            prompt_history: promptHistory,
+            thread_messages: threadToUse?.messages || [],
+            current_explore: currentExplore,
+            golden_queries: examples,
+            semantic_models: semanticModels,
+            model_name: '',
+            vertex_model: vertexModel,
+            test_mode: false,
+            // Add area context
+            selected_area: selectedArea,
+            restricted_explore_keys: restrictedExploreKeys
+          }
         }
 
         console.log('Sending payload to Cloud Run:', {
-          prompt: payload.prompt,
-          conversation_id: payload.conversation_id,
-          current_explore: payload.current_explore,
-          selected_area: payload.selected_area,
+          tool_name: payload.tool_name,
+          prompt: payload.arguments.prompt,
+          conversation_id: payload.arguments.conversation_id,
+          current_explore: payload.arguments.current_explore,
+          selected_area: payload.arguments.selected_area,
           selected_explores: selectedExplores,
-          restricted_explore_keys: payload.restricted_explore_keys,
-          model_name: '',
+          restricted_explore_keys: payload.arguments.restricted_explore_keys,
+          model_name: payload.arguments.model_name,
           // Don't log the entire examples and semantic_models objects as they're large
-          golden_queries_keys: Object.keys(payload.golden_queries?.exploreSamples || {}),
-          semantic_models_keys: Object.keys(payload.semantic_models || {}),
+          golden_queries_keys: Object.keys(payload.arguments.golden_queries?.exploreSamples || {}),
+          semantic_models_keys: Object.keys(payload.arguments.semantic_models || {}),
         })
 
         const result = await callCloudRunAPI(payload)
         console.log('Received result from Cloud Run:', result)
-        return result.body
+        return result
       } catch (error) {
         console.error('Error processing prompt:', error)
         throw error
@@ -151,14 +155,17 @@ const useSendCloudRunMessage = () => {
         return false
       }
       console.log('Testing Cloud Run connection using Identity token...')
-      // Simple test payload
+      // Simple test payload in MCP format
       const testPayload = {
-        prompt: "test connection",
-        explore_key: "test",
-        model_name: "test",
-        conversation_id: "test",
-        vertex_model: vertexModel,
-        test_mode: true
+        tool_name: 'generate_explore_parameters',
+        arguments: {
+          prompt: "test connection",
+          explore_key: "test",
+          model_name: "test",
+          conversation_id: "test",
+          vertex_model: vertexModel,
+          test_mode: true
+        }
       }
       try {
         // Try fetchProxy first

@@ -3,6 +3,7 @@ import React, { useContext } from 'react'
 import Message from './Message'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useDispatch } from 'react-redux'
+import FeedbackButton from '../Feedback/FeedbackButton'
 
 import { ExploreParams, setSidePanelExploreParams } from '../../slices/assistantSlice'
 import { ExploreHelper } from '../../utils/ExploreHelper'
@@ -39,6 +40,8 @@ export default function ExploreMessage({
   const { extensionSDK } = useContext(ExtensionContext)
 
   const exploreHref = `/explore/${modelName}/${exploreId}?${ExploreHelper.exploreQueryArgumentString(exploreParams)}&toggle=vis,data`
+  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${exploreHref}` : exploreHref
+  
   const openExplore = () => {
     extensionSDK.openBrowserWindow(exploreHref, '_blank')
   }
@@ -78,6 +81,20 @@ export default function ExploreMessage({
             onClick={openExplore}
           >
             <div>visit <OpenInNew fontSize={'small'} /></div>
+          </div>
+          
+          {/* Add feedback buttons for user interaction */}
+          <div className="mt-3 flex justify-end">
+            <FeedbackButton
+              exploreId={`${modelName}:${exploreId}`}
+              originalPrompt={prompt}
+              generatedParams={exploreParams}
+              shareUrl={shareUrl}
+              size="small"
+              onFeedbackSubmitted={(feedbackType, success) => {
+                console.log(`Feedback ${feedbackType} submitted:`, success)
+              }}
+            />
           </div>
         </div>
       </Message>

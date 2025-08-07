@@ -2,28 +2,101 @@
 
 ## Architecture Overview
 
-This is a **natural language to Looker query system** with 3 main components:
+This is a **natural language to Looker query system** with 4 main components:
 
 1. **Frontend Extension** (`explore-assistant-extension/`) - React/TypeScript Looker extension with Redux state management
-2. **Backend Cloud Function** (`explore-assistant-cloud-function/`) - Python Flask API that proxies to Vertex AI
-3. **Training/Examples** (`explore-assistant-examples/`) - BigQuery tables with golden query examples for LLM training
+2. **Backend MCP Server** (`explore-assistant-cloud-function/looker_mcp_server.py`) - Unified Model Context Protocol server with Vertex AI, Looker integration, and semantic field discovery
+3. **Vector Search System** (`explore-assistant-cloud-function/vector_table_manager.py`) - BigQuery ML-powered semantic field discovery with dimension value vectorization
+4. **Training/Examples** (`explore-assistant-examples/`) - BigQuery tables with golden query examples for LLM training
 
-The system converts natural language → Looker explore parameters → embedded visualizations.
+The system converts natural language → automatic explore selection → structured Looker queries → embedded visualizations.
+
+## New MCP Server Architecture (looker_mcp_server.py)
+
+### Unified MCP Server Features
+- **Vertex AI Proxy** - Secure LLM access with service account authentication
+- **Automatic Explore Selection** - AI determines best explore from `restricted_explore_keys` using `determine_explore_from_prompt()`
+- **Semantic Field Discovery** - Vector-based field search using BigQuery ML embeddings
+- **Field Value Lookup** - String-based dimension value search with frequency data
+- **Looker Integration** - Direct API access for explore metadata and queries
+- **Olympic Query Management** - Bronze/Silver/Golden query promotion workflow
+- **Standards-Compliant MCP** - Full Model Context Protocol implementation
+
+### Key Changes from Legacy Architecture
+- **No More Explicit explore_key** - System automatically determines best explore from restricted list
+- **Integrated Vector Search** - Field discovery built into main MCP server
+- **Service Account Authentication** - Eliminates OAuth complexity for backend operations
+- **Consolidated Tool Interface** - Single server handles all operations
+
+## Vector Search System
+
+### Field Value Vectorization
+- **Automated Data Collection** - Scans Looker explores with 'index' sets to gather field metadata and sample dimension values
+- **BigQuery ML Embeddings** - Uses Vertex AI `text-embedding-004` model for semantic vectorization
+- **Comprehensive Field Data** - Stores field metadata, actual dimension values, and frequency information
+- **Vector Index Optimization** - Creates COSINE distance vector index for fast similarity search
+
+### Setup Process
+```bash
+cd explore-assistant-cloud-function
+./setup_field_discovery.sh  # Complete automated setup
+python vector_table_manager.py --action setup  # Manual setup
+python vector_table_manager.py --action stats   # Check system status
+```
+
+### Vector Table Schema
+```sql
+-- field_values_for_vectorization table
+CREATE TABLE field_values_for_vectorization (
+  model_name STRING,
+  explore_name STRING,
+  view_name STRING, 
+  field_name STRING,
+  field_type STRING,       -- 'dimension' or 'measure'
+  field_description STRING,
+  field_value STRING,      -- Actual dimension values from Looker data
+  value_frequency INT64,   -- How often this value appears
+  searchable_text STRING,  -- Combined metadata for embedding
+  ml_generate_embedding_result ARRAY<FLOAT64>  -- Vector embeddings
+)
+```
 
 ## Key Architectural Patterns
 
-### AI-Driven Explore Selection
-- The service **always determines the best explore** for each request via `determine_explore_from_prompt()`
+### AI-Driven Explore Selection with Restrictions
+- System **automatically determines best explore** from `restricted_explore_keys` list via `determine_explore_from_prompt()`
+- No more manual explore_key specification - AI chooses optimal explore for each query
 - Explore keys follow format: `"model:explore_name"` (e.g., `"ecommerce:order_items"`)
-- Golden queries stored in BigQuery drive explore selection and parameter generation
+- Uses golden queries and conversation context for intelligent selection
 
-### Two-Phase LLM Processing
+### Two-Phase Query Processing
 ```python
-# Phase 1: Synthesize conversation context
-synthesized_query = synthesize_conversation_context(prompt, conversation_context)
+# Phase 1: Determine best explore from restricted list
+determined_explore_key = determine_explore_from_prompt(
+    auth_header=auth_header,
+    prompt=prompt,
+    golden_queries=golden_queries,
+    conversation_context=conversation_context,
+    restricted_explore_keys=restricted_explore_keys
+)
 
-# Phase 2: Generate explore parameters from clear query  
-explore_params = generate_explore_params_from_query(synthesized_query, explore_key)
+# Phase 2: Generate parameters for determined explore  
+explore_params = generate_explore_params_for_determined_explore(
+    prompt, determined_explore_key, field_metadata, conversation_context
+)
+```
+
+### Semantic Field Discovery Workflow
+```python
+# 1. Extract searchable terms from natural language
+terms = extract_searchable_terms("Show me customer lifetime value for premium brands")
+# Returns: ["customer", "lifetime", "value", "premium", "brands"]
+
+# 2. Vector search for matching fields  
+field_matches = semantic_field_search(terms, explore_ids=["ecommerce:customers"], limit_per_term=5)
+
+# 3. Get specific dimension values
+value_matches = field_value_lookup("premium", field_location="products.brand")
 ```
 
 ### Redux State Structure
@@ -40,6 +113,21 @@ interface AssistantState {
 
 ## Essential Development Commands
 
+### Backend MCP Server Development
+```bash
+cd explore-assistant-cloud-function  
+pip install -r requirements.txt
+
+# Local MCP server testing
+python3 looker_mcp_server.py  # Direct MCP server
+python3 run_local.sh  # Flask HTTP adapter on localhost:8001
+
+# Vector search system setup
+./setup_field_discovery.sh  # Complete automated setup
+python vector_table_manager.py --action setup  # Manual setup
+python test_semantic_search.py  # Test vector search
+```
+
 ### Frontend Development
 ```bash
 cd explore-assistant-extension
@@ -48,19 +136,15 @@ npm start  # Webpack dev server on https://localhost:8080
 npm run build  # Production bundle
 ```
 
-### Backend Local Testing
+### BigQuery Vector Search Setup
 ```bash
-cd explore-assistant-cloud-function  
-pip install -r requirements.txt
-python3 run_local.sh  # Flask server on localhost:8001
-```
-#### use python3 vs python for local dev.
+# Initialize vector search system
+cd explore-assistant-cloud-function
+./setup_field_discovery.sh
 
-### BigQuery Setup
-```bash
-# Required tables for golden queries and examples
-bq mk --dataset $PROJECT_ID:explore_assistant
-# See explore-assistant-backend/README.md for table schemas
+# Manual setup steps if needed
+python vector_table_manager.py --action setup
+python vector_table_manager.py --action stats
 ```
 
 ## Critical Integration Points
@@ -109,6 +193,58 @@ Always include:
 - Use Redux Toolkit with typed selectors
 - Persist conversation history in localStorage via redux-persist
 - Load semantic models and examples on app initialization
+
+## MCP Server Tools and Capabilities
+
+### Core MCP Tools Available
+```typescript
+// Available tools in looker_mcp_server.py
+interface MCPTools {
+  // Vertex AI Integration
+  vertex_ai_query: (prompt, model, temperature) => VertexResponse
+  
+  // Semantic Field Discovery  
+  semantic_field_search: (search_terms[], explore_ids?, limit_per_term) => FieldMatch[]
+  field_value_lookup: (search_string, field_location?, limit) => FieldValue[]
+  extract_searchable_terms: (query_text) => string[]
+  
+  // Core Explore Assistant
+  generate_explore_params: (prompt, restricted_explore_keys[], conversation_context?) => ExploreParams
+  get_explore_fields: (model_name, explore_name) => ExploreFields
+  run_looker_query: (query_body, result_format?) => QueryResult
+  
+  // Olympic Query Management
+  add_bronze_query: (explore_id, input, output, link, user_email) => BronzeQuery
+  promote_query: (query_id, source_table, target_rank, promoted_by) => PromotionResult
+  get_golden_queries: (explore_id?) => GoldenQuery[]
+}
+```
+
+### Field Discovery System
+```python
+# Semantic field search workflow
+terms = extract_searchable_terms("Show me customer lifetime value")
+# Returns: ["customer", "lifetime", "value"]
+
+field_matches = semantic_field_search(
+    search_terms=terms,
+    explore_ids=["ecommerce:customers"],
+    limit_per_term=5
+)
+# Returns: FieldMatch objects with similarity scores and sample values
+
+value_matches = field_value_lookup(
+    search_string="premium",
+    field_location="products.brand"
+)
+# Returns: Specific dimension values containing "premium"
+```
+
+### Vector Search Implementation
+- **BigQuery ML Embeddings** - Uses Vertex AI `text-embedding-004` model
+- **COSINE Distance Search** - Semantic similarity matching with configurable thresholds  
+- **Field Value Indexing** - Actual Looker dimension values from 'index' sets
+- **Frequency-Based Ranking** - Values ranked by occurrence frequency in data
 
 ## BigQuery Table Architecture (Simplified Management)
 
@@ -179,15 +315,41 @@ curl -X POST http://localhost:8001 \
 - Connection must have `aiplatform.user` for BQML queries
 - Check `explore_assistant` dataset access
 
+### Vector Search Debugging
+```bash
+# Test vector search system
+cd explore-assistant-cloud-function
+python test_semantic_search.py
+python test_vector_search.py
+
+# Check vector table status
+python vector_table_manager.py --action stats
+```
+
 ## Files That Define Core Patterns
 
-- `explore-assistant-cloud-function/mcp_server.py` - Main AI processing logic
+- `explore-assistant-cloud-function/looker_mcp_server.py` - Main AI processing logic and MCP server
+- `explore-assistant-cloud-function/vector_table_manager.py` - Vector search system management
+- `explore-assistant-cloud-function/field_lookup_mcp.py` - Field discovery service implementation
 - `explore-assistant-extension/src/slices/assistantSlice.ts` - State structure
 - `explore-assistant-extension/src/hooks/useSendVertexMessage.ts` - AI API calls
 - `explore-assistant-extension/src/hooks/useOAuth2Token.ts` - Authentication flow
 - `explore-assistant-extension/manifest.lkml` - Looker extension configuration
 
 ## Model Context Protocol (MCP)
-- `mcp-wrapper/` provides MCP interface for AI assistants like Claude
-- Wraps existing Cloud Run API for external AI agent access
+- `looker_mcp_server.py` is the primary MCP server with all functionality
+- Deprecates older `mcp_server.py` in favor of unified architecture
 - Use for integrating with desktop AI assistants outside Looker
+
+## Recent Architectural Updates
+
+### MCP Server Consolidation
+- **Single Server Architecture** - `looker_mcp_server.py` now contains all functionality
+- **Integrated Explore Selection** - `determine_explore_from_prompt()` moved into main server
+- **No Explicit explore_key Required** - System automatically determines best explore from restricted list
+- **Vector Search Integration** - Field discovery built directly into MCP tools
+
+### Frontend Integration Updates
+- **MCP Tool Format** - Updated hooks to use `{tool_name: 'generate_explore_params', arguments: {...}}`
+- **Automatic Explore Selection** - Frontend passes `restricted_explore_keys` array instead of single `explore_key`
+- **Enhanced Error Handling** - Better error boundaries and user feedback for MCP operations

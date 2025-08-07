@@ -33,6 +33,13 @@ module.exports = {
     publicPath: 'https://localhost:8080/',
   },
   mode: 'development',
+  // Reduce memory usage
+  optimization: {
+    ...commonConfig.optimization,
+    removeAvailableModules: false,
+    removeEmptyChunks: false,
+    splitChunks: false,
+  },
   module: {
     rules: [
       ...commonConfig.module.rules,
@@ -50,6 +57,10 @@ module.exports = {
     },
     host: 'localhost',
     allowedHosts: 'all',
+    // Reduce memory usage in dev server
+    devMiddleware: {
+      stats: 'minimal',
+    },
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',

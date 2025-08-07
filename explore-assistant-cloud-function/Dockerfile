@@ -6,7 +6,8 @@ WORKDIR /app
 
 # Copy only the required files
 COPY requirements.txt ./
-COPY mcp_server.py ./
+COPY looker_mcp_server.py ./
+COPY olympic_query_manager.py ./
 COPY llm_utils.py ./
 
 # Install any needed packages specified in requirements.txt
@@ -23,4 +24,4 @@ EXPOSE 8080
 ENV FLASK_ENV=production
 
 # Run the application
-CMD ["python", "mcp_server.py"]
+CMD ["python", "looker_mcp_server.py", "--flask"]

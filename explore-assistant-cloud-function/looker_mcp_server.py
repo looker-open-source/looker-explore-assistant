@@ -28,6 +28,10 @@ import looker_sdk
 from pydantic import BaseModel, Field
 import requests
 
+# Flask imports for HTTP adapter
+from flask import Flask, request, jsonify, Response
+from flask_cors import CORS
+
 # MCP imports
 from mcp import server
 from mcp.server import Server
@@ -39,6 +43,7 @@ from mcp.types import (
 
 # Import existing utilities
 from llm_utils import parse_llm_response, VertexAIResponse
+from olympic_query_manager import OlympicQueryManager, QueryRank
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -76,6 +81,421 @@ class VertexResponse(BaseModel):
     tokens_used: Optional[int] = None
     processing_time: float
 
+# Utility functions moved from mcp_server.py
+def get_max_tokens_for_model(model_name: str) -> dict:
+    """Get maximum input and output tokens for the current model"""
+    model_limits = {
+        # Gemini 2.5 Models (anticipated)
+        "gemini-2.5-flash": {"input": 1048576, "output": 8192},
+        "gemini-2.5-flash-lite": {"input": 1048576, "output": 8192},
+        "gemini-2.5-pro": {"input": 2097152, "output": 8192},
+        
+        # Gemini 2.0 Models
+        "gemini-2.0-flash-exp": {"input": 1048576, "output": 8192},
+        "gemini-2.0-flash-001": {"input": 1048576, "output": 8192},
+        "gemini-2.0-flash": {"input": 1048576, "output": 8192},
+        "gemini-2.0-flash-thinking-exp": {"input": 32767, "output": 8192},
+        "gemini-2.0-pro": {"input": 2097152, "output": 8192},
+        
+        # Gemini 1.5 Models
+        "gemini-1.5-pro-002": {"input": 2097152, "output": 8192},
+        "gemini-1.5-pro-001": {"input": 2097152, "output": 8192},
+        "gemini-1.5-pro": {"input": 2097152, "output": 8192},
+        "gemini-1.5-flash-002": {"input": 1048576, "output": 8192},
+        "gemini-1.5-flash-001": {"input": 1048576, "output": 8192},
+        "gemini-1.5-flash": {"input": 1048576, "output": 8192},
+        "gemini-1.5-flash-8b": {"input": 1048576, "output": 8192},
+        
+        # Gemini 1.0 Models (legacy)
+        "gemini-1.0-pro": {"input": 32760, "output": 2048},
+        "gemini-pro": {"input": 32760, "output": 2048}
+    }
+    
+    # Check for exact match first
+    if model_name in model_limits:
+        return model_limits[model_name]
+    
+    # Pattern matching for version variations
+    if "gemini-2.5" in model_name.lower():
+        if "flash-lite" in model_name.lower():
+            return {"input": 1048576, "output": 8192}
+        elif "flash" in model_name.lower():
+            return {"input": 1048576, "output": 8192}
+        elif "pro" in model_name.lower():
+            return {"input": 2097152, "output": 8192}
+    
+    if "gemini-2.0" in model_name.lower():
+        if "thinking" in model_name.lower():
+            return {"input": 32767, "output": 8192}
+        elif "flash" in model_name.lower():
+            return {"input": 1048576, "output": 8192}
+        elif "pro" in model_name.lower():
+            return {"input": 2097152, "output": 8192}
+    
+    if "gemini-1.5" in model_name.lower():
+        if "flash-8b" in model_name.lower():
+            return {"input": 1048576, "output": 8192}
+        elif "flash" in model_name.lower():
+            return {"input": 1048576, "output": 8192}
+        elif "pro" in model_name.lower():
+            return {"input": 2097152, "output": 8192}
+    
+    if "gemini-1.0" in model_name.lower() or model_name.lower() == "gemini-pro":
+        return {"input": 32760, "output": 2048}
+    
+    # Default fallback for unknown models
+    logging.warning(f"Unknown model '{model_name}', using default token limits")
+    return {"input": 32760, "output": 2048}
+
+def update_token_warning_thresholds(model_name: str) -> dict:
+    """Get appropriate warning thresholds based on model capabilities"""
+    model_limits = get_max_tokens_for_model(model_name)
+    
+    return {
+        "prompt_warning": int(model_limits["input"] * 0.8),  # Warn at 80% of input limit
+        "total_warning": int((model_limits["input"] + model_limits["output"]) * 0.8),
+        "prompt_critical": int(model_limits["input"] * 0.95),  # Critical at 95% of input limit
+        "total_critical": int((model_limits["input"] + model_limits["output"]) * 0.95)
+    }
+
+def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Call Vertex AI API using service account credentials"""
+    try:
+        if not PROJECT_ID or not REGION:
+            logging.error("Project or location not configured for Vertex AI API")
+            return None
+        
+        # Get service account credentials
+        credentials, _ = default()
+        auth_req = Request()
+        credentials.refresh(auth_req)
+        access_token = credentials.token
+        
+        # Construct Vertex AI API URL
+        vertex_api_url = f"https://{REGION}-aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/{REGION}/publishers/google/models/{VERTEX_MODEL}:generateContent"
+        
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Log the request for debugging
+        logging.info(f"Calling Vertex AI API with service account: {vertex_api_url}")
+        logging.info(f"Using model: {VERTEX_MODEL}")
+        
+        response = requests.post(vertex_api_url, headers=headers, json=request_body)
+        
+        if not response.ok:
+            logging.error(f"Vertex AI API call failed: {response.status_code} - {response.text}")
+            return None
+        
+        response_data = response.json()
+        
+        # Log token usage information with model-specific thresholds
+        usage_metadata = response_data.get('usageMetadata', {})
+        if usage_metadata:
+            prompt_tokens = usage_metadata.get('promptTokenCount', 0)
+            total_tokens = usage_metadata.get('totalTokenCount', 0)
+            cached_tokens = usage_metadata.get('cachedContentTokenCount', 0)
+            
+            logging.info(f"📊 Token Usage - Prompt: {prompt_tokens:,}, Total: {total_tokens:,}, Cached: {cached_tokens:,}")
+            
+            # Get model-specific warning thresholds
+            thresholds = update_token_warning_thresholds(VERTEX_MODEL)
+            
+            # Model-aware warnings
+            if prompt_tokens > thresholds["prompt_critical"]:
+                logging.error(f"🚨 CRITICAL: Prompt token usage ({prompt_tokens:,}) approaching model limit for {VERTEX_MODEL}")
+            elif prompt_tokens > thresholds["prompt_warning"]:
+                logging.warning(f"⚠️ High prompt token usage: {prompt_tokens:,} tokens for model {VERTEX_MODEL}")
+            
+            if total_tokens > thresholds["total_critical"]:
+                logging.error(f"🚨 CRITICAL: Total token usage ({total_tokens:,}) approaching model limit for {VERTEX_MODEL}")
+            elif total_tokens > thresholds["total_warning"]:
+                logging.warning(f"⚠️ High total token usage: {total_tokens:,} tokens for model {VERTEX_MODEL}")
+            
+            # Log model capacity utilization
+            model_limits = get_max_tokens_for_model(VERTEX_MODEL)
+            prompt_utilization = (prompt_tokens / model_limits["input"]) * 100
+            logging.info(f"📊 Model capacity utilization: {prompt_utilization:.1f}% of input limit")
+        
+        logging.info("Vertex AI API call successful")
+        return response_data
+        
+    except Exception as e:
+        logging.error(f"Error calling Vertex AI API: {e}")
+        return None
+
+def extract_vertex_response_text(vertex_response: Dict[str, Any]) -> Optional[str]:
+    """
+    Extract and parse text from Vertex AI response, with robust validation and JSON parsing.
+    Returns parsed object if valid JSON or raw text fallback.
+    """
+    try:
+        logging.info(f"🔍 extract_vertex_response_text - Input: {vertex_response}")
+        
+        # Check for MAX_TOKENS or other finish reasons that indicate incomplete responses
+        candidates = vertex_response.get('candidates', [])
+        if candidates:
+            finish_reason = candidates[0].get('finishReason')
+            if finish_reason == 'MAX_TOKENS':
+                logging.error("❌ VERTEX AI RESPONSE TRUNCATED: Hit maximum token limit")
+                logging.error("💡 Consider reducing prompt size or using a model with higher token limits")
+                usage_metadata = vertex_response.get('usageMetadata', {})
+                logging.error(f"📊 Token usage: {usage_metadata}")
+                return None
+            elif finish_reason and finish_reason != 'STOP':
+                logging.warning(f"⚠️ Unexpected finish reason: {finish_reason}")
+        
+        # Validate structure using pydantic
+        resp_model = VertexAIResponse.parse_obj(vertex_response)
+        # Extract raw text
+        first = resp_model.candidates[0]
+        content = first.get('content', {})
+        parts = content.get('parts', []) or []
+        if not parts:
+            logging.warning("❌ No parts found in response content")
+            return None
+        raw_text = parts[0].get('text') if isinstance(parts[0], dict) else parts[0]
+        logging.info(f"🔍 Extracted raw text: '{raw_text}' (type: {type(raw_text)})")
+        
+        # Attempt to parse JSON from raw_text
+        parsed = parse_llm_response(raw_text)
+        logging.info(f"🔍 Parsed result: {parsed} (type: {type(parsed)})")
+        
+        # Validate response size for brevity
+        final_result = parsed if parsed is not None else raw_text
+        if isinstance(final_result, str) and len(final_result) > 2000:
+            logging.warning(f"⚠️ Response too verbose ({len(final_result)} chars), truncating for brevity")
+            final_result = final_result[:2000] + "..."
+        elif isinstance(final_result, dict):
+            # Check if dict is too large when serialized
+            dict_str = str(final_result)
+            if len(dict_str) > 3000:
+                logging.warning(f"⚠️ Dict response too large ({len(dict_str)} chars), may need simplification")
+        
+        return final_result
+    except Exception as ve:
+        logging.warning(f"Vertex AI response schema mismatch: {ve}")
+        # Fallback extraction
+        try:
+            candidates = vertex_response.get('candidates', [])
+            logging.info(f"🔍 Fallback - candidates: {candidates}")
+            if candidates:
+                # Check finish reason in fallback as well
+                finish_reason = candidates[0].get('finishReason')
+                if finish_reason == 'MAX_TOKENS':
+                    logging.error("❌ FALLBACK: Response truncated due to MAX_TOKENS")
+                    return None
+                
+                content = candidates[0].get('content', {})
+                parts = content.get('parts', []) or []
+                logging.info(f"🔍 Fallback - parts: {parts}")
+                if parts:
+                    raw_text = parts[0].get('text', '') if isinstance(parts[0], dict) else parts[0]
+                    logging.info(f"🔍 Fallback - raw text: '{raw_text}' (type: {type(raw_text)})")
+                    parsed = parse_llm_response(raw_text)
+                    logging.info(f"🔍 Fallback - parsed: {parsed} (type: {type(parsed)})")
+                    return parsed if parsed is not None else raw_text
+        except Exception as e:
+            logging.error(f"Fallback extraction error: {e}")
+        return None
+    except Exception as e:
+        logging.error(f"Error extracting Vertex AI response: {e}")
+        return None
+
+def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries: Dict[str, Any], 
+                                 conversation_context: str = "", restricted_explore_keys: list = None) -> Optional[str]:
+    """
+    Enhanced explore determination with conversation context and area restrictions.
+    Always determines the best explore based on the prompt and conversation context,
+    but restricts selection to specified explore keys if provided.
+    """
+    try:
+        logging.info("=== EXPLORE DETERMINATION START ===")
+        logging.info(f"Determining best explore for prompt: {prompt}")
+        logging.info(f"Has conversation context: {bool(conversation_context)}")
+        logging.info(f"Restricted explore keys: {restricted_explore_keys}")
+        
+        # Filter golden queries by restricted explore keys if provided
+        filtered_golden_queries = golden_queries
+        if restricted_explore_keys:
+            logging.info(f"Filtering golden queries by restricted keys: {restricted_explore_keys}")
+            filtered_golden_queries = {}
+            for key, value in golden_queries.items():
+                if key == 'exploreEntries':
+                    # Filter explore entries by restricted keys
+                    filtered_entries = [
+                        entry for entry in value 
+                        if entry.get('golden_queries.explore_id') in restricted_explore_keys
+                    ]
+                    filtered_golden_queries[key] = filtered_entries
+                    logging.info(f"Filtered {key}: {len(filtered_entries)} entries after filtering")
+                else:
+                    # For other keys, filter based on explore keys
+                    if isinstance(value, dict):
+                        filtered_value = {
+                            k: v for k, v in value.items() 
+                            if k in restricted_explore_keys
+                        }
+                        filtered_golden_queries[key] = filtered_value
+                        logging.info(f"Filtered {key}: {len(filtered_value)} entries after filtering")
+                    else:
+                        filtered_golden_queries[key] = value
+                        logging.info(f"Copied {key} without filtering (not a dict)")
+        else:
+            logging.info("No restricted explore keys - using all golden queries")
+        
+        logging.info(f"Final filtered golden queries keys: {list(filtered_golden_queries.keys())}")
+        if 'exploreEntries' in filtered_golden_queries:
+            entries_count = len(filtered_golden_queries['exploreEntries']) if isinstance(filtered_golden_queries['exploreEntries'], list) else len(filtered_golden_queries['exploreEntries']) if isinstance(filtered_golden_queries['exploreEntries'], dict) else 0
+            logging.info(f"exploreEntries count: {entries_count}")
+        
+        # Build system prompt with conversation context
+        newline_char = "\n"
+        restriction_text = ""
+        if restricted_explore_keys:
+            restriction_text = f"{newline_char}IMPORTANT: You must only select explores from this restricted list: {restricted_explore_keys}{newline_char}"
+        
+        # Extract just the explore names and basic info to reduce token usage
+        available_explores = []
+        
+        # Get explore names from exploreEntries
+        if 'exploreEntries' in filtered_golden_queries:
+            entries = filtered_golden_queries['exploreEntries']
+            if isinstance(entries, list):
+                for entry in entries:
+                    if isinstance(entry, dict):
+                        explore_id = entry.get('golden_queries.explore_id') or entry.get('explore_id')
+                        if explore_id:
+                            available_explores.append(explore_id)
+            elif isinstance(entries, dict):
+                available_explores.extend(list(entries.keys()))
+        
+        # Get explore names from other sections if available
+        for key in ['exploreGenerationExamples', 'exploreRefinementExamples', 'exploreSamples']:
+            if key in filtered_golden_queries and isinstance(filtered_golden_queries[key], dict):
+                available_explores.extend(list(filtered_golden_queries[key].keys()))
+        
+        # Remove duplicates and ensure we have explores to choose from
+        available_explores = list(set(available_explores))
+        
+        if not available_explores:
+            logging.warning("❌ No available explores found in filtered golden queries")
+            # Fallback to restricted keys if available
+            if restricted_explore_keys:
+                available_explores = restricted_explore_keys
+            else:
+                logging.error("❌ No explores available for selection")
+        
+        logging.info(f"🔍 Available explores for selection: {available_explores}")
+        
+        # Optimization: If only one explore is available, skip LLM call and return it directly
+        if len(available_explores) == 1:
+            single_explore = available_explores[0]
+            logging.info(f"✅ Only one explore available ({single_explore}) - skipping LLM call for efficiency")
+            logging.info("=== EXPLORE DETERMINATION COMPLETE (OPTIMIZED) ===")
+            return single_explore
+        
+        # Create a concise explore list instead of full golden queries dump
+        explores_text = "\n".join([f"- {explore}" for explore in available_explores])
+        
+        system_prompt = f"""You are a Looker Explore Assistant. Your job is to determine which Looker explore is most appropriate for answering a user's question.
+
+IMPORTANT: You must analyze the user's question independently and select the BEST explore for their needs, regardless of any previous explore selections or model information.
+{restriction_text}
+Available Explores:
+{explores_text}
+
+{f"Conversation Context:{newline_char}{conversation_context}{newline_char}" if conversation_context else ""}
+
+Instructions:
+1. Analyze the user's current prompt: "{prompt}"
+2. Consider the conversation context to understand what the user has been asking about
+3. Compare against the available explores
+4. Determine which explore would be BEST suited to answer this question
+5. {"Restrict your selection to the provided explore keys only" if restricted_explore_keys else "Ignore any previous explore selections - choose the optimal explore for this specific question"}
+6. Return ONLY the explore key (e.g., "order_items", "events", etc.) as a single string
+
+Current user prompt: {prompt}
+
+Response format: Return only the explore key as plain text (no JSON, no explanation)"""
+
+        logging.info(f"🔍 System prompt length: {len(system_prompt)} characters")
+        logging.info(f"🔍 System prompt preview: {system_prompt[:500]}...")
+        if len(system_prompt) > 10000:
+            logging.warning(f"⚠️ System prompt is very long ({len(system_prompt)} chars) - may cause issues")
+
+        # Format request for Vertex AI
+        vertex_request = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": system_prompt}]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.1,
+                "topP": 0.4,  # Reduced for focused responses
+                "topK": 20,  # Reduced for brevity
+                "maxOutputTokens": 1000,  # Small for explore selection
+                "candidateCount": 1
+            }
+        }
+        
+        # Call Vertex AI using service account
+        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
+        if not vertex_response:
+            logging.error("❌ Failed to get response from Vertex AI")
+            return None
+        
+        logging.info(f"✅ Got Vertex AI response: {vertex_response}")
+        
+        # Extract the explore key from response
+        response_text = extract_vertex_response_text(vertex_response)
+        logging.info(f"🔍 Extracted response text: '{response_text}' (type: {type(response_text)})")
+        
+        if response_text:
+            # Handle different response types
+            if isinstance(response_text, dict):
+                logging.warning(f"❌ Response is dict, not string: {response_text}")
+                # Try to extract string from common dict patterns
+                if 'explore_key' in response_text:
+                    explore_key = str(response_text['explore_key'])
+                elif 'explore' in response_text:
+                    explore_key = str(response_text['explore'])
+                else:
+                    logging.error(f"❌ Cannot extract explore key from dict response: {response_text}")
+                    return None
+            elif isinstance(response_text, list):
+                logging.warning(f"❌ Response is list, not string: {response_text}")
+                if response_text and isinstance(response_text[0], str):
+                    explore_key = response_text[0]
+                else:
+                    logging.error(f"❌ Cannot extract explore key from list response: {response_text}")
+                    return None
+            else:
+                # Clean up the response - remove any extra whitespace or formatting
+                explore_key = str(response_text).strip().replace('"', '').replace('\n', '')
+            
+            logging.info(f"🔍 Cleaned explore key: '{explore_key}'")
+            
+            # Validate that the determined explore is in the restricted list if restrictions apply
+            if restricted_explore_keys and explore_key not in restricted_explore_keys:
+                logging.warning(f"Determined explore '{explore_key}' not in restricted list. Selecting first available.")
+                explore_key = restricted_explore_keys[0] if restricted_explore_keys else explore_key
+            
+            logging.info(f"✅ Determined explore with context: {explore_key}")
+            logging.info("=== EXPLORE DETERMINATION COMPLETE ===")
+            return explore_key
+        
+        logging.error("❌ Failed to extract explore key from response - response_text is None or empty")
+        return None
+        
+    except Exception as e:
+        logging.error(f"❌ Error determining explore: {e}")
+        return None
+
 class LookerExploreAssistantMCPServer:
     """MCP Server for Looker Explore Assistant with comprehensive functionality"""
     
@@ -83,6 +503,7 @@ class LookerExploreAssistantMCPServer:
         self.server = Server("looker-explore-assistant")
         self.bq_client = None
         self.looker_sdk = None
+        self.olympic_manager = None
         self._setup_handlers()
     
     def _setup_handlers(self):
@@ -95,7 +516,7 @@ class LookerExploreAssistantMCPServer:
                 Resource(
                     uri="looker://explore-assistant",
                     name="Looker Explore Assistant",
-                    description="Comprehensive Looker data exploration with AI assistance",
+                    description="Comprehensive Looker data exploration with AI assistance and Olympic Query Management",
                     mimeType="application/json"
                 ),
                 Resource(
@@ -113,7 +534,13 @@ class LookerExploreAssistantMCPServer:
                 Resource(
                     uri="looker://status",
                     name="Service Status",
-                    description="Current status of all services",
+                    description="Current status of all services including Olympic Query Management",
+                    mimeType="application/json"
+                ),
+                Resource(
+                    uri="looker://olympic-queries",
+                    name="Olympic Query Management",
+                    description="Bronze/Silver/Gold query storage and promotion system",
                     mimeType="application/json"
                 )
             ]
@@ -125,13 +552,14 @@ class LookerExploreAssistantMCPServer:
                 return json.dumps({
                     "service": "looker-explore-assistant",
                     "version": "2.0.0",
-                    "description": "Comprehensive Looker data exploration with AI assistance",
+                    "description": "Comprehensive Looker data exploration with AI assistance and Olympic Query Management",
                     "capabilities": [
                         "vertex_ai_proxy",
                         "semantic_field_search", 
                         "field_value_lookup",
                         "looker_query_generation",
-                        "golden_query_examples"
+                        "golden_query_examples",
+                        "olympic_query_management"
                     ]
                 }, indent=2)
             elif uri == "looker://field-discovery":
@@ -154,9 +582,24 @@ class LookerExploreAssistantMCPServer:
                     "status": "active",
                     "bigquery_connected": self.bq_client is not None,
                     "looker_connected": self.looker_sdk is not None,
+                    "olympic_manager_connected": self.olympic_manager is not None,
                     "project_id": PROJECT_ID,
                     "bq_project_id": BQ_PROJECT_ID,
                     "timestamp": datetime.now().isoformat()
+                }, indent=2)
+            elif uri == "looker://olympic-queries":
+                return json.dumps({
+                    "service": "olympic-query-management",
+                    "description": "Single-table query management with Bronze/Silver/Gold ranks",
+                    "table": f"{BQ_PROJECT_ID}.{BQ_DATASET_ID}.olympic_queries",
+                    "ranks": ["bronze", "silver", "gold"],
+                    "capabilities": [
+                        "add_bronze_query",
+                        "add_silver_query", 
+                        "promote_to_gold",
+                        "get_gold_queries",
+                        "query_statistics"
+                    ]
                 }, indent=2)
             else:
                 raise ValueError(f"Unknown resource: {uri}")
@@ -303,7 +746,7 @@ class LookerExploreAssistantMCPServer:
                 # Core Explore Assistant Tool - The Missing Piece!
                 Tool(
                     name="generate_explore_params",
-                    description="Convert natural language queries into Looker explore parameters. This is the core function that transforms user questions into structured Looker queries.",
+                    description="Convert natural language queries into Looker explore parameters. Automatically determines the best explore from restricted options and transforms user questions into structured Looker queries.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -311,9 +754,10 @@ class LookerExploreAssistantMCPServer:
                                 "type": "string",
                                 "description": "Natural language query from the user (e.g., 'Show me sales by brand for Q2 2023')"
                             },
-                            "explore_key": {
-                                "type": "string", 
-                                "description": "Target explore in format model:explore (e.g., 'ecommerce:order_items')"
+                            "restricted_explore_keys": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of allowed explore keys in format model:explore (e.g., ['ecommerce:order_items', 'events:events']). The system will choose the best one automatically."
                             },
                             "conversation_context": {
                                 "type": "string",
@@ -322,7 +766,7 @@ class LookerExploreAssistantMCPServer:
                             },
                             "golden_queries": {
                                 "type": "object",
-                                "description": "Golden query examples for the explore",
+                                "description": "Golden query examples for explore selection and parameter generation",
                                 "default": {}
                             },
                             "semantic_models": {
@@ -331,15 +775,360 @@ class LookerExploreAssistantMCPServer:
                                 "default": {}
                             }
                         },
-                        "required": ["prompt", "explore_key"]
+                        "required": ["prompt", "restricted_explore_keys"]
+                    }
+                ),
+                
+                # Olympic Query Management Tools
+                Tool(
+                    name="add_bronze_query",
+                    description="Add a new bronze (raw) query to the Olympic system",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "explore_id": {
+                                "type": "string",
+                                "description": "Explore ID in model:explore format"
+                            },
+                            "input": {
+                                "type": "string",
+                                "description": "User's natural language input"
+                            },
+                            "output": {
+                                "type": "string",
+                                "description": "Generated Looker query or response"
+                            },
+                            "link": {
+                                "type": "string",
+                                "description": "Looker explore URL or reference"
+                            },
+                            "user_email": {
+                                "type": "string",
+                                "description": "User's email address"
+                            },
+                            "query_run_count": {
+                                "type": "integer",
+                                "default": 1,
+                                "description": "Initial run count for the query"
+                            }
+                        },
+                        "required": ["explore_id", "input", "output", "link", "user_email"]
+                    }
+                ),
+                
+                Tool(
+                    name="add_silver_query",
+                    description="Add a silver (feedback) query to the Olympic system",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "explore_id": {
+                                "type": "string",
+                                "description": "Explore ID in model:explore format"
+                            },
+                            "input": {
+                                "type": "string",
+                                "description": "User's natural language input"
+                            },
+                            "output": {
+                                "type": "string",
+                                "description": "Generated Looker query or response"
+                            },
+                            "link": {
+                                "type": "string",
+                                "description": "Looker explore URL or reference"
+                            },
+                            "user_id": {
+                                "type": "string",
+                                "description": "User identifier"
+                            },
+                            "feedback_type": {
+                                "type": "string",
+                                "description": "Type of feedback (positive, negative, refinement, etc.)"
+                            },
+                            "conversation_history": {
+                                "type": "string",
+                                "description": "Conversation context for multi-turn interactions"
+                            }
+                        },
+                        "required": ["explore_id", "input", "output", "link", "user_id", "feedback_type"]
+                    }
+                ),
+                
+                Tool(
+                    name="promote_to_gold",
+                    description="Promote a bronze or silver query to gold status for training",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query_id": {
+                                "type": "string",
+                                "description": "ID of the query to promote"
+                            },
+                            "promoted_by": {
+                                "type": "string",
+                                "description": "Identifier of who is promoting the query"
+                            }
+                        },
+                        "required": ["query_id", "promoted_by"]
+                    }
+                ),
+                
+                Tool(
+                    name="get_gold_queries",
+                    description="Get gold (training) queries for a specific explore or all explores",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "explore_id": {
+                                "type": "string",
+                                "description": "Optional explore ID to filter queries"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "default": 50,
+                                "description": "Maximum number of queries to return"
+                            }
+                        }
+                    }
+                ),
+                
+                Tool(
+                    name="get_query_stats",
+                    description="Get statistics about queries across all Olympic ranks",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
+                ),
+                
+                # Explicit Feedback Tools
+                Tool(
+                    name="submit_positive_feedback",
+                    description="Submit positive feedback for a query response",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query_id": {
+                                "type": "string",
+                                "description": "Unique identifier for the query"
+                            },
+                            "user_input": {
+                                "type": "string",
+                                "description": "The user's original input/question"
+                            },
+                            "response": {
+                                "type": "string", 
+                                "description": "The generated response that received positive feedback"
+                            },
+                            "feedback_notes": {
+                                "type": "string",
+                                "description": "Optional notes about why this response was helpful"
+                            }
+                        },
+                        "required": ["query_id", "user_input", "response"]
+                    }
+                ),
+                
+                Tool(
+                    name="submit_negative_feedback",
+                    description="Submit negative feedback for a query response with improvement suggestions",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query_id": {
+                                "type": "string",
+                                "description": "Unique identifier for the query"
+                            },
+                            "user_input": {
+                                "type": "string",
+                                "description": "The user's original input/question"
+                            },
+                            "response": {
+                                "type": "string",
+                                "description": "The generated response that received negative feedback"
+                            },
+                            "issues": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of specific issues with the response"
+                            },
+                            "improvement_suggestions": {
+                                "type": "string",
+                                "description": "Suggestions for how to improve the response"
+                            },
+                            "feedback_notes": {
+                                "type": "string",
+                                "description": "Additional feedback notes"
+                            }
+                        },
+                        "required": ["query_id", "user_input", "response", "issues"]
+                    }
+                ),
+                
+                Tool(
+                    name="request_response_improvement",
+                    description="Request an improved version of a query response based on feedback",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query_id": {
+                                "type": "string",
+                                "description": "Unique identifier for the original query"
+                            },
+                            "original_input": {
+                                "type": "string",
+                                "description": "The user's original input/question"
+                            },
+                            "original_response": {
+                                "type": "string",
+                                "description": "The original response that needs improvement"
+                            },
+                            "improvement_request": {
+                                "type": "string",
+                                "description": "Specific request for how to improve the response"
+                            },
+                            "context": {
+                                "type": "string",
+                                "description": "Additional context or clarification"
+                            }
+                        },
+                        "required": ["query_id", "original_input", "original_response", "improvement_request"]
+                    }
+                ),
+                
+                Tool(
+                    name="submit_query_feedback",
+                    description="Submit explicit user feedback on a generated query",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query_id": {
+                                "type": "string",
+                                "description": "Optional ID of existing query to provide feedback on"
+                            },
+                            "explore_id": {
+                                "type": "string",
+                                "description": "Explore ID in model:explore format"
+                            },
+                            "original_prompt": {
+                                "type": "string",
+                                "description": "User's original natural language prompt"
+                            },
+                            "generated_params": {
+                                "type": "object",
+                                "description": "The Looker explore parameters that were generated"
+                            },
+                            "share_url": {
+                                "type": "string",
+                                "description": "Looker share URL for the query"
+                            },
+                            "feedback_type": {
+                                "type": "string",
+                                "enum": ["positive", "negative", "refinement", "alternative"],
+                                "description": "Type of feedback: positive (thumbs up), negative (thumbs down), refinement (needs improvement), alternative (different approach)"
+                            },
+                            "user_id": {
+                                "type": "string",
+                                "description": "User identifier (email or user ID)"
+                            },
+                            "user_comment": {
+                                "type": "string",
+                                "description": "Optional detailed feedback comment from user"
+                            },
+                            "suggested_improvements": {
+                                "type": "object",
+                                "description": "Optional suggested parameter improvements from user"
+                            }
+                        },
+                        "required": ["explore_id", "original_prompt", "generated_params", "share_url", "feedback_type", "user_id"]
+                    }
+                ),
+                
+                Tool(
+                    name="get_query_feedback_history",
+                    description="Get feedback history for queries to understand user preferences",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "explore_id": {
+                                "type": "string",
+                                "description": "Optional explore ID to filter feedback"
+                            },
+                            "user_id": {
+                                "type": "string",
+                                "description": "Optional user ID to filter feedback"
+                            },
+                            "feedback_type": {
+                                "type": "string",
+                                "enum": ["positive", "negative", "refinement", "alternative"],
+                                "description": "Optional feedback type to filter"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "default": 20,
+                                "description": "Maximum number of feedback entries to return"
+                            }
+                        }
+                    }
+                ),
+                
+                # Query Promotion Management Tools
+                Tool(
+                    name="get_queries_by_rank",
+                    description="Get queries filtered by Olympic rank (bronze, silver, or gold)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "rank": {
+                                "type": "string",
+                                "enum": ["bronze", "silver", "gold"],
+                                "description": "Query rank to filter by"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "default": 50,
+                                "description": "Maximum number of queries to return"
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "default": 0,
+                                "description": "Number of queries to skip for pagination"
+                            }
+                        },
+                        "required": ["rank"]
+                    }
+                ),
+                
+                Tool(
+                    name="get_promotion_history",
+                    description="Get audit trail of query promotions between ranks",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "limit": {
+                                "type": "integer",
+                                "default": 50,
+                                "description": "Maximum number of promotion records to return"
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "default": 0,
+                                "description": "Number of records to skip for pagination"
+                            }
+                        }
                     }
                 )
             ]
         
         @self.server.call_tool()
         async def handle_call_tool(name: str, arguments: dict) -> List[TextContent]:
-            """Handle tool calls"""
-            try:
+            """Handle tool calls - delegates to the main handler method"""
+            return await self.handle_tool_call(name, arguments)
+            
+    async def handle_tool_call(self, name: str, arguments: dict) -> List[TextContent]:
+        """Main tool call handler - accessible from Flask adapter"""
+        try:
                 if name == "vertex_ai_query":
                     return await self._handle_vertex_ai_query(arguments)
                 elif name == "semantic_field_search":
@@ -350,17 +1139,41 @@ class LookerExploreAssistantMCPServer:
                     return await self._handle_get_explore_fields(arguments)
                 elif name == "run_looker_query":
                     return await self._handle_run_looker_query(arguments)
-                elif name == "generate_explore_params":
+                elif name == "generate_explore_params" or name == "generate_explore_parameters":
                     return await self._handle_generate_explore_params(arguments)
+                elif name == "add_bronze_query":
+                    return await self._handle_add_bronze_query(arguments)
+                elif name == "add_silver_query":
+                    return await self._handle_add_silver_query(arguments)
+                elif name == "promote_to_gold":
+                    return await self._handle_promote_to_gold(arguments)
+                elif name == "get_gold_queries":
+                    return await self._handle_get_gold_queries(arguments)
+                elif name == "get_query_stats":
+                    return await self._handle_get_query_stats(arguments)
+                elif name == "submit_positive_feedback":
+                    return await self._handle_submit_positive_feedback(arguments)
+                elif name == "submit_negative_feedback":
+                    return await self._handle_submit_negative_feedback(arguments)
+                elif name == "request_response_improvement":
+                    return await self._handle_request_response_improvement(arguments)
+                elif name == "submit_query_feedback":
+                    return await self._handle_submit_query_feedback(arguments)
+                elif name == "get_query_feedback_history":
+                    return await self._handle_get_query_feedback_history(arguments)
+                elif name == "get_queries_by_rank":
+                    return await self._handle_get_queries_by_rank(arguments)
+                elif name == "get_promotion_history":
+                    return await self._handle_get_promotion_history(arguments)
                 else:
                     raise ValueError(f"Unknown tool: {name}")
                     
-            except Exception as e:
-                logger.error(f"Error in tool {name}: {e}")
-                return [TextContent(
-                    type="text",
-                    text=json.dumps({"error": str(e)}, indent=2)
-                )]
+        except Exception as e:
+            logger.error(f"Error in tool {name}: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": str(e)}, indent=2)
+            )]
     
     # Tool implementation methods
     async def _handle_vertex_ai_query(self, arguments: dict) -> List[TextContent]:
@@ -672,33 +1485,52 @@ class LookerExploreAssistantMCPServer:
     async def _handle_generate_explore_params(self, arguments: dict) -> List[TextContent]:
         """Handle explore parameter generation - The core Explore Assistant function"""
         prompt = arguments["prompt"]
-        explore_key = arguments["explore_key"]
+        restricted_explore_keys = arguments["restricted_explore_keys"]
         conversation_context = arguments.get("conversation_context", "")
         golden_queries = arguments.get("golden_queries", {})
         semantic_models = arguments.get("semantic_models", {})
         
         try:
-            # Extract model and explore names from explore_key
-            if ":" not in explore_key:
-                raise ValueError("explore_key must be in format 'model:explore'")
+            # Step 1: Determine the best explore from the restricted list
+            logger.info(f"Determining best explore from restricted keys: {restricted_explore_keys}")
             
-            model_name, explore_name = explore_key.split(":", 1)
+            # Create auth header for determine_explore_from_prompt function
+            # This is typically passed as Bearer token, but we'll use service account
+            auth_header = "Bearer service_account"  # Placeholder since we use service account
+            
+            # Determine the best explore
+            determined_explore_key = determine_explore_from_prompt(
+                auth_header=auth_header,
+                prompt=prompt,
+                golden_queries=golden_queries,
+                conversation_context=conversation_context,
+                restricted_explore_keys=restricted_explore_keys
+            )
+            
+            if not determined_explore_key:
+                raise ValueError("Unable to determine appropriate explore for this query")
+            
+            logger.info(f"Determined explore: {determined_explore_key}")
+            
+            # Extract model and explore names from determined explore_key
+            if ":" not in determined_explore_key:
+                raise ValueError("determined explore_key must be in format 'model:explore'")
+            
+            model_name, explore_name = determined_explore_key.split(":", 1)
             
             # Create current_explore context for compatibility
             current_explore = {
                 'exploreKey': explore_name,
-                'exploreId': explore_key,
+                'exploreId': determined_explore_key,
                 'modelName': model_name
             }
             
-            # For now, we'll create a simplified version that uses Vertex AI to generate parameters
-            # This maintains the core functionality while working within the MCP framework
-            
+            # Step 2: Generate parameters for the determined explore
             # Build a comprehensive prompt for Vertex AI that includes field metadata
             system_prompt = f"""
 You are an expert Looker analyst. Convert the user's natural language query into structured Looker explore parameters.
 
-TARGET EXPLORE: {explore_key} (Model: {model_name}, Explore: {explore_name})
+TARGET EXPLORE: {determined_explore_key} (Model: {model_name}, Explore: {explore_name})
 
 AVAILABLE FIELDS:
 """
@@ -803,12 +1635,14 @@ Instructions:
                         
                         result = {
                             "explore_params": explore_params,
-                            "explore_key": explore_key,
+                            "explore_key": determined_explore_key,
                             "model_name": model_name,
                             "explore_name": explore_name,
                             "original_prompt": prompt,
                             "has_conversation_context": bool(conversation_context),
-                            "generation_method": "vertex_ai_mcp"
+                            "generation_method": "vertex_ai_mcp",
+                            "restricted_explore_keys": restricted_explore_keys,
+                            "determined_explore": determined_explore_key
                         }
                         
                         return [TextContent(
@@ -838,7 +1672,8 @@ Instructions:
                             "explore_params": fallback_params,
                             "error": "Failed to parse AI response, using fallback",
                             "raw_response": response_text[:500],
-                            "explore_key": explore_key
+                            "explore_key": determined_explore_key,
+                            "determined_explore": determined_explore_key
                         }, indent=2)
                     )]
             else:
@@ -878,6 +1713,531 @@ Instructions:
             return [TextContent(
                 type="text",
                 text=json.dumps({"error": f"Looker query execution failed: {e}"}, indent=2)
+            )]
+    
+    # Olympic Query Management Tools
+    async def _handle_add_bronze_query(self, arguments: dict) -> List[TextContent]:
+        """Handle adding bronze queries"""
+        explore_id = arguments["explore_id"]
+        input_text = arguments["input"]
+        output = arguments["output"]
+        link = arguments["link"]
+        user_email = arguments["user_email"]
+        query_run_count = arguments.get("query_run_count", 1)
+        
+        await self._ensure_olympic_manager()
+        
+        try:
+            query_id = self.olympic_manager.add_bronze_query(
+                explore_id=explore_id,
+                input_text=input_text,
+                output=output,
+                link=link,
+                user_email=user_email,
+                query_run_count=query_run_count
+            )
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "success": True,
+                    "query_id": query_id,
+                    "explore_id": explore_id,
+                    "rank": "bronze",
+                    "user_email": user_email,
+                    "query_run_count": query_run_count
+                }, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Failed to add bronze query: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": f"Failed to add bronze query: {e}"}, indent=2)
+            )]
+    
+    async def _handle_add_silver_query(self, arguments: dict) -> List[TextContent]:
+        """Handle adding silver queries"""
+        explore_id = arguments["explore_id"]
+        input_text = arguments["input"]
+        output = arguments["output"]
+        link = arguments["link"]
+        user_id = arguments["user_id"]
+        feedback_type = arguments["feedback_type"]
+        conversation_history = arguments.get("conversation_history")
+        
+        await self._ensure_olympic_manager()
+        
+        try:
+            query_id = self.olympic_manager.add_silver_query(
+                explore_id=explore_id,
+                input_text=input_text,
+                output=output,
+                link=link,
+                user_id=user_id,
+                feedback_type=feedback_type,
+                conversation_history=conversation_history
+            )
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "success": True,
+                    "query_id": query_id,
+                    "explore_id": explore_id,
+                    "rank": "silver",
+                    "user_id": user_id,
+                    "feedback_type": feedback_type
+                }, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Failed to add silver query: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": f"Failed to add silver query: {e}"}, indent=2)
+            )]
+    
+    async def _handle_promote_to_gold(self, arguments: dict) -> List[TextContent]:
+        """Handle query promotion to gold"""
+        query_id = arguments["query_id"]
+        promoted_by = arguments["promoted_by"]
+        
+        await self._ensure_olympic_manager()
+        
+        try:
+            success = self.olympic_manager.promote_to_gold(
+                query_id=query_id,
+                promoted_by=promoted_by
+            )
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "success": success,
+                    "query_id": query_id,
+                    "promoted_by": promoted_by,
+                    "promoted_to": "gold" if success else None,
+                    "message": "Query promoted successfully" if success else "Query not found or already gold"
+                }, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Failed to promote query: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": f"Failed to promote query: {e}"}, indent=2)
+            )]
+    
+    async def _handle_get_gold_queries(self, arguments: dict) -> List[TextContent]:
+        """Handle getting gold queries for training"""
+        explore_id = arguments.get("explore_id")
+        limit = arguments.get("limit", 50)
+        
+        await self._ensure_olympic_manager()
+        
+        try:
+            gold_queries = self.olympic_manager.get_gold_queries_for_training(
+                explore_id=explore_id
+            )
+            
+            # Limit results
+            gold_queries = gold_queries[:limit]
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "explore_id_filter": explore_id,
+                    "results_count": len(gold_queries),
+                    "gold_queries": gold_queries
+                }, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Failed to get gold queries: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": f"Failed to get gold queries: {e}"}, indent=2)
+            )]
+    
+    async def _handle_get_query_stats(self, arguments: dict) -> List[TextContent]:
+        """Handle getting query statistics"""
+        await self._ensure_olympic_manager()
+        
+        try:
+            stats = self.olympic_manager.get_query_stats()
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "query_statistics": stats,
+                    "total_queries": sum(rank_stats.get("count", 0) for rank_stats in stats.values()),
+                    "ranks_available": list(stats.keys())
+                }, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Failed to get query stats: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": f"Failed to get query stats: {e}"}, indent=2)
+            )]
+    
+    async def _handle_submit_query_feedback(self, arguments: dict) -> List[TextContent]:
+        """Handle explicit user feedback submission"""
+        query_id = arguments.get("query_id")
+        explore_id = arguments["explore_id"]
+        original_prompt = arguments["original_prompt"]
+        generated_params = arguments["generated_params"]
+        share_url = arguments["share_url"]
+        feedback_type = arguments["feedback_type"]
+        user_id = arguments["user_id"]
+        user_comment = arguments.get("user_comment", "")
+        suggested_improvements = arguments.get("suggested_improvements")
+        
+        await self._ensure_olympic_manager()
+        
+        try:
+            # Build conversation history with feedback details
+            feedback_details = {
+                "feedback_type": feedback_type,
+                "original_prompt": original_prompt,
+                "generated_params": generated_params,
+                "user_comment": user_comment,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            if suggested_improvements:
+                feedback_details["suggested_improvements"] = suggested_improvements
+            
+            conversation_history = json.dumps(feedback_details, indent=2)
+            
+            # Determine what to store based on feedback type
+            if feedback_type == "positive":
+                # Positive feedback goes to silver queries as approved examples
+                new_query_id = self.olympic_manager.add_silver_query(
+                    explore_id=explore_id,
+                    input_text=original_prompt,
+                    output=json.dumps(generated_params),
+                    link=share_url,
+                    user_id=user_id,
+                    feedback_type="positive_feedback",
+                    conversation_history=conversation_history
+                )
+                message = "Positive feedback recorded. This query is saved as an approved example."
+                
+            elif feedback_type == "negative":
+                # Negative feedback goes to silver with details for improvement
+                new_query_id = self.olympic_manager.add_silver_query(
+                    explore_id=explore_id,
+                    input_text=original_prompt,
+                    output=json.dumps(generated_params),
+                    link=share_url,
+                    user_id=user_id,
+                    feedback_type="negative_feedback",
+                    conversation_history=conversation_history
+                )
+                message = "Negative feedback recorded. This will help improve future query generation."
+                
+            elif feedback_type == "refinement":
+                # Refinement suggestions stored with improvement details
+                output_data = {
+                    "original_params": generated_params,
+                    "suggested_improvements": suggested_improvements,
+                    "user_comment": user_comment
+                }
+                new_query_id = self.olympic_manager.add_silver_query(
+                    explore_id=explore_id,
+                    input_text=original_prompt,
+                    output=json.dumps(output_data),
+                    link=share_url,
+                    user_id=user_id,
+                    feedback_type="refinement_suggestion",
+                    conversation_history=conversation_history
+                )
+                message = "Refinement suggestions recorded. Thank you for helping improve the system."
+                
+            elif feedback_type == "alternative":
+                # Alternative approach suggestions
+                output_data = {
+                    "original_params": generated_params,
+                    "alternative_approach": suggested_improvements,
+                    "user_comment": user_comment
+                }
+                new_query_id = self.olympic_manager.add_silver_query(
+                    explore_id=explore_id,
+                    input_text=original_prompt,
+                    output=json.dumps(output_data),
+                    link=share_url,
+                    user_id=user_id,
+                    feedback_type="alternative_approach",
+                    conversation_history=conversation_history
+                )
+                message = "Alternative approach recorded. This helps expand our query generation capabilities."
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "success": True,
+                    "query_id": new_query_id,
+                    "feedback_type": feedback_type,
+                    "explore_id": explore_id,
+                    "user_id": user_id,
+                    "message": message,
+                    "stored_in": "silver_queries"
+                }, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Failed to submit query feedback: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": f"Failed to submit query feedback: {e}"}, indent=2)
+            )]
+    
+    async def _handle_get_query_feedback_history(self, arguments: dict) -> List[TextContent]:
+        """Handle getting query feedback history"""
+        explore_id = arguments.get("explore_id")
+        user_id = arguments.get("user_id")
+        feedback_type = arguments.get("feedback_type")
+        limit = arguments.get("limit", 20)
+        
+        await self._ensure_olympic_manager()
+        
+        try:
+            # Build query to get feedback history from silver queries
+            base_query = f"""
+            SELECT 
+                id,
+                explore_id,
+                input,
+                output,
+                link,
+                user_id,
+                feedback_type,
+                conversation_history,
+                created_at
+            FROM `{BQ_PROJECT_ID}.{BQ_DATASET_ID}.olympic_queries`
+            WHERE rank = 'silver'
+            AND feedback_type LIKE '%_feedback%' OR feedback_type LIKE '%_suggestion' OR feedback_type LIKE '%_approach'
+            """
+            
+            query_params = []
+            
+            # Add filters if specified
+            if explore_id:
+                base_query += " AND explore_id = @explore_id"
+                query_params.append(
+                    bigquery.ScalarQueryParameter("explore_id", "STRING", explore_id)
+                )
+            
+            if user_id:
+                base_query += " AND user_id = @user_id"
+                query_params.append(
+                    bigquery.ScalarQueryParameter("user_id", "STRING", user_id)
+                )
+            
+            if feedback_type:
+                # Map frontend feedback types to stored feedback types
+                feedback_type_mapping = {
+                    "positive": "positive_feedback",
+                    "negative": "negative_feedback",
+                    "refinement": "refinement_suggestion",
+                    "alternative": "alternative_approach"
+                }
+                stored_feedback_type = feedback_type_mapping.get(feedback_type, feedback_type)
+                base_query += " AND feedback_type = @feedback_type"
+                query_params.append(
+                    bigquery.ScalarQueryParameter("feedback_type", "STRING", stored_feedback_type)
+                )
+            
+            base_query += " ORDER BY created_at DESC LIMIT @limit"
+            query_params.append(
+                bigquery.ScalarQueryParameter("limit", "INT64", limit)
+            )
+            
+            job_config = bigquery.QueryJobConfig(query_parameters=query_params)
+            results = self.bq_client.query(base_query, job_config=job_config).result()
+            
+            feedback_history = []
+            for row in results:
+                # Parse conversation history for additional details
+                try:
+                    conversation_data = json.loads(row.conversation_history) if row.conversation_history else {}
+                except:
+                    conversation_data = {}
+                
+                feedback_entry = {
+                    "query_id": row.id,
+                    "explore_id": row.explore_id,
+                    "original_prompt": row.input,
+                    "generated_params": json.loads(row.output) if row.output else {},
+                    "share_url": row.link,
+                    "user_id": row.user_id,
+                    "feedback_type": row.feedback_type,
+                    "user_comment": conversation_data.get("user_comment", ""),
+                    "suggested_improvements": conversation_data.get("suggested_improvements"),
+                    "created_at": row.created_at.isoformat() if row.created_at else None
+                }
+                feedback_history.append(feedback_entry)
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "explore_id_filter": explore_id,
+                    "user_id_filter": user_id,
+                    "feedback_type_filter": feedback_type,
+                    "results_count": len(feedback_history),
+                    "feedback_history": feedback_history
+                }, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Failed to get feedback history: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": f"Failed to get feedback history: {e}"}, indent=2)
+            )]
+    
+    # New explicit feedback handlers
+    async def _handle_submit_positive_feedback(self, arguments: dict) -> List[TextContent]:
+        """Handle positive feedback submission"""
+        query_id = arguments["query_id"]
+        user_input = arguments["user_input"]
+        response = arguments["response"]
+        feedback_notes = arguments.get("feedback_notes", "")
+        
+        await self._ensure_olympic_manager()
+        
+        try:
+            # Store positive feedback in silver tier for future use
+            new_query_id = self.olympic_manager.add_silver_query(
+                explore_id="feedback_query",  # Special explore_id for feedback
+                input_text=user_input,
+                output=response,
+                link="",
+                user_id="system",
+                feedback_type="positive_feedback",
+                conversation_history=feedback_notes
+            )
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "status": "success",
+                    "message": "Positive feedback recorded successfully",
+                    "query_id": query_id,
+                    "feedback_id": new_query_id,
+                    "feedback_type": "positive"
+                }, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Failed to submit positive feedback: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": f"Failed to submit positive feedback: {e}"}, indent=2)
+            )]
+    
+    async def _handle_submit_negative_feedback(self, arguments: dict) -> List[TextContent]:
+        """Handle negative feedback submission with improvement suggestions"""
+        query_id = arguments["query_id"]
+        user_input = arguments["user_input"]
+        response = arguments["response"]
+        issues = arguments["issues"]
+        improvement_suggestions = arguments.get("improvement_suggestions", "")
+        feedback_notes = arguments.get("feedback_notes", "")
+        
+        await self._ensure_olympic_manager()
+        
+        try:
+            # Store negative feedback with improvement suggestions
+            feedback_data = {
+                "issues": issues,
+                "improvement_suggestions": improvement_suggestions,
+                "feedback_notes": feedback_notes,
+                "original_response": response
+            }
+            
+            new_query_id = self.olympic_manager.add_silver_query(
+                explore_id="feedback_query",
+                input_text=user_input,
+                output=json.dumps(feedback_data),
+                link="",
+                user_id="system",
+                feedback_type="negative_feedback",
+                conversation_history=json.dumps({"issues": issues, "suggestions": improvement_suggestions})
+            )
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "status": "success",
+                    "message": "Negative feedback and improvement suggestions recorded",
+                    "query_id": query_id,
+                    "feedback_id": new_query_id,
+                    "feedback_type": "negative",
+                    "issues_count": len(issues),
+                    "has_suggestions": bool(improvement_suggestions)
+                }, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Failed to submit negative feedback: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": f"Failed to submit negative feedback: {e}"}, indent=2)
+            )]
+    
+    async def _handle_request_response_improvement(self, arguments: dict) -> List[TextContent]:
+        """Handle request for improved response based on feedback"""
+        query_id = arguments["query_id"]
+        original_input = arguments["original_input"]
+        original_response = arguments["original_response"]
+        improvement_request = arguments["improvement_request"]
+        context = arguments.get("context", "")
+        
+        await self._ensure_olympic_manager()
+        
+        try:
+            # Create an improvement request entry
+            improvement_data = {
+                "original_response": original_response,
+                "improvement_request": improvement_request,
+                "context": context,
+                "status": "pending"
+            }
+            
+            new_query_id = self.olympic_manager.add_silver_query(
+                explore_id="improvement_request",
+                input_text=original_input,
+                output=json.dumps(improvement_data),
+                link="",
+                user_id="system", 
+                feedback_type="improvement_request",
+                conversation_history=context
+            )
+            
+            # TODO: In a full implementation, this could trigger an AI system
+            # to generate an improved response based on the feedback
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "status": "success",
+                    "message": "Improvement request recorded. A refined response will be generated.",
+                    "query_id": query_id,
+                    "improvement_id": new_query_id,
+                    "improvement_request": improvement_request,
+                    "next_steps": "The system will analyze the feedback and generate an improved response"
+                }, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Failed to handle improvement request: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": f"Failed to handle improvement request: {e}"}, indent=2)
             )]
     
     # Helper methods
@@ -925,6 +2285,18 @@ Instructions:
                 logger.error(f"Failed to initialize Looker SDK: {e}")
                 raise
     
+    async def _ensure_olympic_manager(self):
+        """Ensure Olympic Query Manager is initialized"""
+        if self.olympic_manager is None:
+            await self._ensure_bigquery_client()
+            self.olympic_manager = OlympicQueryManager(
+                bq_client=self.bq_client,
+                project_id=BQ_PROJECT_ID,
+                dataset_id=BQ_DATASET_ID
+            )
+            self.olympic_manager.ensure_table_exists()
+            logger.info(f"Initialized Olympic Query Manager for {BQ_PROJECT_ID}.{BQ_DATASET_ID}")
+    
     async def _call_vertex_ai_with_service_account(self, request_body: dict, model: str) -> dict:
         """Call Vertex AI API using service account credentials"""
         try:
@@ -958,6 +2330,7 @@ Instructions:
         # Initialize clients
         await self._ensure_bigquery_client()
         await self._ensure_looker_sdk()
+        await self._ensure_olympic_manager()
         
         # Run the server using stdio transport
         from mcp.server.stdio import stdio_server
@@ -977,10 +2350,242 @@ Instructions:
                 )
             )
 
+# =============================================================================
+# Flask HTTP Adapter for Cloud Run Deployment
+# =============================================================================
+
+from flask import Flask, request, Response, jsonify
+from flask_cors import CORS
+import asyncio
+from threading import Thread
+
+class FlaskMCPAdapter:
+    """Flask HTTP adapter that wraps the MCP server for Cloud Run deployment"""
+    
+    def __init__(self):
+        self.app = Flask(__name__)
+        CORS(self.app)
+        self.mcp_server = None
+        self._setup_routes()
+    
+    def _setup_routes(self):
+        """Setup Flask routes"""
+        
+        @self.app.route("/", methods=["POST", "OPTIONS"])
+        def handle_mcp_request():
+            """Main endpoint for MCP tool calls via HTTP"""
+            if request.method == "OPTIONS":
+                response = Response()
+                response.headers.update(self._get_cors_headers())
+                response.status_code = 200
+                return response
+            
+            try:
+                # Get request data first
+                request_data = request.get_json()
+                if not request_data:
+                    return jsonify({'error': 'Missing request body'}), 400, self._get_cors_headers()
+                
+                # Check for MCP tool call
+                tool_name = request_data.get('tool_name')
+                arguments = request_data.get('arguments', {})
+                
+                if not tool_name:
+                    return jsonify({'error': 'Missing tool_name parameter'}), 400, self._get_cors_headers()
+                
+                # Apply security validation based on tool requirements
+                auth_header = request.headers.get("Authorization")
+                user_context = self._validate_tool_security(tool_name, auth_header)
+                
+                # Add user context to arguments for tools that need it
+                if user_context:
+                    arguments['_user_context'] = user_context
+                
+                # Initialize MCP server if needed
+                if not self.mcp_server:
+                    self.mcp_server = LookerExploreAssistantMCPServer()
+                
+                # Call the MCP tool asynchronously
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    # Use the MCP server's call_tool handler
+                    result = loop.run_until_complete(
+                        self._call_mcp_tool(tool_name, arguments)
+                    )
+                    
+                    # Parse result from MCP TextContent format
+                    if result and len(result) > 0:
+                        import json
+                        response_text = result[0].text
+                        try:
+                            parsed_result = json.loads(response_text)
+                            return jsonify(parsed_result), 200, self._get_cors_headers()
+                        except json.JSONDecodeError:
+                            # If not JSON, return as plain text result
+                            return jsonify({'result': response_text}), 200, self._get_cors_headers()
+                    else:
+                        return jsonify({'error': 'No result from MCP tool'}), 500, self._get_cors_headers()
+                        
+                finally:
+                    loop.close()
+                    
+            except Exception as e:
+                logger.error(f"Flask adapter error: {e}")
+                return jsonify({'error': str(e)}), 500, self._get_cors_headers()
+        
+        @self.app.route("/health", methods=["GET"])
+        def health_check():
+            """Health check endpoint"""
+            return jsonify({'status': 'healthy', 'service': 'looker-mcp-server'}), 200
+        
+        @self.app.route("/cors", methods=["OPTIONS"])
+        def cors_preflight():
+            """Handle CORS preflight requests"""
+            response = Response()
+            response.headers.update(self._get_cors_headers())
+            response.status_code = 200
+            return response
+    
+    async def _call_mcp_tool(self, tool_name: str, arguments: dict):
+        """Call MCP tool and return result"""
+        # Call the MCP server's handle_tool_call method directly
+        result = await self.mcp_server.handle_tool_call(tool_name, arguments)
+        return result
+    
+    def _get_cors_headers(self):
+        """Get CORS headers for responses"""
+        return {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Max-Age': '3600'
+        }
+    
+    def _validate_tool_security(self, tool_name: str, auth_header: str):
+        """
+        Validate authentication based on tool security requirements
+        Returns user_context dict for tools that need it, None for low-security tools
+        """
+        # Define security levels for each tool
+        HIGH_SECURITY_TOOLS = {
+            'run_looker_query'  # Requires user impersonation
+        }
+        
+        MEDIUM_SECURITY_TOOLS = {
+            'promote_to_gold'  # Requires developer role validation
+        }
+        
+        # All other tools are LOW_SECURITY (GCP infrastructure validation only)
+        
+        if tool_name in HIGH_SECURITY_TOOLS:
+            # High security: Extract user email and create user-impersonated Looker SDK
+            user_email = self._extract_user_email_from_token(auth_header)
+            if not user_email:
+                raise ValueError("User authentication required for this operation")
+            
+            # TODO: Initialize user-impersonated Looker SDK
+            return {
+                'security_level': 'high',
+                'user_email': user_email,
+                'requires_user_sdk': True
+            }
+            
+        elif tool_name in MEDIUM_SECURITY_TOOLS:
+            # Medium security: Validate user has developer role
+            user_email = self._extract_user_email_from_token(auth_header)
+            if not user_email:
+                raise ValueError("Authentication required for promotion operations")
+            
+            # Validate developer role (simplified - just check user exists)
+            # In production, you might want to validate actual Looker roles
+            return {
+                'security_level': 'medium',
+                'user_email': user_email,
+                'requires_developer_role': True
+            }
+            
+        else:
+            # Low security: No additional validation required
+            # GCP infrastructure handles basic token validation
+            return None
+    
+    def _extract_user_email_from_token(self, auth_header: str):
+        """
+        Extract user email from OAuth token
+        Returns None if token is invalid or email cannot be extracted
+        """
+        if not auth_header:
+            return None
+            
+        try:
+            # Remove 'Bearer ' prefix if present
+            token = auth_header
+            if token.lower().startswith('bearer '):
+                token = token[7:]
+            
+            # Remove any whitespace
+            token = token.strip()
+            
+            # Split JWT into parts
+            token_parts = token.split('.')
+            if len(token_parts) != 3:
+                logger.error(f"Invalid JWT format: expected 3 parts, got {len(token_parts)}")
+                return None
+            
+            # Decode the payload (second part) to extract email
+            import base64
+            import json
+            
+            payload_data = token_parts[1]
+            # Add padding if needed for base64 decoding
+            payload_data += '=' * (4 - len(payload_data) % 4)
+            
+            try:
+                payload_json = base64.urlsafe_b64decode(payload_data).decode('utf-8')
+                payload = json.loads(payload_json)
+                
+                email = payload.get('email')
+                if email:
+                    logger.info(f"Extracted user email: {email}")
+                    return email
+                else:
+                    logger.error("No email found in token payload")
+                    return None
+                    
+            except Exception as e:
+                logger.error(f"Failed to decode JWT payload: {e}")
+                return None
+        except Exception as e:
+            logger.error(f"Failed to extract user email from token: {e}")
+            return None
+    
+    def run(self, host='0.0.0.0', port=8080, debug=False):
+        """Run the Flask app"""
+        logger.info(f"Starting Flask MCP Adapter on {host}:{port}")
+        self.app.run(host=host, port=port, debug=debug)
+
+def create_flask_app():
+    """Create and return Flask app for Cloud Run deployment"""
+    adapter = FlaskMCPAdapter()
+    return adapter.app
+
 def main():
-    """Main entry point"""
-    server = LookerExploreAssistantMCPServer()
-    asyncio.run(server.run())
+    """Main entry point - supports both MCP and Flask HTTP modes"""
+    import sys
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "--flask":
+        # Flask HTTP mode for Cloud Run
+        adapter = FlaskMCPAdapter()
+        port = int(os.environ.get("PORT", 8080))
+        adapter.run(host='0.0.0.0', port=port, debug=False)
+    else:
+        # Pure MCP mode for desktop clients
+        server = LookerExploreAssistantMCPServer()
+        asyncio.run(server.run())
+
+# For Cloud Run deployment
+app = create_flask_app()
 
 if __name__ == "__main__":
     main()

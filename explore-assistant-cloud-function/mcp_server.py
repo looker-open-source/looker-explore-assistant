@@ -1,6 +1,3 @@
-# MIT License
-
-# Copyright (c) 2023 Looker Data Sciences, Inc.
 
 # MCP (Model Context Protocol) Server for Looker Explore Assistant
 # This server acts as a credential proxy for non-admin users to access
@@ -2258,6 +2255,225 @@ def ensure_promotion_log_table_exists():
         logging.error(f"Failed to create promotion log table: {e}")
         raise e
 
+def handle_mcp_tool(tool_name: str, arguments: dict, user_email: str, auth_header: str) -> dict:
+    """
+    Handle MCP tool calls for various system operations
+    """
+    try:
+        logging.info(f"Handling MCP tool: {tool_name} for user {user_email}")
+        logging.info(f"Tool arguments: {arguments}")
+        
+        # Olympic Query Management Tools
+        if tool_name == "get_queries_for_promotion":
+            table_name = arguments.get('table_name', 'bronze')
+            limit = arguments.get('limit', 50)
+            offset = arguments.get('offset', 0)
+            
+            if not is_authorized_for_promotion(user_email):
+                return {"error": "User not authorized for query promotion operations"}
+            
+            queries = get_queries_for_promotion(table_name, limit, offset)
+            return {
+                "queries": queries,
+                "total": len(queries)
+            }
+        
+        elif tool_name == "promote_query":
+            query_id = arguments.get('query_id')
+            source_table = arguments.get('source_table')
+            target_table = arguments.get('target_table', 'golden')
+            reason = arguments.get('reason', '')
+            
+            if not query_id or not source_table:
+                return {"error": "query_id and source_table are required"}
+            
+            if not is_authorized_for_promotion(user_email):
+                return {"error": "User not authorized for query promotion operations"}
+            
+            result = promote_query_atomic(query_id, source_table, target_table, user_email, reason)
+            return {
+                "success": True,
+                "message": f"Query promoted successfully from {source_table} to {target_table}",
+                "new_query_id": result['new_query_id'],
+                "source_query_id": result['source_query_id'],
+                "promoted_by": result['promoted_by']
+            }
+        
+        elif tool_name == "get_promotion_history":
+            limit = arguments.get('limit', 50)
+            offset = arguments.get('offset', 0)
+            
+            if not is_authorized_for_promotion(user_email):
+                return {"error": "User not authorized for query promotion operations"}
+            
+            history = get_promotion_history_data(limit, offset)
+            return {
+                "history": history,
+                "total": len(history)
+            }
+
+        # Existing feedback tools (keeping for compatibility)
+        elif tool_name == "submit_query_feedback":
+            # Handle feedback submission
+            query_id = arguments.get('query_id')
+            explore_id = arguments.get('explore_id')
+            original_prompt = arguments.get('original_prompt', '')
+            generated_params = arguments.get('generated_params', {})
+            share_url = arguments.get('share_url', '')
+            feedback_type = arguments.get('feedback_type', 'positive')
+            user_id = arguments.get('user_id', user_email)
+            user_comment = arguments.get('user_comment', '')
+            suggested_improvements = arguments.get('suggested_improvements', {})
+            
+            if not explore_id:
+                return {"error": "explore_id is required"}
+            
+            # Save feedback to BigQuery (implement this function)
+            success = save_feedback_to_bigquery(
+                query_id, explore_id, original_prompt, generated_params,
+                share_url, feedback_type, user_id, user_comment, suggested_improvements
+            )
+            
+            if success:
+                return {"success": True, "message": "Feedback submitted successfully"}
+            else:
+                return {"error": "Failed to submit feedback"}
+
+        elif tool_name == "get_query_feedback_history":
+            explore_id = arguments.get('explore_id')
+            user_id = arguments.get('user_id')
+            feedback_type = arguments.get('feedback_type')
+            limit = arguments.get('limit', 20)
+            
+            # Get feedback history from BigQuery (implement this function)
+            feedback_history = get_feedback_history_from_bigquery(explore_id, user_id, feedback_type, limit)
+            return {"feedback_history": feedback_history}
+
+        elif tool_name == "get_query_stats":
+            # Get query statistics (implement this function)
+            stats = get_query_statistics_from_bigquery()
+            return {"query_statistics": stats}
+
+        # Explicit Feedback Tools (from recent implementation)
+        elif tool_name == "submit_positive_feedback":
+            query_id = arguments.get('query_id')
+            user_input = arguments.get('user_input', '')
+            response = arguments.get('response', '')
+            feedback_notes = arguments.get('feedback_notes', '')
+            
+            if not query_id:
+                return {"error": "query_id is required"}
+            
+            success = save_explicit_feedback_to_bigquery(
+                query_id, user_input, response, 'positive', user_email, feedback_notes
+            )
+            
+            if success:
+                return {"success": True, "message": "Positive feedback submitted successfully"}
+            else:
+                return {"error": "Failed to submit positive feedback"}
+
+        elif tool_name == "submit_negative_feedback":
+            query_id = arguments.get('query_id')
+            user_input = arguments.get('user_input', '')
+            response = arguments.get('response', '')
+            issues = arguments.get('issues', [])
+            improvement_suggestions = arguments.get('improvement_suggestions', '')
+            feedback_notes = arguments.get('feedback_notes', '')
+            
+            if not query_id:
+                return {"error": "query_id is required"}
+            
+            success = save_explicit_feedback_to_bigquery(
+                query_id, user_input, response, 'negative', user_email, 
+                feedback_notes, issues, improvement_suggestions
+            )
+            
+            if success:
+                return {"success": True, "message": "Negative feedback submitted successfully"}
+            else:
+                return {"error": "Failed to submit negative feedback"}
+
+        elif tool_name == "request_response_improvement":
+            query_id = arguments.get('query_id')
+            original_input = arguments.get('original_input', '')
+            original_response = arguments.get('original_response', '')
+            improvement_request = arguments.get('improvement_request', '')
+            context = arguments.get('context', '')
+            
+            if not query_id or not improvement_request:
+                return {"error": "query_id and improvement_request are required"}
+            
+            success = save_improvement_request_to_bigquery(
+                query_id, original_input, original_response, improvement_request, context, user_email
+            )
+            
+            if success:
+                return {"success": True, "message": "Improvement request submitted successfully"}
+            else:
+                return {"error": "Failed to submit improvement request"}
+
+        else:
+            return {"error": f"Unknown MCP tool: {tool_name}"}
+    
+    except Exception as e:
+        logging.error(f"Error handling MCP tool {tool_name}: {e}")
+        logging.error(f"Traceback: {traceback.format_exc()}")
+        return {"error": f"Internal error handling MCP tool: {str(e)}"}
+
+def save_feedback_to_bigquery(query_id, explore_id, original_prompt, generated_params,
+                             share_url, feedback_type, user_id, user_comment, suggested_improvements):
+    """Save feedback to BigQuery - placeholder implementation"""
+    try:
+        # TODO: Implement actual BigQuery feedback storage
+        logging.info(f"Saving feedback to BigQuery: {feedback_type} for {explore_id}")
+        return True
+    except Exception as e:
+        logging.error(f"Error saving feedback to BigQuery: {e}")
+        return False
+
+def get_feedback_history_from_bigquery(explore_id, user_id, feedback_type, limit):
+    """Get feedback history from BigQuery - placeholder implementation"""
+    try:
+        # TODO: Implement actual BigQuery feedback retrieval
+        logging.info(f"Getting feedback history from BigQuery for {explore_id}")
+        return []
+    except Exception as e:
+        logging.error(f"Error getting feedback history from BigQuery: {e}")
+        return []
+
+def get_query_statistics_from_bigquery():
+    """Get query statistics from BigQuery - placeholder implementation"""
+    try:
+        # TODO: Implement actual BigQuery statistics retrieval
+        logging.info("Getting query statistics from BigQuery")
+        return {}
+    except Exception as e:
+        logging.error(f"Error getting query statistics from BigQuery: {e}")
+        return {}
+
+def save_explicit_feedback_to_bigquery(query_id, user_input, response, feedback_type, user_email,
+                                      feedback_notes, issues=None, improvement_suggestions=None):
+    """Save explicit feedback to BigQuery - placeholder implementation"""
+    try:
+        # TODO: Implement actual explicit feedback storage
+        logging.info(f"Saving explicit {feedback_type} feedback for query {query_id}")
+        return True
+    except Exception as e:
+        logging.error(f"Error saving explicit feedback to BigQuery: {e}")
+        return False
+
+def save_improvement_request_to_bigquery(query_id, original_input, original_response,
+                                        improvement_request, context, user_email):
+    """Save improvement request to BigQuery - placeholder implementation"""
+    try:
+        # TODO: Implement actual improvement request storage
+        logging.info(f"Saving improvement request for query {query_id}")
+        return True
+    except Exception as e:
+        logging.error(f"Error saving improvement request to BigQuery: {e}")
+        return False
+
 def create_mcp_flask_app():
     """Create Flask app with MCP endpoints"""
     app = Flask(__name__)
@@ -2308,6 +2524,24 @@ def create_mcp_flask_app():
             
             logging.info(f"Request data keys: {list(request_data.keys())}")
             logging.info(f"Test mode: {request_data.get('test_mode', False)}")
+            
+            # Check for MCP tool calls
+            tool_name = request_data.get('tool_name')
+            if tool_name:
+                logging.info(f"Processing MCP tool request: {tool_name}")
+                
+                # Extract user email from token for authorization
+                user_email = extract_user_email_from_token(auth_header)
+                if not user_email:
+                    return jsonify({"error": "Invalid or missing authentication token"}), 401, get_response_headers()
+                
+                try:
+                    result = handle_mcp_tool(tool_name, request_data.get('arguments', {}), user_email, auth_header)
+                    return jsonify(result), 200, get_response_headers()
+                except Exception as e:
+                    error_message = str(e)
+                    logging.error(f"MCP tool {tool_name} failed: {error_message}")
+                    return jsonify({"error": error_message}), 500, get_response_headers()
             
             # Check for bronze query generation operation
             operation = request_data.get('operation')
@@ -2360,10 +2594,13 @@ def create_mcp_flask_app():
     
     logging.info("Registered endpoint: / (POST)")
     
-    # Query Promotion Endpoints
+    # Query Promotion Endpoints (DEPRECATED - Use MCP Tools Instead)
     @app.route("/admin/queries/<table_name>", methods=["GET", "OPTIONS"])
     def list_queries_for_promotion(table_name):
-        """List bronze/silver queries available for promotion"""
+        """
+        List bronze/silver queries available for promotion
+        DEPRECATED: Use MCP tool 'get_queries_for_promotion' instead
+        """
         logging.info(f"Received {request.method} request to list queries from {table_name}")
         
         if request.method == "OPTIONS":
@@ -2412,7 +2649,10 @@ def create_mcp_flask_app():
     
     @app.route("/admin/promote", methods=["POST", "OPTIONS"])
     def promote_query():
-        """Promote a query from bronze/silver to golden queries table"""
+        """
+        Promote a query from bronze/silver to golden queries table
+        DEPRECATED: Use MCP tool 'promote_query' instead
+        """
         logging.info(f"Received {request.method} request to promote query")
         
         if request.method == "OPTIONS":
@@ -2486,7 +2726,10 @@ def create_mcp_flask_app():
     
     @app.route("/admin/promotion-history", methods=["GET", "OPTIONS"])
     def get_promotion_history():
-        """Get promotion history with audit trail"""
+        """
+        Get promotion history with audit trail
+        DEPRECATED: Use MCP tool 'get_promotion_history' instead
+        """
         logging.info(f"Received {request.method} request to get promotion history")
         
         if request.method == "OPTIONS":

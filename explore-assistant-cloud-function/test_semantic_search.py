@@ -98,14 +98,10 @@ class SemanticFieldSearch:
     def test_multiple_queries(self):
         """Test the semantic search with various queries"""
         test_queries = [
-            "customer name",
-            "product brand",
-            "order date",
-            "sales revenue",
-            "inventory count",
-            "user demographics",
-            "fashion clothing",
-            "eyewear sunglasses"
+
+            "i need to buy a gift for my  10 year old daughter that is less than $30",
+            "nike",
+            "how many nikes were bought?"
         ]
         
         print("🔍 SEMANTIC FIELD DISCOVERY TEST")

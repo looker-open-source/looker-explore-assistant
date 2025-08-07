@@ -49,7 +49,7 @@ bq_suggested_table = os.environ.get("BQ_SUGGESTED_TABLE", "silver_queries")
 def get_max_tokens_for_model(model_name: str) -> dict:
     """Get maximum input and output tokens for the current model"""
     model_limits = {
-        # Gemini 2.5 Models (anticipated)
+        # Gemini 2.5 Models
         "gemini-2.5-flash": {"input": 1048576, "output": 8192},
         "gemini-2.5-flash-lite": {"input": 1048576, "output": 8192},
         "gemini-2.5-pro": {"input": 2097152, "output": 8192},
@@ -108,16 +108,42 @@ def get_max_tokens_for_model(model_name: str) -> dict:
     logging.warning(f"Unknown model '{model_name}', using conservative defaults")
     return {"input": 32000, "output": 2048}
 
-def calculate_max_output_tokens(system_prompt: str, model_name: str) -> int:
-    """Calculate maximum safe output tokens - always use full capacity unless input is too large"""
+def calculate_max_output_tokens(system_prompt: str, model_name: str, task_type: str = "general") -> int:
+    """Calculate appropriate output tokens based on task type and model capacity"""
     model_limits = get_max_tokens_for_model(model_name)
     max_output = model_limits["output"]
     max_input = model_limits["input"]
     
+    # Check if this is a thinking model that needs extra buffer
+    is_thinking_model = "thinking" in model_name.lower() or "2.5" in model_name.lower()
+    
+    # Task-specific token limits with thinking model adjustments
+    if is_thinking_model:
+        # Thinking models need more tokens due to internal reasoning
+        task_limits = {
+            "explore_selection": 400,      # Extra buffer for thinking process
+            "synthesis": 600,              # More room for reasoning
+            "explore_params": 2000,        # Main task needs substantial buffer
+            "general": max_output // 3     # Conservative but not too restrictive
+        }
+        logging.info(f"🧠 Using thinking model limits for {model_name}")
+    else:
+        # Standard models - more conservative limits
+        task_limits = {
+            "explore_selection": 150,      # Just need the explore key
+            "synthesis": 300,              # Synthesized query should be concise  
+            "explore_params": 1200,        # JSON structure with fields, filters, etc.
+            "general": max_output // 4     # Conservative default for other tasks
+        }
+        logging.info(f"📝 Using standard model limits for {model_name}")
+    
+    # Use task-specific limit, capped by model maximum
+    recommended_tokens = min(task_limits.get(task_type, task_limits["general"]), max_output)
+    
     # Rough estimate: 1 token ≈ 4 characters for English text
     estimated_prompt_tokens = len(system_prompt) // 4
     
-    logging.info(f"📊 Model: {model_name}")
+    logging.info(f"📊 Model: {model_name}, Task: {task_type}")
     logging.info(f"📊 Max input tokens: {max_input:,}")
     logging.info(f"📊 Max output tokens: {max_output:,}")
     logging.info(f"📊 Estimated prompt tokens: {estimated_prompt_tokens:,}")
@@ -125,11 +151,12 @@ def calculate_max_output_tokens(system_prompt: str, model_name: str) -> int:
     # Only reduce output if prompt is extremely large (>90% of input limit)
     if estimated_prompt_tokens > max_input * 0.9:
         logging.warning(f"⚠️ Prompt approaching input token limit ({estimated_prompt_tokens:,} / {max_input:,})")
-        return max(max_output // 4, 500)  # Conservative fallback
+        minimum_safe = 300 if is_thinking_model else 150
+        return max(recommended_tokens // 4, minimum_safe)  # Emergency fallback
     else:
-        # Use maximum output tokens available
-        logging.info(f"📊 Using FULL output capacity: {max_output:,} tokens")
-        return max_output
+        # Use task-appropriate tokens instead of maximum
+        logging.info(f"📊 Using task-appropriate tokens: {recommended_tokens:,} (task: {task_type})")
+        return recommended_tokens
 
 def update_token_warning_thresholds(model_name: str) -> dict:
     """Get appropriate warning thresholds based on model capabilities"""
@@ -542,7 +569,9 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
         if len(system_prompt) > 10000:
             logging.warning(f"⚠️ System prompt is very long ({len(system_prompt)} chars) - may cause issues")
 
-        # Format request for Vertex AI
+        # Format request for Vertex AI with task-appropriate tokens
+        max_tokens = calculate_max_output_tokens(system_prompt, vertex_model, "explore_selection")
+        
         vertex_request = {
             "contents": [
                 {
@@ -554,7 +583,7 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
                 "temperature": 0.1,
                 "topP": 0.4,  # Reduced for focused responses
                 "topK": 20,  # Reduced for brevity
-                "maxOutputTokens": 1000,  # Small for explore selection
+                "maxOutputTokens": max_tokens,
                 "candidateCount": 1
             }
         }
@@ -699,7 +728,9 @@ Output only the synthesized query."""
 
         logging.info(f"🔍 Synthesis prompt size: ~{len(synthesis_prompt)} characters")
 
-        # Format request for Vertex AI
+        # Format request for Vertex AI with task-appropriate tokens
+        max_tokens = calculate_max_output_tokens(synthesis_prompt, vertex_model, "synthesis")
+        
         vertex_request = {
             "contents": [
                 {
@@ -715,7 +746,7 @@ Output only the synthesized query."""
                 "temperature": 0.1,
                 "topP": 0.5,  # Reduced for more focused responses
                 "topK": 20,  # Reduced for brevity
-                "maxOutputTokens": 1000,  # Small for synthesis
+                "maxOutputTokens": max_tokens,
                 "responseMimeType": "text/plain",
                 "candidateCount": 1
             }
@@ -878,12 +909,12 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
 
         logging.info(f"🔍 Generated prompt size: ~{len(system_prompt):,} characters")
         
-        # Calculate dynamic output tokens based on model and prompt size
-        # Use new comprehensive token management
-        max_output_tokens = calculate_max_output_tokens(system_prompt, vertex_model)
+        # Calculate dynamic output tokens based on model and task
+        # Use task-specific token management to prevent overthinking
+        max_output_tokens = calculate_max_output_tokens(system_prompt, vertex_model, "explore_params")
         thresholds = update_token_warning_thresholds(vertex_model)
         
-        logging.info(f"📊 Using dynamic maxOutputTokens: {max_output_tokens:,} for model {vertex_model}")
+        logging.info(f"📊 Using task-specific maxOutputTokens: {max_output_tokens:,} for explore params generation")
 
         # Format request for Vertex AI with dynamic token allocation
         vertex_request = {
@@ -1414,6 +1445,9 @@ Guidelines:
 Output only the suggested prompt, nothing else."""
 
         # Format request for Vertex AI
+        # Calculate appropriate tokens for prompt generation
+        max_tokens = calculate_max_output_tokens(system_prompt, vertex_model, "general")
+        
         vertex_request = {
             "contents": [
                 {
@@ -1427,9 +1461,9 @@ Output only the suggested prompt, nothing else."""
             ],
             "generationConfig": {
                 "temperature": 0.2,
-                "topP": 0.8,
+                "topP": 0.5,  # More focused than 0.8
                 "topK": 20,
-                "maxOutputTokens": 1000,  
+                "maxOutputTokens": max_tokens,  
                 "responseMimeType": "text/plain",
                 "candidateCount": 1  # Only generate one candidate to reduce processing
             }

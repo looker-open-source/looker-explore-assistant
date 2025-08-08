@@ -252,7 +252,15 @@ def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Opt
         response = requests.post(vertex_api_url, headers=headers, json=request_body)
         
         if not response.ok:
-            logging.error(f"Vertex AI API call failed: {response.status_code} - {response.text}")
+            error_text = response.text
+            logging.error(f"Vertex AI API call failed: {response.status_code} - {error_text}")
+            
+            # Check for token limit errors that might be retryable
+            if response.status_code == 400 and any(token_error in error_text.lower() for token_error in 
+                ['token limit', 'tokens exceed', 'input too long', 'context length', 'max_tokens']):
+                logging.warning(f"⚠️ Token limit error detected: {error_text}")
+                return {'error': 'token_limit', 'details': error_text}
+            
             return None
         
         response_data = response.json()
@@ -291,6 +299,71 @@ def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Opt
     except Exception as e:
         logging.error(f"Error calling Vertex AI API: {e}")
         return None
+
+def call_vertex_ai_with_retry(request_body: Dict[str, Any], context: str = "") -> Optional[Dict[str, Any]]:
+    """
+    Call Vertex AI API with retry logic for token limit errors.
+    Attempts to recover by increasing output token limits only - input context is preserved.
+    """
+    max_retries = 2
+    original_max_tokens = request_body.get('generationConfig', {}).get('maxOutputTokens', 2048)
+    
+    for attempt in range(max_retries + 1):
+        try:
+            logging.info(f"🔄 Vertex AI API attempt {attempt + 1}/{max_retries + 1} for {context}")
+            
+            response = call_vertex_ai_api_with_service_account(request_body)
+            
+            # Check if this was a token limit error
+            if isinstance(response, dict) and response.get('error') == 'token_limit':
+                if attempt < max_retries:
+                    logging.warning(f"⚠️ Token limit exceeded, attempting retry {attempt + 1}")
+                    
+                    # Strategy: Increase output token limits progressively
+                    current_max_tokens = request_body.get('generationConfig', {}).get('maxOutputTokens', 2048)
+                    
+                    # Progressive increase: 2x, then max out at model limit
+                    if attempt == 0:
+                        # First retry: Double the tokens (up to 8192)
+                        new_max_tokens = min(current_max_tokens * 2, 8192)
+                        request_body['generationConfig']['maxOutputTokens'] = new_max_tokens
+                        logging.info(f"📈 Retry {attempt + 1}: Increased maxOutputTokens from {current_max_tokens} to {new_max_tokens}")
+                        continue
+                    elif attempt == 1:
+                        # Second retry: Max out at model's maximum output capacity
+                        model_limits = get_max_tokens_for_model(vertex_model)
+                        max_model_output = model_limits.get("output", 8192)
+                        if current_max_tokens < max_model_output:
+                            request_body['generationConfig']['maxOutputTokens'] = max_model_output
+                            logging.info(f"📈 Retry {attempt + 1}: Maxed out maxOutputTokens to model limit: {max_model_output}")
+                            continue
+                        else:
+                            logging.error(f"❌ Already at maximum output tokens ({current_max_tokens}), cannot increase further")
+                            logging.error(f"💡 Consider optimizing the input context or using a higher-capacity model")
+                else:
+                    logging.error(f"❌ All retry attempts exhausted for token limit error")
+                    logging.error(f"💡 Input context preserved - consider using a model with higher token capacity")
+                    return None
+            elif response is None:
+                if attempt < max_retries:
+                    logging.warning(f"⚠️ API call failed, retrying {attempt + 1}/{max_retries}")
+                    continue
+                else:
+                    logging.error(f"❌ All retry attempts exhausted for API failure")
+                    return None
+            else:
+                # Success!
+                if attempt > 0:
+                    logging.info(f"✅ Retry successful after {attempt} attempts")
+                return response
+                
+        except Exception as e:
+            logging.error(f"❌ Error in retry attempt {attempt + 1}: {e}")
+            if attempt >= max_retries:
+                return None
+            continue
+    
+    return None
 
 def get_looker_sdk():
     """Initialize and return Looker SDK instance using environment variables"""
@@ -588,10 +661,17 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
             }
         }
         
-        # Call Vertex AI using service account
-        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
+        # Log concise request summary for debugging
+        logging.info(f"🤖 LLM Request - Explore Selection | Query: '{prompt[:100]}{'...' if len(prompt) > 100 else ''}' | "
+                    f"Options: {len(available_explores)} explores | "
+                    f"Restricted: {'Yes' if restricted_explore_keys else 'No'} | "
+                    f"Context: {'Yes' if conversation_context else 'No'} | "
+                    f"Prompt: {len(system_prompt):,} chars | MaxTokens: {max_tokens}")
+        
+        # Call Vertex AI using service account with retry logic
+        vertex_response = call_vertex_ai_with_retry(vertex_request, "explore_determination")
         if not vertex_response:
-            logging.error("❌ Failed to get response from Vertex AI")
+            logging.error("❌ Failed to get response from Vertex AI after retries")
             return None
         
         logging.info(f"✅ Got Vertex AI response: {vertex_response}")
@@ -752,10 +832,15 @@ Output only the synthesized query."""
             }
         }
         
-        # Call Vertex AI using service account
-        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
+        # Log concise request summary for debugging
+        logging.info(f"🤖 LLM Request - Conversation Synthesis | Current: '{current_prompt[:80]}{'...' if len(current_prompt) > 80 else ''}' | "
+                    f"Context: {len(conversation_context)} chars | "
+                    f"Prompt: {len(synthesis_prompt):,} chars | MaxTokens: {max_tokens}")
+        
+        # Call Vertex AI using service account with retry logic
+        vertex_response = call_vertex_ai_with_retry(vertex_request, "conversation_synthesis")
         if not vertex_response:
-            logging.warning("❌ SYNTHESIS: No response from Vertex AI, using original prompt")
+            logging.warning("❌ SYNTHESIS: No response from Vertex AI after retries, using original prompt")
             return current_prompt
         
         logging.info(f"🔍 SYNTHESIS: Got Vertex AI response: {vertex_response}")
@@ -810,8 +895,12 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
                                      current_explore: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Second LLM call: Generate explore parameters from a clear, synthesized query"""
     try:
-        # Get semantic model for this explore
+        # Get semantic model for this specific explore only (optimized for token efficiency)
         explore_semantic_model = semantic_models.get(explore_key, {})
+        
+        if not explore_semantic_model:
+            logging.warning(f"⚠️ No semantic model found for explore: {explore_key}")
+            logging.info(f"🔍 Available semantic models: {list(semantic_models.keys())}")
         
         # Format table context for this explore - limit fields to prevent token overflow
         dimensions = explore_semantic_model.get('dimensions', [])
@@ -872,7 +961,7 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
             max_examples = 1
             max_input_chars = 80
         
-        # Try to get relevant examples
+        # Try to get relevant examples from filtered golden queries
         if 'exploreGenerationExamples' in golden_queries and explore_key in golden_queries['exploreGenerationExamples']:
             examples = golden_queries['exploreGenerationExamples'][explore_key]
             if isinstance(examples, list) and examples:
@@ -881,6 +970,14 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
                 for i, ex in enumerate(limited_examples, 1):
                     input_text = ex.get('input', '')[:max_input_chars]
                     example_text += f"{i}. {input_text}\n"
+                logging.info(f"✅ Using {len(limited_examples)} filtered examples for explore: {explore_key}")
+            else:
+                logging.info(f"⚠️ No examples found for explore in filtered golden queries: {explore_key}")
+        else:
+            logging.info(f"⚠️ No exploreGenerationExamples section for explore: {explore_key}")
+            logging.info(f"🔍 Available sections in golden queries: {list(golden_queries.keys())}")
+            if 'exploreGenerationExamples' in golden_queries:
+                logging.info(f"🔍 Available explores in exploreGenerationExamples: {list(golden_queries['exploreGenerationExamples'].keys())}")
         
         # Build system prompt for explore parameter generation
         system_prompt = f"""Generate Looker explore parameters for: "{query}"
@@ -938,10 +1035,17 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
             }
         }
         
-        # Call Vertex AI using service account
-        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
+        # Log concise request summary for debugging
+        logging.info(f"🤖 LLM Request - Explore: {explore_key} | Query: '{query[:100]}{'...' if len(query) > 100 else ''}' | "
+                    f"Fields: {len(limited_dimensions)} dims, {len(limited_measures)} measures | "
+                    f"Examples: {len(golden_queries.get('exploreGenerationExamples', {}).get(explore_key, []))} | "
+                    f"Prompt: {len(system_prompt):,} chars | MaxTokens: {max_output_tokens}")
+        
+        # Call Vertex AI using service account with retry logic
+        vertex_response = call_vertex_ai_with_retry(vertex_request, "explore_parameter_generation")
         if not vertex_response:
-            return None
+            logging.warning("❌ Parameter generation failed after retries, using fallback")
+            return create_context_aware_fallback(query, explore_key, "", semantic_models)
         
         # Extract and parse the JSON response
         response_text = extract_vertex_response_text(vertex_response)
@@ -1114,6 +1218,17 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
         selected_area = request_data.get('selected_area', None)
         restricted_explore_keys = request_data.get('restricted_explore_keys', [])
         
+        # Filter both golden queries AND semantic models if restrictions exist
+        filtered_golden_queries = golden_queries
+        filtered_semantic_models = semantic_models
+        
+        if restricted_explore_keys:
+            filtered_golden_queries = filter_golden_queries_by_explores(golden_queries, restricted_explore_keys)
+            filtered_semantic_models = filter_semantic_models_by_explores(semantic_models, restricted_explore_keys)
+            logging.info(f"🎯 Applied filtering for {len(restricted_explore_keys)} restricted explores")
+        else:
+            logging.info("📊 No explore restrictions - using all golden queries and semantic models")
+        
         # Handle conversation context
         thread_messages = request_data.get('thread_messages', [])
         
@@ -1139,15 +1254,22 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
         # Always determine the most appropriate explore for each request
         # This ensures we select the best explore based on the current prompt and conversation context
         # Ignoring any input explore or model information in favor of AI-driven selection
-        logging.info("Always determining explore from prompt and conversation context")
-        determined_explore_key = determine_explore_from_prompt(
-            auth_header, prompt, golden_queries, conversation_context, restricted_explore_keys
-        )
+        
+        # If only one explore is allowed, use it directly (bypass AI selection)
+        if restricted_explore_keys and len(restricted_explore_keys) == 1:
+            determined_explore_key = restricted_explore_keys[0]
+            logging.info(f"🎯 Single explore restriction - using: {determined_explore_key}")
+        else:
+            # Multi-explore scenario or no restrictions - AI determines best explore with filtered golden queries
+            logging.info("🤖 Using AI to determine best explore from available options")
+            determined_explore_key = determine_explore_from_prompt(
+                auth_header, prompt, filtered_golden_queries, conversation_context, restricted_explore_keys
+            )
         
         if not determined_explore_key:
             logging.warning("❌ AI couldn't determine explore, attempting fallback...")
             # If AI couldn't determine explore, try to use first available explore as fallback
-            entries = golden_queries.get('exploreEntries')
+            entries = filtered_golden_queries.get('exploreEntries')
             first_explore = None
             
             logging.info(f"🔍 Fallback debugging - exploreEntries type: {type(entries)}")
@@ -1170,10 +1292,10 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
             else:
                 logging.warning(f"❌ No valid exploreEntries found - entries: {entries}")
                 
-            # Also check other possible sources for explores
+            # Also check other possible sources for explores in filtered data
             if not first_explore:
-                logging.info("🔍 Checking other golden query sections for explores...")
-                for key, value in golden_queries.items():
+                logging.info("🔍 Checking other filtered golden query sections for explores...")
+                for key, value in filtered_golden_queries.items():
                     if isinstance(value, dict) and value:
                         first_explore = next(iter(value.keys()))
                         logging.info(f"✅ Found first explore from {key}: {first_explore}")
@@ -1184,13 +1306,13 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
                 determined_explore_key = first_explore
             else:
                 logging.error("❌ No fallback explore available")
-                available_keys = list(golden_queries.keys()) if isinstance(golden_queries, dict) else []
-                logging.error(f"❌ Available golden query keys: {available_keys}")
+                available_keys = list(filtered_golden_queries.keys()) if isinstance(filtered_golden_queries, dict) else []
+                logging.error(f"❌ Available filtered golden query keys: {available_keys}")
                 return {
                     'error': 'Failed to determine appropriate explore and no fallback available',
                     'message_type': 'error',
                     'debug_info': {
-                        'golden_queries_keys': available_keys,
+                        'filtered_golden_queries_keys': available_keys,
                         'exploreEntries_type': str(type(entries)),
                         'exploreEntries_content': str(entries)[:500] if entries else 'None',
                         'restricted_explore_keys': restricted_explore_keys
@@ -1217,10 +1339,17 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
             'modelName': model_name_from_key      # Model name extracted from key
         }
         
-        # Generate explore parameters using the determined explore
+        # Optimize golden queries to only include the chosen explore for parameter generation
+        # This reduces token usage and focuses the LLM on relevant examples only
+        chosen_explore_golden_queries = filter_golden_queries_by_explores(filtered_golden_queries, [determined_explore_key])
+        chosen_explore_semantic_models = filter_semantic_models_by_explores(filtered_semantic_models, [determined_explore_key])
+        
+        logging.info(f"🎯 Optimized context for parameter generation to single explore: {determined_explore_key}")
+        
+        # Generate explore parameters using the determined explore with optimized context
         result = generate_explore_params(
             auth_header, prompt, determined_explore_key, 
-            golden_queries, semantic_models, current_explore, conversation_context
+            chosen_explore_golden_queries, chosen_explore_semantic_models, current_explore, conversation_context
         )
         
         if not result:
@@ -1469,10 +1598,10 @@ Output only the suggested prompt, nothing else."""
             }
         }
         
-        # Call Vertex AI using service account
-        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
+        # Call Vertex AI using service account with retry logic
+        vertex_response = call_vertex_ai_with_retry(vertex_request, "suggested_prompt_generation")
         if not vertex_response:
-            logging.error("Failed to get response from Vertex AI for suggested prompt")
+            logging.error("Failed to get response from Vertex AI for suggested prompt after retries")
             return None
         
         # Extract the suggested prompt
@@ -2627,13 +2756,13 @@ def create_mcp_flask_app():
             
             logging.info(f"Request data keys: {list(request_data.keys())}")
             
-            # Pass through the request directly to Vertex AI
+            # Pass through the request directly to Vertex AI with retry logic
             # The request_data should contain the properly formatted Vertex AI request
-            vertex_response = call_vertex_ai_api_with_service_account(request_data)
+            vertex_response = call_vertex_ai_with_retry(request_data, "direct_vertex_ai_proxy")
             
             if not vertex_response:
-                logging.error("Failed to get response from Vertex AI")
-                response = jsonify({'error': 'Failed to get response from Vertex AI'})
+                logging.error("Failed to get response from Vertex AI after retries")
+                response = jsonify({'error': 'Failed to get response from Vertex AI after retries'})
                 response.headers.update(get_response_headers())
                 response.status_code = 500
                 return response
@@ -2686,6 +2815,67 @@ def create_mcp_flask_app():
     
     logging.info("MCP Flask app created with Vertex AI endpoints")
     return app
+
+def filter_golden_queries_by_explores(golden_queries: Dict[str, Any], allowed_explore_keys: list) -> Dict[str, Any]:
+    """Filter golden queries to only include examples for allowed explores"""
+    if not allowed_explore_keys or not golden_queries:
+        return golden_queries
+    
+    logging.info(f"🔍 Filtering golden queries to explores: {allowed_explore_keys}")
+    filtered = {}
+    
+    # Filter exploreGenerationExamples
+    if 'exploreGenerationExamples' in golden_queries:
+        original_count = len(golden_queries['exploreGenerationExamples'])
+        filtered['exploreGenerationExamples'] = {
+            k: v for k, v in golden_queries['exploreGenerationExamples'].items() 
+            if k in allowed_explore_keys
+        }
+        filtered_count = len(filtered['exploreGenerationExamples'])
+        logging.info(f"  exploreGenerationExamples: {original_count} -> {filtered_count}")
+    
+    # Filter exploreRefinementExamples  
+    if 'exploreRefinementExamples' in golden_queries:
+        original_count = len(golden_queries['exploreRefinementExamples'])
+        filtered['exploreRefinementExamples'] = {
+            k: v for k, v in golden_queries['exploreRefinementExamples'].items()
+            if k in allowed_explore_keys
+        }
+        filtered_count = len(filtered['exploreRefinementExamples'])
+        logging.info(f"  exploreRefinementExamples: {original_count} -> {filtered_count}")
+    
+    # Filter exploreSamples
+    if 'exploreSamples' in golden_queries:
+        original_count = len(golden_queries['exploreSamples'])
+        filtered['exploreSamples'] = {
+            k: v for k, v in golden_queries['exploreSamples'].items()
+            if k in allowed_explore_keys  
+        }
+        filtered_count = len(filtered['exploreSamples'])
+        logging.info(f"  exploreSamples: {original_count} -> {filtered_count}")
+    
+    # Keep exploreEntries as-is (contains explore metadata, not examples)
+    if 'exploreEntries' in golden_queries:
+        filtered['exploreEntries'] = golden_queries['exploreEntries']
+        logging.info(f"  exploreEntries: kept as-is")
+    
+    return filtered
+
+def filter_semantic_models_by_explores(semantic_models: Dict[str, Any], allowed_explore_keys: list) -> Dict[str, Any]:
+    """Filter semantic models to only include metadata for allowed explores"""
+    if not allowed_explore_keys or not semantic_models:
+        return semantic_models
+    
+    original_count = len(semantic_models)
+    filtered = {
+        explore_key: model_data 
+        for explore_key, model_data in semantic_models.items() 
+        if explore_key in allowed_explore_keys
+    }
+    filtered_count = len(filtered)
+    logging.info(f"🔍 Filtered semantic models: {original_count} -> {filtered_count}")
+    
+    return filtered
 
 # For running directly as a Flask app (Cloud Run)
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 
 const useSendCloudRunMessage = () => {
   const { extensionSDK } = useContext(ExtensionContext)
-  const { settings, examples, currentExplore, semanticModels, currentExploreThread, history, selectedArea, selectedExplores, availableAreas } = useSelector(
+  const { settings, examples, semanticModels, currentExploreThread, history, selectedArea, selectedExplores, availableAreas } = useSelector(
     (state: RootState) => state.assistant as AssistantState,
   )
   
@@ -89,33 +89,34 @@ const useSendCloudRunMessage = () => {
         // If no area or explores selected, restrictedExploreKeys remains empty (no restrictions)
         
         // Build the payload for the Cloud Run service with conversation context
+        // Note: current_explore and model_name are ignored by backend in favor of AI selection
         const payload = {
           prompt,
           conversation_id: conversationId,
           prompt_history: promptHistory,
           thread_messages: threadToUse?.messages || [],
-          current_explore: currentExplore,
           golden_queries: examples,
           semantic_models: semanticModels,
-          model_name: '',
           vertex_model: vertexModel,
           test_mode: false,
-          // Add area context
-          selected_area: selectedArea,
+          // Area context for explore restriction
           restricted_explore_keys: restrictedExploreKeys
         }
 
         console.log('Sending payload to Cloud Run:', {
           prompt: payload.prompt,
           conversation_id: payload.conversation_id,
-          current_explore: payload.current_explore,
-          selected_area: payload.selected_area,
+          vertex_model: payload.vertex_model,
           selected_explores: selectedExplores,
           restricted_explore_keys: payload.restricted_explore_keys,
-          model_name: '',
-          // Don't log the entire examples and semantic_models objects as they're large
-          golden_queries_keys: Object.keys(payload.golden_queries?.exploreSamples || {}),
-          semantic_models_keys: Object.keys(payload.semantic_models || {}),
+          // Log structure info without full content to avoid console clutter
+          golden_queries_structure: {
+            exploreEntries: Array.isArray(payload.golden_queries?.exploreEntries) ? payload.golden_queries.exploreEntries.length : 'not_array',
+            exploreGenerationExamples: typeof payload.golden_queries?.exploreGenerationExamples === 'object' ? Object.keys(payload.golden_queries.exploreGenerationExamples).length : 'not_object',
+            exploreRefinementExamples: typeof payload.golden_queries?.exploreRefinementExamples === 'object' ? Object.keys(payload.golden_queries.exploreRefinementExamples).length : 'not_object',
+            exploreSamples: typeof payload.golden_queries?.exploreSamples === 'object' ? Object.keys(payload.golden_queries.exploreSamples).length : 'not_object'
+          },
+          semantic_models_count: typeof payload.semantic_models === 'object' ? Object.keys(payload.semantic_models || {}).length : 'not_object',
         })
 
         const result = await callCloudRunAPI(payload)
@@ -126,7 +127,7 @@ const useSendCloudRunMessage = () => {
         throw error
       }
     },
-    [currentExplore, examples, semanticModels, CLOUD_RUN_URL, identityToken, currentExploreThread, history, selectedArea, selectedExplores, availableAreas],
+    [examples, semanticModels, CLOUD_RUN_URL, identityToken, currentExploreThread, history, selectedExplores, availableAreas],
   )
 
   // Test function for Cloud Run settings

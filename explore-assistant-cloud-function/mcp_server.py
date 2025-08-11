@@ -26,6 +26,15 @@ from google.cloud import bigquery
 
 logging.basicConfig(level=logging.INFO)
 
+# Custom exceptions for token limit handling
+class TokenLimitExceededException(Exception):
+    """Exception raised when Vertex AI response is truncated due to token limits"""
+    def __init__(self, message="Response truncated due to token limit", current_tokens=None, usage_metadata=None):
+        self.message = message
+        self.current_tokens = current_tokens
+        self.usage_metadata = usage_metadata
+        super().__init__(self.message)
+
 # Load spaCy model once at module level
 try:
     nlp = spacy.load("en_core_web_sm")
@@ -46,7 +55,7 @@ bq_suggested_table = os.environ.get("BQ_SUGGESTED_TABLE", "silver_queries")
 def get_max_tokens_for_model(model_name: str) -> dict:
     """Get maximum input and output tokens for the current model"""
     model_limits = {
-        # Gemini 2.5 Models (anticipated)
+        # Gemini 2.5 Models
         "gemini-2.5-flash": {"input": 1048576, "output": 8192},
         "gemini-2.5-flash-lite": {"input": 1048576, "output": 8192},
         "gemini-2.5-pro": {"input": 2097152, "output": 8192},
@@ -105,16 +114,42 @@ def get_max_tokens_for_model(model_name: str) -> dict:
     logging.warning(f"Unknown model '{model_name}', using conservative defaults")
     return {"input": 32000, "output": 2048}
 
-def calculate_max_output_tokens(system_prompt: str, model_name: str) -> int:
-    """Calculate maximum safe output tokens - always use full capacity unless input is too large"""
+def calculate_max_output_tokens(system_prompt: str, model_name: str, task_type: str = "general") -> int:
+    """Calculate appropriate output tokens based on task type and model capacity"""
     model_limits = get_max_tokens_for_model(model_name)
     max_output = model_limits["output"]
     max_input = model_limits["input"]
     
+    # Check if this is a thinking model that needs extra buffer
+    is_thinking_model = "thinking" in model_name.lower() or "2.5" in model_name.lower()
+    
+    # Task-specific token limits with thinking model adjustments
+    if is_thinking_model:
+        # Thinking models need more tokens due to internal reasoning
+        task_limits = {
+            "explore_selection": 400,      # Extra buffer for thinking process
+            "synthesis": 600,              # More room for reasoning
+            "explore_params": 2000,        # Main task needs substantial buffer
+            "general": max_output // 3     # Conservative but not too restrictive
+        }
+        logging.info(f"🧠 Using thinking model limits for {model_name}")
+    else:
+        # Standard models - more conservative limits
+        task_limits = {
+            "explore_selection": 150,      # Just need the explore key
+            "synthesis": 300,              # Synthesized query should be concise  
+            "explore_params": 1200,        # JSON structure with fields, filters, etc.
+            "general": max_output // 4     # Conservative default for other tasks
+        }
+        logging.info(f"📝 Using standard model limits for {model_name}")
+    
+    # Use task-specific limit, capped by model maximum
+    recommended_tokens = min(task_limits.get(task_type, task_limits["general"]), max_output)
+    
     # Rough estimate: 1 token ≈ 4 characters for English text
     estimated_prompt_tokens = len(system_prompt) // 4
     
-    logging.info(f"📊 Model: {model_name}")
+    logging.info(f"📊 Model: {model_name}, Task: {task_type}")
     logging.info(f"📊 Max input tokens: {max_input:,}")
     logging.info(f"📊 Max output tokens: {max_output:,}")
     logging.info(f"📊 Estimated prompt tokens: {estimated_prompt_tokens:,}")
@@ -122,11 +157,12 @@ def calculate_max_output_tokens(system_prompt: str, model_name: str) -> int:
     # Only reduce output if prompt is extremely large (>90% of input limit)
     if estimated_prompt_tokens > max_input * 0.9:
         logging.warning(f"⚠️ Prompt approaching input token limit ({estimated_prompt_tokens:,} / {max_input:,})")
-        return max(max_output // 4, 500)  # Conservative fallback
+        minimum_safe = 300 if is_thinking_model else 150
+        return max(recommended_tokens // 4, minimum_safe)  # Emergency fallback
     else:
-        # Use maximum output tokens available
-        logging.info(f"📊 Using FULL output capacity: {max_output:,} tokens")
-        return max_output
+        # Use task-appropriate tokens instead of maximum
+        logging.info(f"📊 Using task-appropriate tokens: {recommended_tokens:,} (task: {task_type})")
+        return recommended_tokens
 
 def update_token_warning_thresholds(model_name: str) -> dict:
     """Get appropriate warning thresholds based on model capabilities"""
@@ -153,12 +189,23 @@ def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
     try:
         logging.info("Extracting user email from token")
         
-        # Remove 'Bearer ' prefix if present
-        if bearer_token.lower().startswith('bearer '):
+        # Add proper null and type checks
+        if not bearer_token or not isinstance(bearer_token, str):
+            logging.error("Invalid bearer token: token is None or not a string")
+            return None
+        
+        # Remove 'Bearer ' prefix if present - with safe string operations
+        bearer_token_lower = bearer_token.lower()
+        if bearer_token_lower.startswith('bearer '):
             bearer_token = bearer_token[7:]
         
         # Remove any whitespace
         bearer_token = bearer_token.strip()
+        
+        # Check if token is empty after processing
+        if not bearer_token:
+            logging.error("Invalid bearer token: empty token after processing")
+            return None
         
         # Split JWT into parts
         token_parts = bearer_token.split('.')
@@ -171,6 +218,12 @@ def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
         import json
         
         payload_data = token_parts[1]
+        
+        # Validate payload data exists
+        if not payload_data:
+            logging.error("Invalid JWT format: empty payload section")
+            return None
+            
         # Add padding if needed for base64 decoding
         payload_data += '=' * (4 - len(payload_data) % 4)
         
@@ -178,12 +231,17 @@ def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
             payload_json = base64.urlsafe_b64decode(payload_data).decode('utf-8')
             payload = json.loads(payload_json)
             
+            # Ensure payload is a dictionary
+            if not isinstance(payload, dict):
+                logging.error("Invalid JWT payload: not a JSON object")
+                return None
+            
             email = payload.get('email')
-            if email:
+            if email and isinstance(email, str):
                 logging.info(f"Extracted user email: {email}")
                 return email
             else:
-                logging.error("No email found in token payload")
+                logging.error("No valid email found in token payload")
                 return None
                 
         except Exception as e:
@@ -222,7 +280,15 @@ def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Opt
         response = requests.post(vertex_api_url, headers=headers, json=request_body)
         
         if not response.ok:
-            logging.error(f"Vertex AI API call failed: {response.status_code} - {response.text}")
+            error_text = response.text
+            logging.error(f"Vertex AI API call failed: {response.status_code} - {error_text}")
+            
+            # Check for token limit errors that might be retryable
+            if response.status_code == 400 and any(token_error in error_text.lower() for token_error in 
+                ['token limit', 'tokens exceed', 'input too long', 'context length', 'max_tokens']):
+                logging.warning(f"⚠️ Token limit error detected: {error_text}")
+                return {'error': 'token_limit', 'details': error_text}
+            
             return None
         
         response_data = response.json()
@@ -261,6 +327,123 @@ def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Opt
     except Exception as e:
         logging.error(f"Error calling Vertex AI API: {e}")
         return None
+
+def call_vertex_ai_with_retry(request_body: Dict[str, Any], context: str = "", process_response: bool = False) -> Optional[Dict[str, Any]]:
+    """
+    Call Vertex AI API with retry logic for token limit errors.
+    Now includes response processing to catch MAX_TOKENS finish reasons.
+    Attempts to recover by increasing output token limits only - input context is preserved.
+    
+    Args:
+        request_body: The Vertex AI API request
+        context: Context string for logging
+        process_response: Whether to process response through extract_vertex_response_text()
+    
+    Returns:
+        If process_response=True: {'processed_response': text, 'raw_response': dict}
+        If process_response=False: raw response dict
+    """
+    max_retries = 2
+    vertex_model = request_body.get('model', 'gemini-1.5-flash')
+    original_max_tokens = request_body.get('generationConfig', {}).get('maxOutputTokens', 2048)
+    
+    for attempt in range(max_retries + 1):
+        try:
+            logging.info(f"🔄 Vertex AI API attempt {attempt + 1}/{max_retries + 1} for {context}")
+            
+            response = call_vertex_ai_api_with_service_account(request_body)
+            
+            # Check if this was a token limit error from API
+            if isinstance(response, dict) and response.get('error') == 'token_limit':
+                if attempt < max_retries:
+                    logging.warning(f"⚠️ Token limit exceeded, attempting retry {attempt + 1}")
+                    
+                    # Strategy: Increase output token limits progressively
+                    current_max_tokens = request_body.get('generationConfig', {}).get('maxOutputTokens', 2048)
+                    
+                    # Progressive increase: 2x, then max out at model limit
+                    if attempt == 0:
+                        # First retry: Double the tokens (up to 8192)
+                        new_max_tokens = min(current_max_tokens * 2, 8192)
+                        request_body['generationConfig']['maxOutputTokens'] = new_max_tokens
+                        logging.info(f"📈 Retry {attempt + 1}: Increased maxOutputTokens from {current_max_tokens} to {new_max_tokens}")
+                        continue
+                    elif attempt == 1:
+                        # Second retry: Max out at model's maximum output capacity
+                        model_limits = get_max_tokens_for_model(vertex_model)
+                        max_model_output = model_limits.get("output", 8192)
+                        if current_max_tokens < max_model_output:
+                            request_body['generationConfig']['maxOutputTokens'] = max_model_output
+                            logging.info(f"📈 Retry {attempt + 1}: Maxed out maxOutputTokens to model limit: {max_model_output}")
+                            continue
+                        else:
+                            logging.error(f"❌ Already at maximum output tokens ({current_max_tokens}), cannot increase further")
+                            logging.error(f"💡 Consider optimizing the input context or using a higher-capacity model")
+                else:
+                    logging.error(f"❌ All retry attempts exhausted for token limit error")
+                    logging.error(f"💡 Input context preserved - consider using a model with higher token capacity")
+                    return None
+            elif response is None:
+                if attempt < max_retries:
+                    logging.warning(f"⚠️ API call failed, retrying {attempt + 1}/{max_retries}")
+                    continue
+                else:
+                    logging.error(f"❌ All retry attempts exhausted for API failure")
+                    return None
+            else:
+                # Got a response - now process it if requested
+                if process_response:
+                    try:
+                        # Process the response, which may raise TokenLimitExceededException
+                        processed_response = extract_vertex_response_text(response)
+                        # If we get here, processing was successful
+                        if attempt > 0:
+                            logging.info(f"✅ Retry successful after {attempt} attempts")
+                        return {'processed_response': processed_response, 'raw_response': response}
+                    except TokenLimitExceededException as tle:
+                        # Response was truncated due to token limits - retry with higher limits
+                        if attempt < max_retries:
+                            logging.warning(f"⚠️ Response truncated due to MAX_TOKENS, attempting retry {attempt + 1}")
+                            logging.info(f"📊 Current token usage: {tle.usage_metadata}")
+                            
+                            # Strategy: Increase output token limits progressively
+                            current_max_tokens = request_body.get('generationConfig', {}).get('maxOutputTokens', 2048)
+                            
+                            # Progressive increase: 2x, then max out at model limit
+                            if attempt == 0:
+                                # First retry: Double the tokens (up to 8192)
+                                new_max_tokens = min(current_max_tokens * 2, 8192)
+                                request_body['generationConfig']['maxOutputTokens'] = new_max_tokens
+                                logging.info(f"📈 Retry {attempt + 1}: Increased maxOutputTokens from {current_max_tokens} to {new_max_tokens}")
+                                continue
+                            elif attempt == 1:
+                                # Second retry: Max out at model's maximum output capacity
+                                model_limits = get_max_tokens_for_model(vertex_model)
+                                max_model_output = model_limits.get("output", 8192)
+                                if current_max_tokens < max_model_output:
+                                    request_body['generationConfig']['maxOutputTokens'] = max_model_output
+                                    logging.info(f"📈 Retry {attempt + 1}: Maxed out maxOutputTokens to model limit: {max_model_output}")
+                                    continue
+                                else:
+                                    logging.error(f"❌ Already at maximum output tokens ({current_max_tokens}), cannot increase further")
+                                    break
+                        else:
+                            logging.error(f"❌ All retry attempts exhausted - response still truncated")
+                            logging.error(f"💡 Consider optimizing the input context or using a higher-capacity model")
+                            return None
+                else:
+                    # Return raw response without processing
+                    if attempt > 0:
+                        logging.info(f"✅ Retry successful after {attempt} attempts")
+                    return response
+                
+        except Exception as e:
+            logging.error(f"❌ Error in retry attempt {attempt + 1}: {e}")
+            if attempt >= max_retries:
+                return None
+            continue
+    
+    return None
 
 def get_looker_sdk():
     """Initialize and return Looker SDK instance using environment variables"""
@@ -305,6 +488,16 @@ def get_looker_sdk():
 def find_looker_user_by_email(email: str) -> Optional[Dict[str, Any]]:
     """Find Looker user by email address using Looker SDK"""
     try:
+        # Input validation
+        if not email or not isinstance(email, str):
+            logging.error("Invalid email parameter: email is None or not a string")
+            return None
+            
+        email = email.strip()
+        if not email:
+            logging.error("Invalid email parameter: empty email after stripping")
+            return None
+        
         # Initialize Looker SDK
         sdk = get_looker_sdk()
         if not sdk:
@@ -312,25 +505,50 @@ def find_looker_user_by_email(email: str) -> Optional[Dict[str, Any]]:
             return None
         
         # Search for user by email using SDK
-        users = sdk.search_users(email=email)
+        try:
+            users = sdk.search_users(email=email)
+        except Exception as sdk_error:
+            logging.error(f"Looker SDK search_users failed: {sdk_error}")
+            return None
         
-        if not users:
+        # Validate search results
+        if not users or len(users) == 0:
             logging.error(f"No Looker user found with email: {email}")
             return None
         
-        # Convert the first user object to dict
+        # Convert the first user object to dict with safe attribute access
         user = users[0]
-        user_dict = {
-            'id': user.id,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'is_disabled': user.is_disabled,
-            'role_ids': user.role_ids
-        }
+        try:
+            user_dict = {
+                'id': getattr(user, 'id', None),
+                'email': getattr(user, 'email', None),
+                'first_name': getattr(user, 'first_name', None),
+                'last_name': getattr(user, 'last_name', None),
+                'is_disabled': getattr(user, 'is_disabled', None),
+                'role_ids': getattr(user, 'role_ids', [])
+            }
+        except Exception as conversion_error:
+            logging.error(f"Error converting user object to dict: {conversion_error}")
+            # Return a minimal dict with available information
+            user_dict = {
+                'id': str(user) if user else None,
+                'email': email,
+                'first_name': None,
+                'last_name': None,
+                'is_disabled': None,
+                'role_ids': []
+            }
 
-        # Log the found user details
-        logging.info(f"Found Looker user: {user_dict['id']} - {user_dict['email']} - {user_dict['role_ids']}")
+        # Validate essential fields
+        if not user_dict.get('id'):
+            logging.error("User found but missing essential 'id' field")
+            return None
+
+        # Log the found user details (safely)
+        user_id = user_dict.get('id', 'unknown')
+        user_email = user_dict.get('email', 'unknown')
+        user_roles = user_dict.get('role_ids', [])
+        logging.info(f"Found Looker user: {user_id} - {user_email} - {user_roles}")
         return user_dict
         
     except Exception as e:
@@ -347,34 +565,80 @@ def extract_vertex_response_text(vertex_response: Dict[str, Any]) -> Optional[st
     try:
         logging.info(f"🔍 extract_vertex_response_text - Input: {vertex_response}")
         
+        # Add proper null and type validation
+        if not vertex_response or not isinstance(vertex_response, dict):
+            logging.error("❌ Invalid vertex response: None or not a dictionary")
+            return None
+        
         # Check for MAX_TOKENS or other finish reasons that indicate incomplete responses
         candidates = vertex_response.get('candidates', [])
+        if not candidates:
+            logging.error("❌ No candidates found in Vertex AI response")
+            return None
+            
         if candidates:
             finish_reason = candidates[0].get('finishReason')
             if finish_reason == 'MAX_TOKENS':
-                logging.error("❌ VERTEX AI RESPONSE TRUNCATED: Hit maximum token limit")
-                logging.error("💡 Consider reducing prompt size or using a model with higher token limits")
+                logging.warning("⚠️ VERTEX AI RESPONSE TRUNCATED: Hit maximum token limit - will retry with higher limits")
                 usage_metadata = vertex_response.get('usageMetadata', {})
-                logging.error(f"📊 Token usage: {usage_metadata}")
-                return None
+                current_tokens = usage_metadata.get('candidatesTokenCount', 0)
+                
+                # Raise exception to trigger retry mechanism
+                raise TokenLimitExceededException(
+                    "Response truncated due to maximum token limit", 
+                    current_tokens=current_tokens,
+                    usage_metadata=usage_metadata
+                )
             elif finish_reason and finish_reason != 'STOP':
                 logging.warning(f"⚠️ Unexpected finish reason: {finish_reason}")
         
-        # Validate structure using pydantic
-        resp_model = VertexAIResponse.parse_obj(vertex_response)
-        # Extract raw text
-        first = resp_model.candidates[0]
-        content = first.get('content', {})
-        parts = content.get('parts', []) or []
+        # Try pydantic validation first, but handle failures gracefully
+        try:
+            resp_model = VertexAIResponse.parse_obj(vertex_response)
+            # Extract raw text
+            first = resp_model.candidates[0]
+            content = first.get('content', {})
+            parts = content.get('parts', []) or []
+        except ValidationError as ve:
+            logging.warning(f"Vertex AI response schema mismatch: {ve}")
+            # Fall back to manual extraction
+            first_candidate = candidates[0]
+            content = first_candidate.get('content', {})
+            parts = content.get('parts', []) or []
+        except Exception as e:
+            logging.error(f"Pydantic validation error: {e}")
+            # Fall back to manual extraction
+            first_candidate = candidates[0]
+            content = first_candidate.get('content', {})
+            parts = content.get('parts', []) or []
+        
         if not parts:
             logging.warning("❌ No parts found in response content")
             return None
-        raw_text = parts[0].get('text') if isinstance(parts[0], dict) else parts[0]
+            
+        # Safely extract text from parts - concatenate all parts
+        raw_text = ""
+        for part in parts:
+            if isinstance(part, dict) and 'text' in part:
+                part_text = part.get('text', '')
+                if isinstance(part_text, str):
+                    raw_text += part_text
+            elif isinstance(part, str):
+                raw_text += part
+                
+        if not raw_text:
+            logging.warning("❌ No text content found in response parts")
+            return None
+            
         logging.info(f"🔍 Extracted raw text: '{raw_text}' (type: {type(raw_text)})")
         
         # Attempt to parse JSON from raw_text
-        parsed = parse_llm_response(raw_text)
-        logging.info(f"🔍 Parsed result: {parsed} (type: {type(parsed)})")
+        try:
+            parsed = parse_llm_response(raw_text)
+            logging.info(f"🔍 Parsed result: {parsed} (type: {type(parsed)})")
+        except Exception as e:
+            logging.warning(f"JSON parsing failed: {e}")
+            parsed = None
         
         # Validate response size for brevity
         final_result = parsed if parsed is not None else raw_text
@@ -388,33 +652,29 @@ def extract_vertex_response_text(vertex_response: Dict[str, Any]) -> Optional[st
                 logging.warning(f"⚠️ Dict response too large ({len(dict_str)} chars), may need simplification")
         
         return final_result
-    except ValidationError as ve:
-        logging.warning(f"Vertex AI response schema mismatch: {ve}")
-        # Fallback extraction
-        try:
-            candidates = vertex_response.get('candidates', [])
-            logging.info(f"🔍 Fallback - candidates: {candidates}")
-            if candidates:
-                # Check finish reason in fallback as well
-                finish_reason = candidates[0].get('finishReason')
-                if finish_reason == 'MAX_TOKENS':
-                    logging.error("❌ FALLBACK: Response truncated due to MAX_TOKENS")
-                    return None
-                
-                content = candidates[0].get('content', {})
-                parts = content.get('parts', []) or []
-                logging.info(f"🔍 Fallback - parts: {parts}")
-                if parts:
-                    raw_text = parts[0].get('text', '') if isinstance(parts[0], dict) else parts[0]
-                    logging.info(f"🔍 Fallback - raw text: '{raw_text}' (type: {type(raw_text)})")
-                    parsed = parse_llm_response(raw_text)
-                    logging.info(f"🔍 Fallback - parsed: {parsed} (type: {type(parsed)})")
-                    return parsed if parsed is not None else raw_text
-        except Exception as e:
-            logging.error(f"Fallback extraction error: {e}")
-        return None
+        
+    except TokenLimitExceededException:
+        # Re-raise TokenLimitExceededException so retry mechanism can catch it
+        raise
     except Exception as e:
         logging.error(f"Error extracting Vertex AI response: {e}")
+        # Final fallback extraction attempt
+        try:
+            if vertex_response and isinstance(vertex_response, dict):
+                candidates = vertex_response.get('candidates', [])
+                if candidates and len(candidates) > 0:
+                    first_candidate = candidates[0]
+                    if isinstance(first_candidate, dict):
+                        content = first_candidate.get('content', {})
+                        if isinstance(content, dict):
+                            parts = content.get('parts', [])
+                            if parts and len(parts) > 0:
+                                first_part = parts[0]
+                                if isinstance(first_part, dict) and 'text' in first_part:
+                                    return first_part['text']
+        except Exception as fallback_error:
+            logging.error(f"Final fallback extraction failed: {fallback_error}")
+        
         return None
 
 def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries: Dict[str, Any], 
@@ -539,7 +799,9 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
         if len(system_prompt) > 10000:
             logging.warning(f"⚠️ System prompt is very long ({len(system_prompt)} chars) - may cause issues")
 
-        # Format request for Vertex AI
+        # Format request for Vertex AI with task-appropriate tokens
+        max_tokens = calculate_max_output_tokens(system_prompt, vertex_model, "explore_selection")
+        
         vertex_request = {
             "contents": [
                 {
@@ -551,15 +813,22 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
                 "temperature": 0.1,
                 "topP": 0.4,  # Reduced for focused responses
                 "topK": 20,  # Reduced for brevity
-                "maxOutputTokens": 1000,  # Small for explore selection
+                "maxOutputTokens": max_tokens,
                 "candidateCount": 1
             }
         }
         
-        # Call Vertex AI using service account
-        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
+        # Log concise request summary for debugging
+        logging.info(f"🤖 LLM Request - Explore Selection | Query: '{prompt[:100]}{'...' if len(prompt) > 100 else ''}' | "
+                    f"Options: {len(available_explores)} explores | "
+                    f"Restricted: {'Yes' if restricted_explore_keys else 'No'} | "
+                    f"Context: {'Yes' if conversation_context else 'No'} | "
+                    f"Prompt: {len(system_prompt):,} chars | MaxTokens: {max_tokens}")
+        
+        # Call Vertex AI using service account with retry logic
+        vertex_response = call_vertex_ai_with_retry(vertex_request, "explore_determination")
         if not vertex_response:
-            logging.error("❌ Failed to get response from Vertex AI")
+            logging.error("❌ Failed to get response from Vertex AI after retries")
             return None
         
         logging.info(f"✅ Got Vertex AI response: {vertex_response}")
@@ -696,7 +965,9 @@ Output only the synthesized query."""
 
         logging.info(f"🔍 Synthesis prompt size: ~{len(synthesis_prompt)} characters")
 
-        # Format request for Vertex AI
+        # Format request for Vertex AI with task-appropriate tokens
+        max_tokens = calculate_max_output_tokens(synthesis_prompt, vertex_model, "synthesis")
+        
         vertex_request = {
             "contents": [
                 {
@@ -712,16 +983,21 @@ Output only the synthesized query."""
                 "temperature": 0.1,
                 "topP": 0.5,  # Reduced for more focused responses
                 "topK": 20,  # Reduced for brevity
-                "maxOutputTokens": 1000,  # Small for synthesis
+                "maxOutputTokens": max_tokens,
                 "responseMimeType": "text/plain",
                 "candidateCount": 1
             }
         }
         
-        # Call Vertex AI using service account
-        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
+        # Log concise request summary for debugging
+        logging.info(f"🤖 LLM Request - Conversation Synthesis | Current: '{current_prompt[:80]}{'...' if len(current_prompt) > 80 else ''}' | "
+                    f"Context: {len(conversation_context)} chars | "
+                    f"Prompt: {len(synthesis_prompt):,} chars | MaxTokens: {max_tokens}")
+        
+        # Call Vertex AI using service account with retry logic
+        vertex_response = call_vertex_ai_with_retry(vertex_request, "conversation_synthesis")
         if not vertex_response:
-            logging.warning("❌ SYNTHESIS: No response from Vertex AI, using original prompt")
+            logging.warning("❌ SYNTHESIS: No response from Vertex AI after retries, using original prompt")
             return current_prompt
         
         logging.info(f"🔍 SYNTHESIS: Got Vertex AI response: {vertex_response}")
@@ -776,8 +1052,12 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
                                      current_explore: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Second LLM call: Generate explore parameters from a clear, synthesized query"""
     try:
-        # Get semantic model for this explore
+        # Get semantic model for this specific explore only (optimized for token efficiency)
         explore_semantic_model = semantic_models.get(explore_key, {})
+        
+        if not explore_semantic_model:
+            logging.warning(f"⚠️ No semantic model found for explore: {explore_key}")
+            logging.info(f"🔍 Available semantic models: {list(semantic_models.keys())}")
         
         # Format table context for this explore - limit fields to prevent token overflow
         dimensions = explore_semantic_model.get('dimensions', [])
@@ -838,7 +1118,7 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
             max_examples = 1
             max_input_chars = 80
         
-        # Try to get relevant examples
+        # Try to get relevant examples from filtered golden queries
         if 'exploreGenerationExamples' in golden_queries and explore_key in golden_queries['exploreGenerationExamples']:
             examples = golden_queries['exploreGenerationExamples'][explore_key]
             if isinstance(examples, list) and examples:
@@ -847,6 +1127,14 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
                 for i, ex in enumerate(limited_examples, 1):
                     input_text = ex.get('input', '')[:max_input_chars]
                     example_text += f"{i}. {input_text}\n"
+                logging.info(f"✅ Using {len(limited_examples)} filtered examples for explore: {explore_key}")
+            else:
+                logging.info(f"⚠️ No examples found for explore in filtered golden queries: {explore_key}")
+        else:
+            logging.info(f"⚠️ No exploreGenerationExamples section for explore: {explore_key}")
+            logging.info(f"🔍 Available sections in golden queries: {list(golden_queries.keys())}")
+            if 'exploreGenerationExamples' in golden_queries:
+                logging.info(f"🔍 Available explores in exploreGenerationExamples: {list(golden_queries['exploreGenerationExamples'].keys())}")
         
         # Build system prompt for explore parameter generation
         system_prompt = f"""Generate Looker explore parameters for: "{query}"
@@ -875,12 +1163,12 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
 
         logging.info(f"🔍 Generated prompt size: ~{len(system_prompt):,} characters")
         
-        # Calculate dynamic output tokens based on model and prompt size
-        # Use new comprehensive token management
-        max_output_tokens = calculate_max_output_tokens(system_prompt, vertex_model)
+        # Calculate dynamic output tokens based on model and task
+        # Use task-specific token management to prevent overthinking
+        max_output_tokens = calculate_max_output_tokens(system_prompt, vertex_model, "explore_params")
         thresholds = update_token_warning_thresholds(vertex_model)
         
-        logging.info(f"📊 Using dynamic maxOutputTokens: {max_output_tokens:,} for model {vertex_model}")
+        logging.info(f"📊 Using task-specific maxOutputTokens: {max_output_tokens:,} for explore params generation")
 
         # Format request for Vertex AI with dynamic token allocation
         vertex_request = {
@@ -904,13 +1192,20 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
             }
         }
         
-        # Call Vertex AI using service account
-        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
-        if not vertex_response:
-            return None
+        # Log concise request summary for debugging
+        logging.info(f"🤖 LLM Request - Explore: {explore_key} | Query: '{query[:100]}{'...' if len(query) > 100 else ''}' | "
+                    f"Fields: {len(limited_dimensions)} dims, {len(limited_measures)} measures | "
+                    f"Examples: {len(golden_queries.get('exploreGenerationExamples', {}).get(explore_key, []))} | "
+                    f"Prompt: {len(system_prompt):,} chars | MaxTokens: {max_output_tokens}")
         
-        # Extract and parse the JSON response
-        response_text = extract_vertex_response_text(vertex_response)
+        # Call Vertex AI using service account with retry logic (includes response processing)
+        vertex_response = call_vertex_ai_with_retry(vertex_request, "explore_parameter_generation", process_response=True)
+        if not vertex_response:
+            logging.warning("❌ Parameter generation failed after retries, using fallback")
+            return create_context_aware_fallback(query, explore_key, "", semantic_models)
+        
+        # Extract the processed response (already processed by call_vertex_ai_with_retry)
+        response_text = vertex_response.get('processed_response') if isinstance(vertex_response, dict) else None
         if response_text:
             try:
                 # Handle dict directly
@@ -1080,6 +1375,17 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
         selected_area = request_data.get('selected_area', None)
         restricted_explore_keys = request_data.get('restricted_explore_keys', [])
         
+        # Filter both golden queries AND semantic models if restrictions exist
+        filtered_golden_queries = golden_queries
+        filtered_semantic_models = semantic_models
+        
+        if restricted_explore_keys:
+            filtered_golden_queries = filter_golden_queries_by_explores(golden_queries, restricted_explore_keys)
+            filtered_semantic_models = filter_semantic_models_by_explores(semantic_models, restricted_explore_keys)
+            logging.info(f"🎯 Applied filtering for {len(restricted_explore_keys)} restricted explores")
+        else:
+            logging.info("📊 No explore restrictions - using all golden queries and semantic models")
+        
         # Handle conversation context
         thread_messages = request_data.get('thread_messages', [])
         
@@ -1105,15 +1411,22 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
         # Always determine the most appropriate explore for each request
         # This ensures we select the best explore based on the current prompt and conversation context
         # Ignoring any input explore or model information in favor of AI-driven selection
-        logging.info("Always determining explore from prompt and conversation context")
-        determined_explore_key = determine_explore_from_prompt(
-            auth_header, prompt, golden_queries, conversation_context, restricted_explore_keys
-        )
+        
+        # If only one explore is allowed, use it directly (bypass AI selection)
+        if restricted_explore_keys and len(restricted_explore_keys) == 1:
+            determined_explore_key = restricted_explore_keys[0]
+            logging.info(f"🎯 Single explore restriction - using: {determined_explore_key}")
+        else:
+            # Multi-explore scenario or no restrictions - AI determines best explore with filtered golden queries
+            logging.info("🤖 Using AI to determine best explore from available options")
+            determined_explore_key = determine_explore_from_prompt(
+                auth_header, prompt, filtered_golden_queries, conversation_context, restricted_explore_keys
+            )
         
         if not determined_explore_key:
             logging.warning("❌ AI couldn't determine explore, attempting fallback...")
             # If AI couldn't determine explore, try to use first available explore as fallback
-            entries = golden_queries.get('exploreEntries')
+            entries = filtered_golden_queries.get('exploreEntries')
             first_explore = None
             
             logging.info(f"🔍 Fallback debugging - exploreEntries type: {type(entries)}")
@@ -1136,10 +1449,10 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
             else:
                 logging.warning(f"❌ No valid exploreEntries found - entries: {entries}")
                 
-            # Also check other possible sources for explores
+            # Also check other possible sources for explores in filtered data
             if not first_explore:
-                logging.info("🔍 Checking other golden query sections for explores...")
-                for key, value in golden_queries.items():
+                logging.info("🔍 Checking other filtered golden query sections for explores...")
+                for key, value in filtered_golden_queries.items():
                     if isinstance(value, dict) and value:
                         first_explore = next(iter(value.keys()))
                         logging.info(f"✅ Found first explore from {key}: {first_explore}")
@@ -1150,13 +1463,13 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
                 determined_explore_key = first_explore
             else:
                 logging.error("❌ No fallback explore available")
-                available_keys = list(golden_queries.keys()) if isinstance(golden_queries, dict) else []
-                logging.error(f"❌ Available golden query keys: {available_keys}")
+                available_keys = list(filtered_golden_queries.keys()) if isinstance(filtered_golden_queries, dict) else []
+                logging.error(f"❌ Available filtered golden query keys: {available_keys}")
                 return {
                     'error': 'Failed to determine appropriate explore and no fallback available',
                     'message_type': 'error',
                     'debug_info': {
-                        'golden_queries_keys': available_keys,
+                        'filtered_golden_queries_keys': available_keys,
                         'exploreEntries_type': str(type(entries)),
                         'exploreEntries_content': str(entries)[:500] if entries else 'None',
                         'restricted_explore_keys': restricted_explore_keys
@@ -1183,10 +1496,17 @@ def process_explore_assistant_request(auth_header: str, request_data: Dict[str, 
             'modelName': model_name_from_key      # Model name extracted from key
         }
         
-        # Generate explore parameters using the determined explore
+        # Optimize golden queries to only include the chosen explore for parameter generation
+        # This reduces token usage and focuses the LLM on relevant examples only
+        chosen_explore_golden_queries = filter_golden_queries_by_explores(filtered_golden_queries, [determined_explore_key])
+        chosen_explore_semantic_models = filter_semantic_models_by_explores(filtered_semantic_models, [determined_explore_key])
+        
+        logging.info(f"🎯 Optimized context for parameter generation to single explore: {determined_explore_key}")
+        
+        # Generate explore parameters using the determined explore with optimized context
         result = generate_explore_params(
             auth_header, prompt, determined_explore_key, 
-            golden_queries, semantic_models, current_explore, conversation_context
+            chosen_explore_golden_queries, chosen_explore_semantic_models, current_explore, conversation_context
         )
         
         if not result:
@@ -1411,6 +1731,9 @@ Guidelines:
 Output only the suggested prompt, nothing else."""
 
         # Format request for Vertex AI
+        # Calculate appropriate tokens for prompt generation
+        max_tokens = calculate_max_output_tokens(system_prompt, vertex_model, "general")
+        
         vertex_request = {
             "contents": [
                 {
@@ -1424,18 +1747,18 @@ Output only the suggested prompt, nothing else."""
             ],
             "generationConfig": {
                 "temperature": 0.2,
-                "topP": 0.8,
+                "topP": 0.5,  # More focused than 0.8
                 "topK": 20,
-                "maxOutputTokens": 1000,  
+                "maxOutputTokens": max_tokens,  
                 "responseMimeType": "text/plain",
                 "candidateCount": 1  # Only generate one candidate to reduce processing
             }
         }
         
-        # Call Vertex AI using service account
-        vertex_response = call_vertex_ai_api_with_service_account(vertex_request)
+        # Call Vertex AI using service account with retry logic
+        vertex_response = call_vertex_ai_with_retry(vertex_request, "suggested_prompt_generation")
         if not vertex_response:
-            logging.error("Failed to get response from Vertex AI for suggested prompt")
+            logging.error("Failed to get response from Vertex AI for suggested prompt after retries")
             return None
         
         # Extract the suggested prompt
@@ -2836,13 +3159,13 @@ def create_mcp_flask_app():
             
             logging.info(f"Request data keys: {list(request_data.keys())}")
             
-            # Pass through the request directly to Vertex AI
+            # Pass through the request directly to Vertex AI with retry logic
             # The request_data should contain the properly formatted Vertex AI request
-            vertex_response = call_vertex_ai_api_with_service_account(request_data)
+            vertex_response = call_vertex_ai_with_retry(request_data, "direct_vertex_ai_proxy")
             
             if not vertex_response:
-                logging.error("Failed to get response from Vertex AI")
-                response = jsonify({'error': 'Failed to get response from Vertex AI'})
+                logging.error("Failed to get response from Vertex AI after retries")
+                response = jsonify({'error': 'Failed to get response from Vertex AI after retries'})
                 response.headers.update(get_response_headers())
                 response.status_code = 500
                 return response
@@ -2895,6 +3218,67 @@ def create_mcp_flask_app():
     
     logging.info("MCP Flask app created with Vertex AI endpoints")
     return app
+
+def filter_golden_queries_by_explores(golden_queries: Dict[str, Any], allowed_explore_keys: list) -> Dict[str, Any]:
+    """Filter golden queries to only include examples for allowed explores"""
+    if not allowed_explore_keys or not golden_queries:
+        return golden_queries
+    
+    logging.info(f"🔍 Filtering golden queries to explores: {allowed_explore_keys}")
+    filtered = {}
+    
+    # Filter exploreGenerationExamples
+    if 'exploreGenerationExamples' in golden_queries:
+        original_count = len(golden_queries['exploreGenerationExamples'])
+        filtered['exploreGenerationExamples'] = {
+            k: v for k, v in golden_queries['exploreGenerationExamples'].items() 
+            if k in allowed_explore_keys
+        }
+        filtered_count = len(filtered['exploreGenerationExamples'])
+        logging.info(f"  exploreGenerationExamples: {original_count} -> {filtered_count}")
+    
+    # Filter exploreRefinementExamples  
+    if 'exploreRefinementExamples' in golden_queries:
+        original_count = len(golden_queries['exploreRefinementExamples'])
+        filtered['exploreRefinementExamples'] = {
+            k: v for k, v in golden_queries['exploreRefinementExamples'].items()
+            if k in allowed_explore_keys
+        }
+        filtered_count = len(filtered['exploreRefinementExamples'])
+        logging.info(f"  exploreRefinementExamples: {original_count} -> {filtered_count}")
+    
+    # Filter exploreSamples
+    if 'exploreSamples' in golden_queries:
+        original_count = len(golden_queries['exploreSamples'])
+        filtered['exploreSamples'] = {
+            k: v for k, v in golden_queries['exploreSamples'].items()
+            if k in allowed_explore_keys  
+        }
+        filtered_count = len(filtered['exploreSamples'])
+        logging.info(f"  exploreSamples: {original_count} -> {filtered_count}")
+    
+    # Keep exploreEntries as-is (contains explore metadata, not examples)
+    if 'exploreEntries' in golden_queries:
+        filtered['exploreEntries'] = golden_queries['exploreEntries']
+        logging.info(f"  exploreEntries: kept as-is")
+    
+    return filtered
+
+def filter_semantic_models_by_explores(semantic_models: Dict[str, Any], allowed_explore_keys: list) -> Dict[str, Any]:
+    """Filter semantic models to only include metadata for allowed explores"""
+    if not allowed_explore_keys or not semantic_models:
+        return semantic_models
+    
+    original_count = len(semantic_models)
+    filtered = {
+        explore_key: model_data 
+        for explore_key, model_data in semantic_models.items() 
+        if explore_key in allowed_explore_keys
+    }
+    filtered_count = len(filtered)
+    logging.info(f"🔍 Filtered semantic models: {original_count} -> {filtered_count}")
+    
+    return filtered
 
 # For running directly as a Flask app (Cloud Run)
 if __name__ == "__main__":

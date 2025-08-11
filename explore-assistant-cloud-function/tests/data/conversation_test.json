@@ -1,0 +1,1042 @@
+{
+    "prompt": "use a table",
+    "conversation_id": "acefe764-6e6d-4a0c-8f7f-f82d5d578c0a",
+    "prompt_history": [
+        "what are sales by month?",
+        "use a table"
+    ],
+    "thread_messages": [],
+    "current_explore": {
+        "exploreKey": "sales_demo_the_look:order_items",
+        "modelName": "sales_demo_the_look",
+        "exploreId": "order_items"
+    },
+    "golden_queries": {
+        "exploreEntries": [
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "How has total ARR trended for Microsoft over the past 3 years",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.arr_quarter&fill_fields=vw_total_arr_ytd.arr_quarter&f[vw_total_arr_ytd.arr_quarter]=3+years&f[vw_total_arr_ytd.global_duns_name]=Microsoft+Corporation&sorts=vw_total_arr_ytd.arr_quarter+desc&limit=500&column_limit=50",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "Show me a breakout of revenue by product this year",
+                "golden_queries.output": "fields=vw_total_arr_ytd.product_level_1,vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.product_level_1]=-NULL&f[vw_total_arr_ytd.arr_year]=this+year&sorts=vw_total_arr_ytd.product_level_1",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "What were the top 10 skus for Citrix in 2024",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.sku_description&f[vw_total_arr_ytd.product_level_1]=Citrix&f[vw_total_arr_ytd.arr_year]=2024&sorts=vw_total_arr_ytd.total_arr+desc&limit=10",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "Show me a list of accounts with at least $10 million dollars this quarter",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.global_duns_name&f[vw_total_arr_ytd.arr_year]=this+quarter&f[vw_total_arr_ytd.total_arr]=%3E10000000&sorts=vw_total_arr_ytd.total_arr+desc",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "How does quarterly revenue compare this year vs last year",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.arr_year,vw_total_arr_ytd.arr_quarter_of_year&pivots=vw_total_arr_ytd.arr_year&fill_fields=vw_total_arr_ytd.arr_quarter_of_year,vw_total_arr_ytd.arr_year&f[vw_total_arr_ytd.arr_year]=2+years&sorts=vw_total_arr_ytd.arr_year,vw_total_arr_ytd.arr_quarter_of_year,vw_total_arr_ytd.total_arr+desc+0",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "Show me a trend of revenue for the last 8 quarters excluding citrix",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.arr_quarter&fill_fields=vw_total_arr_ytd.arr_quarter&f[vw_total_arr_ytd.arr_quarter]=8+quarters&f[vw_total_arr_ytd.product_level_1]=Citrix&sorts=vw_total_arr_ytd.arr_quarter+desc&limit=500&column_limit=50",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "What is the ARR for Walmart over the next year?",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.arr_quarter]=next++quarter+for+4+quarters&f[vw_total_arr_ytd.global_duns_name]=Walmart+Inc.&limit=500&column_limit=50",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "What is the all time ARR for AXA?",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.global_duns_name]=AXA&sorts=vw_total_arr_ytd.total_arr+desc+0&limit=500&column_limit=50&vis=\"type\":\"single_value\"",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "What is the ARR for Microsoft this quarter?",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.global_duns_name]=Microsoft+Corporation&f[vw_total_arr_ytd.arr_quarter]=this+quarter&limit=500&column_limit=50",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "How does microsoft and oracle revenue compare this year",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.global_duns_name&f[vw_total_arr_ytd.arr_year]=this+year&f[vw_total_arr_ytd.global_duns_name]=Microsoft+Corporation%2COracle+Corporation&sorts=vw_total_arr_ytd.total_arr+desc",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "Show me a trend of ARR by contract end date in 2025",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.modified_contract_end_date&fill_fields=vw_total_arr_ytd.modified_contract_end_date&f[vw_total_arr_ytd.modified_contract_end_year]=2025&sorts=vw_total_arr_ytd.modified_contract_end_date+desc&limit=500&column_limit=50",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "What is the total ARR for vodafone for all future quarters?",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.arr_quarter]=after+today&f[vw_total_arr_ytd.global_duns_name]=VODAFONE+GROUP+PUBLIC+LIMITED+COMPANY&limit=500&column_limit=50",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            },
+            {
+                "golden_queries.explore_id": "sales_demo_the_look:order_items",
+                "golden_queries.input": "What is the ARR for Tibco this year across all accounts?",
+                "golden_queries.output": "fields=vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.arr_quarter]=this+year&f[vw_total_arr_ytd.product_level_1]=TIBCO&limit=500&column_limit=50",
+                "explore_assistant_refinement_examples.examples": "[{\"input\": [\"make a chart of sales by region\", \"make it a an area chart\", \"make it a table\"], \"output\": \"make a chart of sales by region make it a table\"}, {\"input\": [\"show me sales by region\", \"by product\"], \"output\": \"show me sales by region and product\"}]",
+                "explore_assistant_samples.samples": "[{\"category\": \"ARR Totals\", \"prompt\": \"What is the ARR for Microsoft this quarter??\"}, {\"category\": \"Product Breakouts\", \"prompt\": \"What is the trend in sales volume for blueberries over the last year?\"}]"
+            }
+        ],
+        "exploreGenerationExamples": {
+            "sales_demo_the_look:order_items": [
+                {
+                    "input": "How has total ARR trended for Microsoft over the past 3 years",
+                    "output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.arr_quarter&fill_fields=vw_total_arr_ytd.arr_quarter&f[vw_total_arr_ytd.arr_quarter]=3+years&f[vw_total_arr_ytd.global_duns_name]=Microsoft+Corporation&sorts=vw_total_arr_ytd.arr_quarter+desc&limit=500&column_limit=50"
+                },
+                {
+                    "input": "Show me a breakout of revenue by product this year",
+                    "output": "fields=vw_total_arr_ytd.product_level_1,vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.product_level_1]=-NULL&f[vw_total_arr_ytd.arr_year]=this+year&sorts=vw_total_arr_ytd.product_level_1"
+                },
+                {
+                    "input": "What were the top 10 skus for Citrix in 2024",
+                    "output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.sku_description&f[vw_total_arr_ytd.product_level_1]=Citrix&f[vw_total_arr_ytd.arr_year]=2024&sorts=vw_total_arr_ytd.total_arr+desc&limit=10"
+                },
+                {
+                    "input": "Show me a list of accounts with at least $10 million dollars this quarter",
+                    "output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.global_duns_name&f[vw_total_arr_ytd.arr_year]=this+quarter&f[vw_total_arr_ytd.total_arr]=%3E10000000&sorts=vw_total_arr_ytd.total_arr+desc"
+                },
+                {
+                    "input": "How does quarterly revenue compare this year vs last year",
+                    "output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.arr_year,vw_total_arr_ytd.arr_quarter_of_year&pivots=vw_total_arr_ytd.arr_year&fill_fields=vw_total_arr_ytd.arr_quarter_of_year,vw_total_arr_ytd.arr_year&f[vw_total_arr_ytd.arr_year]=2+years&sorts=vw_total_arr_ytd.arr_year,vw_total_arr_ytd.arr_quarter_of_year,vw_total_arr_ytd.total_arr+desc+0"
+                },
+                {
+                    "input": "Show me a trend of revenue for the last 8 quarters excluding citrix",
+                    "output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.arr_quarter&fill_fields=vw_total_arr_ytd.arr_quarter&f[vw_total_arr_ytd.arr_quarter]=8+quarters&f[vw_total_arr_ytd.product_level_1]=Citrix&sorts=vw_total_arr_ytd.arr_quarter+desc&limit=500&column_limit=50"
+                },
+                {
+                    "input": "What is the ARR for Walmart over the next year?",
+                    "output": "fields=vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.arr_quarter]=next++quarter+for+4+quarters&f[vw_total_arr_ytd.global_duns_name]=Walmart+Inc.&limit=500&column_limit=50"
+                },
+                {
+                    "input": "What is the all time ARR for AXA?",
+                    "output": "fields=vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.global_duns_name]=AXA&sorts=vw_total_arr_ytd.total_arr+desc+0&limit=500&column_limit=50&vis=\"type\":\"single_value\""
+                },
+                {
+                    "input": "What is the ARR for Microsoft this quarter?",
+                    "output": "fields=vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.global_duns_name]=Microsoft+Corporation&f[vw_total_arr_ytd.arr_quarter]=this+quarter&limit=500&column_limit=50"
+                },
+                {
+                    "input": "How does microsoft and oracle revenue compare this year",
+                    "output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.global_duns_name&f[vw_total_arr_ytd.arr_year]=this+year&f[vw_total_arr_ytd.global_duns_name]=Microsoft+Corporation%2COracle+Corporation&sorts=vw_total_arr_ytd.total_arr+desc"
+                },
+                {
+                    "input": "Show me a trend of ARR by contract end date in 2025",
+                    "output": "fields=vw_total_arr_ytd.total_arr,vw_total_arr_ytd.modified_contract_end_date&fill_fields=vw_total_arr_ytd.modified_contract_end_date&f[vw_total_arr_ytd.modified_contract_end_year]=2025&sorts=vw_total_arr_ytd.modified_contract_end_date+desc&limit=500&column_limit=50"
+                },
+                {
+                    "input": "What is the total ARR for vodafone for all future quarters?",
+                    "output": "fields=vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.arr_quarter]=after+today&f[vw_total_arr_ytd.global_duns_name]=VODAFONE+GROUP+PUBLIC+LIMITED+COMPANY&limit=500&column_limit=50"
+                },
+                {
+                    "input": "What is the ARR for Tibco this year across all accounts?",
+                    "output": "fields=vw_total_arr_ytd.total_arr&f[vw_total_arr_ytd.arr_quarter]=this+year&f[vw_total_arr_ytd.product_level_1]=TIBCO&limit=500&column_limit=50"
+                }
+            ]
+        },
+        "exploreRefinementExamples": {
+            "sales_demo_the_look:order_items": [
+                {
+                    "input": [
+                        "make a chart of sales by region",
+                        "make it a an area chart",
+                        "make it a table"
+                    ],
+                    "output": "make a chart of sales by region make it a table"
+                },
+                {
+                    "input": [
+                        "show me sales by region",
+                        "by product"
+                    ],
+                    "output": "show me sales by region and product"
+                }
+            ]
+        },
+        "exploreSamples": {
+            "sales_demo_the_look:order_items": [
+                {
+                    "category": "ARR Totals",
+                    "prompt": "What is the ARR for Microsoft this quarter??"
+                },
+                {
+                    "category": "Product Breakouts",
+                    "prompt": "What is the trend in sales volume for blueberries over the last year?"
+                }
+            ]
+        }
+    },
+    "semantic_models": {
+        "sales_demo_the_look:order_items": {
+            "exploreId": "order_items",
+            "modelName": "sales_demo_the_look",
+            "exploreKey": "sales_demo_the_look:order_items",
+            "dimensions": [
+                {
+                    "name": "distribution_centers.name",
+                    "type": "string",
+                    "label": "Distribution Centers Distribution Center",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "distribution_centers.latitude",
+                    "type": "number",
+                    "label": "Distribution Centers Latitude",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "distribution_centers.location",
+                    "type": "location",
+                    "label": "Distribution Centers Location",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "distribution_centers.longitude",
+                    "type": "number",
+                    "label": "Distribution Centers Longitude",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.created_date",
+                    "type": "date_date",
+                    "label": "Inventory Items Created Date",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.created_month",
+                    "type": "date_month",
+                    "label": "Inventory Items Created Month",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.created_quarter",
+                    "type": "date_quarter",
+                    "label": "Inventory Items Created Quarter",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.created_time",
+                    "type": "date_time",
+                    "label": "Inventory Items Created Time",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.created_week",
+                    "type": "date_week",
+                    "label": "Inventory Items Created Week",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.created_year",
+                    "type": "date_year",
+                    "label": "Inventory Items Created Year",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.sold_date",
+                    "type": "date_date",
+                    "label": "Inventory Items Sold Date",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.sold_month",
+                    "type": "date_month",
+                    "label": "Inventory Items Sold Month",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.sold_quarter",
+                    "type": "date_quarter",
+                    "label": "Inventory Items Sold Quarter",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.sold_time",
+                    "type": "date_time",
+                    "label": "Inventory Items Sold Time",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.sold_week",
+                    "type": "date_week",
+                    "label": "Inventory Items Sold Week",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "inventory_items.sold_year",
+                    "type": "date_year",
+                    "label": "Inventory Items Sold Year",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.created_date",
+                    "type": "date_date",
+                    "label": "Order Items Created Date",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.created_day_of_year",
+                    "type": "date_day_of_year",
+                    "label": "Order Items Created Day of Year",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.created_hour",
+                    "type": "date_hour",
+                    "label": "Order Items Created Hour",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.created_month",
+                    "type": "date_month",
+                    "label": "Order Items Created Month",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.created_month_name",
+                    "type": "date_month_name",
+                    "label": "Order Items Created Month Name",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.created_month_num",
+                    "type": "date_month_num",
+                    "label": "Order Items Created Month Num",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.created_quarter",
+                    "type": "date_quarter",
+                    "label": "Order Items Created Quarter",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.created_time",
+                    "type": "date_time",
+                    "label": "Order Items Created Time",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.created_week",
+                    "type": "date_week",
+                    "label": "Order Items Created Week",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.created_year",
+                    "type": "date_year",
+                    "label": "Order Items Created Year",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.delivered_date",
+                    "type": "date_date",
+                    "label": "Order Items Delivered Date",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.delivered_month",
+                    "type": "date_month",
+                    "label": "Order Items Delivered Month",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.delivered_quarter",
+                    "type": "date_quarter",
+                    "label": "Order Items Delivered Quarter",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.delivered_time",
+                    "type": "date_time",
+                    "label": "Order Items Delivered Time",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.delivered_week",
+                    "type": "date_week",
+                    "label": "Order Items Delivered Week",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.delivered_year",
+                    "type": "date_year",
+                    "label": "Order Items Delivered Year",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.failure_percentage_unrecoverable_cost_value",
+                    "type": "number",
+                    "label": "Order Items Failure Percentage Unrecoverable Cost Value",
+                    "description": "Value of the parameter Failure Unrecoverable Cost",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.id",
+                    "type": "string",
+                    "label": "Order Items ID",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.is_product_returned",
+                    "type": "yesno",
+                    "label": "Order Items Is Product Returned (Yes / No)",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.order_id",
+                    "type": "string",
+                    "label": "Order Items Order ID",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.reporting_period",
+                    "type": "string",
+                    "label": "Order Items Reporting Period",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.returned_date",
+                    "type": "date_date",
+                    "label": "Order Items Returned Date",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.returned_month",
+                    "type": "date_month",
+                    "label": "Order Items Returned Month",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.returned_quarter",
+                    "type": "date_quarter",
+                    "label": "Order Items Returned Quarter",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.returned_time",
+                    "type": "date_time",
+                    "label": "Order Items Returned Time",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.returned_week",
+                    "type": "date_week",
+                    "label": "Order Items Returned Week",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.returned_year",
+                    "type": "date_year",
+                    "label": "Order Items Returned Year",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.sale_price",
+                    "type": "number",
+                    "label": "Order Items Sale Price",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.sale_price_bin",
+                    "type": "tier",
+                    "label": "Order Items Sale Price Bin",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.shipped_date",
+                    "type": "date_date",
+                    "label": "Order Items Shipped Date",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.shipped_month",
+                    "type": "date_month",
+                    "label": "Order Items Shipped Month",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.shipped_quarter",
+                    "type": "date_quarter",
+                    "label": "Order Items Shipped Quarter",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.shipped_time",
+                    "type": "date_time",
+                    "label": "Order Items Shipped Time",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.shipped_week",
+                    "type": "date_week",
+                    "label": "Order Items Shipped Week",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.shipped_year",
+                    "type": "date_year",
+                    "label": "Order Items Shipped Year",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.status",
+                    "type": "string",
+                    "label": "Order Items Status",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.brand",
+                    "type": "string",
+                    "label": "Products Brand",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.category",
+                    "type": "string",
+                    "label": "Products Category",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.department",
+                    "type": "string",
+                    "label": "Products Department",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.distribution_center_id",
+                    "type": "number",
+                    "label": "Products Distribution Center ID",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.name",
+                    "type": "string",
+                    "label": "Products Name",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.retail_price",
+                    "type": "number",
+                    "label": "Products Retail Price",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.sku",
+                    "type": "string",
+                    "label": "Products SKU",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "repeat_purchases.days_between_orders",
+                    "type": "number",
+                    "label": "Repeat Purchases Days Between Orders",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "repeat_purchases.is_repeat_purchase_within_30_days",
+                    "type": "yesno",
+                    "label": "Repeat Purchases Is Repeat Purchase Within 30 Days (Yes / No)",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "repeat_purchases.order_sequence_number",
+                    "type": "number",
+                    "label": "Repeat Purchases Order Sequence Number",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "repeat_purchases.user_id",
+                    "type": "number",
+                    "label": "Repeat Purchases User ID",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.age",
+                    "type": "number",
+                    "label": "Users Age",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.age_buckets",
+                    "type": "tier",
+                    "label": "Users Age Buckets",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.approx_latitude",
+                    "type": "number",
+                    "label": "Users Approx Latitude",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.approx_longitude",
+                    "type": "number",
+                    "label": "Users Approx Longitude",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.city",
+                    "type": "string",
+                    "label": "Users City",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.country",
+                    "type": "string",
+                    "label": "Users Country",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.created_date",
+                    "type": "date_date",
+                    "label": "Users Created Date",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.created_month",
+                    "type": "date_month",
+                    "label": "Users Created Month",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.created_quarter",
+                    "type": "date_quarter",
+                    "label": "Users Created Quarter",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.created_time",
+                    "type": "date_time",
+                    "label": "Users Created Time",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.created_week",
+                    "type": "date_week",
+                    "label": "Users Created Week",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.created_year",
+                    "type": "date_year",
+                    "label": "Users Created Year",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.email",
+                    "type": "string",
+                    "label": "Users Email",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.first_name",
+                    "type": "string",
+                    "label": "Users First Name",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.full_name",
+                    "type": "string",
+                    "label": "Users Full Name",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.gender",
+                    "type": "string",
+                    "label": "Users Gender",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.id",
+                    "type": "string",
+                    "label": "Users ID",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.last_name",
+                    "type": "string",
+                    "label": "Users Last Name",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.latitude",
+                    "type": "number",
+                    "label": "Users Latitude",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.longitude",
+                    "type": "number",
+                    "label": "Users Longitude",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.maplayer_constant",
+                    "type": "string",
+                    "label": "Users Maplayer Constant",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.postal_code",
+                    "type": "string",
+                    "label": "Users Postal Code",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.state",
+                    "type": "string",
+                    "label": "Users State",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.street_address",
+                    "type": "string",
+                    "label": "Users Street Address",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.traffic_source",
+                    "type": "string",
+                    "label": "Users Traffic Source",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.user_location",
+                    "type": "location",
+                    "label": "Users User Location",
+                    "description": "",
+                    "tags": []
+                }
+            ],
+            "measures": [
+                {
+                    "name": "inventory_items.number_of_inventory_items",
+                    "type": "count_distinct",
+                    "label": "Inventory Items Number of Inventory Items",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.average_sale_price",
+                    "type": "average",
+                    "label": "Order Items Average Sale Price",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.percentage_defective_production",
+                    "type": "number",
+                    "label": "Order Items Defective Production %",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "orders.male_gender_orders",
+                    "type": "count_distinct",
+                    "label": "Order Items Male Gender Orders",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.number_of_order_items",
+                    "type": "count",
+                    "label": "Order Items Number of Order Items",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.number_of_order_items_last_week",
+                    "type": "count",
+                    "label": "Order Items Number of Order Items Last Week",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.number_of_order_items_this_week",
+                    "type": "count",
+                    "label": "Order Items Number of Order Items This Week",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.number_of_order_items_per_order",
+                    "type": "number",
+                    "label": "Order Items Number of Order Items per Order",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "orders.number_of_orders",
+                    "type": "count_distinct",
+                    "label": "Order Items Number of Orders",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.number_of_returned_items",
+                    "type": "count",
+                    "label": "Order Items Number of Returned Items",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "orders.percent_male_orders",
+                    "type": "number",
+                    "label": "Order Items Percent Male Orders",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.return_rate",
+                    "type": "number",
+                    "label": "Order Items Return Rate",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.total_sale_price",
+                    "type": "sum",
+                    "label": "Order Items Total Sale Price",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "order_items.unrecoverable_failure_cost",
+                    "type": "sum",
+                    "label": "Order Items Unrecoverable Failure Cost",
+                    "description": "cost associated with defected items",
+                    "tags": []
+                },
+                {
+                    "name": "products.average_cost",
+                    "type": "average_distinct",
+                    "label": "Products Average Cost",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.average_retail_price",
+                    "type": "average_distinct",
+                    "label": "Products Average Retail Price",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.count_of_categories",
+                    "type": "count_distinct",
+                    "label": "Products Count of Categories",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.gross_margin",
+                    "type": "number",
+                    "label": "Products Gross Margin",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.gross_margin_percentange",
+                    "type": "number",
+                    "label": "Products Gross Margin %",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.test",
+                    "type": "count_distinct",
+                    "label": "Products Test",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.total_cost",
+                    "type": "sum_distinct",
+                    "label": "Products Total Cost",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "products.total_retail_price",
+                    "type": "sum_distinct",
+                    "label": "Products Total Retail Price",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "repeat_purchases.number_of_repeat_purchases",
+                    "type": "count_distinct",
+                    "label": "Repeat Purchases Number of Repeat Purchases",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "repeat_purchases.number_of_repeat_purchases_within_30",
+                    "type": "count_distinct",
+                    "label": "Repeat Purchases Number of Repeat Purchases Within 30",
+                    "description": "number of repeat purchases within 30 days",
+                    "tags": []
+                },
+                {
+                    "name": "repeat_purchases.percentage_repeat_purchase",
+                    "type": "number",
+                    "label": "Repeat Purchases Repeat Purchase Rate",
+                    "description": "percentage of repeat purchases within 30 days",
+                    "tags": []
+                },
+                {
+                    "name": "x_repeat_purchases_orders.percentage_repeat_purchase",
+                    "type": "number",
+                    "label": "Repeat Purchases Repeat Purchase Rate",
+                    "description": "percentage of repeat purchases within 30 days",
+                    "tags": []
+                },
+                {
+                    "name": "users.average_age",
+                    "type": "average_distinct",
+                    "label": "Users Average Age",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "x_orders_users.average_spend_per_user",
+                    "type": "number",
+                    "label": "Users Average Spend per User",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.number_of_facebook_users_over_65",
+                    "type": "count_distinct",
+                    "label": "Users Number of Facebook Users Over 65",
+                    "description": "",
+                    "tags": []
+                },
+                {
+                    "name": "users.number_of_users",
+                    "type": "count_distinct",
+                    "label": "Users Number of Users",
+                    "description": "",
+                    "tags": []
+                }
+            ]
+        }
+    },
+    "model_name": "combined_genai_demo",
+    "test_mode": false
+}

@@ -28,13 +28,55 @@ The system converts natural language → automatic explore selection → structu
 - **Service Account Authentication** - Eliminates OAuth complexity for backend operations
 - **Consolidated Tool Interface** - Single server handles all operations
 
-## Vector Search System
+## Vector Search System with LLM Function Calling
 
-### Field Value Vectorization
-- **Automated Data Collection** - Scans Looker explores with 'index' sets to gather field metadata and sample dimension values
-- **BigQuery ML Embeddings** - Uses Vertex AI `text-embedding-004` model for semantic vectorization
-- **Comprehensive Field Data** - Stores field metadata, actual dimension values, and frequency information
-- **Vector Index Optimization** - Creates COSINE distance vector index for fast similarity search
+### Intelligent Vector Search Integration
+- **LLM-Driven Decision Making** - Vertex AI function calling determines when to use vector search
+- **Selective Field Coverage** - Only indexes high-cardinality dimensions marked with 'index' sets in Looker
+- **Value-Based Discovery** - Searches actual dimension values (brand names, codes, SKUs) NOT field names
+- **Context-Aware Usage** - LLM decides when specific value lookup is needed vs standard field metadata
+
+### Vector Search Capabilities & Limitations
+**WHAT IT DOES:**
+- Finds fields containing specific product names, brand codes, SKUs, status values, etc.
+- Searches actual dimension values from indexed high-cardinality fields only
+- Returns field locations where specific values exist with frequency data
+- Enables precise filtering on discovered values
+
+**WHAT IT DOESN'T DO:**
+- Does NOT provide comprehensive field discovery (only indexed dimensions)
+- Does NOT search for business concepts like "revenue" or "profit" (use explore metadata)
+- Does NOT replace standard field metadata (complements it for specific values)
+
+### Function Calling Implementation
+```python
+# LLM has access to these functions via Vertex AI function calling:
+function_declarations = [
+    {
+        "name": "search_semantic_fields", 
+        "description": "Find indexed fields containing specific values/codes",
+        # Only use for: brand names, SKUs, product codes, status values
+    },
+    {
+        "name": "lookup_field_values",
+        "description": "Find specific dimension values in indexed fields", 
+        # Only use for: verifying exact codes/names exist before filtering
+    }
+]
+
+# LLM autonomously decides when to call these based on user query context
+```
+
+### Updated Workflow
+```python
+# 1. LLM analyzes user query: "Show me sales for Nike products"
+# 2. LLM recognizes "Nike" as specific value and calls lookup_field_values("Nike")
+# 3. System returns: products.brand contains "Nike" with frequency data
+# 4. LLM generates query using discovered field location for filtering
+
+# NOT used for general concepts:
+# "Show me customer revenue" → uses standard explore metadata, no function calls
+```
 
 ### Setup Process
 ```bash
@@ -86,17 +128,54 @@ explore_params = generate_explore_params_for_determined_explore(
 )
 ```
 
-### Semantic Field Discovery Workflow
+### LLM Function Calling Workflow  
 ```python
-# 1. Extract searchable terms from natural language
-terms = extract_searchable_terms("Show me customer lifetime value for premium brands")
-# Returns: ["customer", "lifetime", "value", "premium", "brands"]
+# Phase 1: Determine best explore (with optional function calling)
+determined_explore_key = determine_explore_from_prompt(
+    auth_header=auth_header,
+    prompt=prompt,  # "Show me Nike product sales"
+    golden_queries=golden_queries,
+    conversation_context=conversation_context,
+    restricted_explore_keys=restricted_explore_keys
+)
+# LLM may call lookup_field_values("Nike") to find which explores contain Nike data
 
-# 2. Vector search for matching fields  
-field_matches = semantic_field_search(terms, explore_ids=["ecommerce:customers"], limit_per_term=5)
+# Phase 2: Generate parameters (with optional function calling)  
+explore_params = generate_explore_params_for_determined_explore(
+    prompt, determined_explore_key, field_metadata, conversation_context
+)
+# LLM may call search_semantic_fields(["Nike"]) to find exact field location for filtering
+```
 
-# 3. Get specific dimension values
-value_matches = field_value_lookup("premium", field_location="products.brand")
+### Function Call Decision Logic
+- **Use vector search when**: User mentions specific brands, codes, SKUs, product names, status values
+- **Don't use when**: User asks for general metrics (revenue, count, average) or business concepts
+- **LLM autonomously decides**: Based on query analysis and available explore metadata
+
+### Flask Backend Integration (mcp_server.py)
+The Flask-based backend now includes vector search integration with both MCP tools and REST endpoints:
+
+**MCP Tools Available:**
+- `search_semantic_fields` - Find indexed fields containing specific values/codes
+- `field_value_lookup` - Find specific dimension values in indexed fields  
+- `extract_searchable_terms` - Extract searchable terms from natural language
+
+**REST Endpoints:**
+- `POST /field-search` - Semantic field search API
+- `POST /field-values` - Field value lookup API
+- `POST /extract-terms` - Term extraction API
+- `GET /health` - Health check (includes new endpoints)
+
+**Integration Pattern:**
+```python
+# Vector search is integrated into main query processing
+# Both determine_explore_from_prompt() and generate_explore_params() 
+# can use function calling to access vector search when needed
+payload = {
+  "prompt": "Show me Nike sales",
+  "restricted_explore_keys": ["ecommerce:orders", "products:items"],
+  # LLM automatically calls field lookup functions if needed
+}
 ```
 
 ### Redux State Structure
@@ -118,14 +197,17 @@ interface AssistantState {
 cd explore-assistant-cloud-function  
 pip install -r requirements.txt
 
-# Local MCP server testing
+# Flask backend with vector search integration
+python3 mcp_server.py  # Flask server with MCP tools and REST endpoints
+python3 run_local.sh   # Alternative startup script
+
+# Unified MCP server (legacy/alternative)
 python3 looker_mcp_server.py  # Direct MCP server
-python3 run_local.sh  # Flask HTTP adapter on localhost:8001
 
 # Vector search system setup
 ./setup_field_discovery.sh  # Complete automated setup
 python vector_table_manager.py --action setup  # Manual setup
-python test_semantic_search.py  # Test vector search
+python test_semantic_search.py  # Test vector search integration
 ```
 
 ### Frontend Development
@@ -324,6 +406,36 @@ python test_vector_search.py
 
 # Check vector table status
 python vector_table_manager.py --action stats
+
+# Test Flask integration with vector search
+curl -X POST http://localhost:8001/field-values \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"search_string": "nike", "limit": 5}'
+
+# Test MCP tool integration
+curl -X POST http://localhost:8001 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name": "field_value_lookup", 
+    "arguments": {"search_string": "nike", "limit": 3}
+  }'
+```
+
+**Common Vector Search Issues:**
+- **No Results**: Check if fields are indexed with 'index' sets in Looker
+- **Function Not Called**: LLM may not recognize need for specific value lookup
+- **Low Similarity**: Adjust similarity threshold in function calls
+- **Missing Values**: Vector table may need refresh from Looker data
+```bash
+# Test vector search system
+cd explore-assistant-cloud-function
+python test_semantic_search.py
+python test_vector_search.py
+
+# Check vector table status
+python vector_table_manager.py --action stats
 ```
 
 ## Files That Define Core Patterns
@@ -342,6 +454,12 @@ python vector_table_manager.py --action stats
 - Use for integrating with desktop AI assistants outside Looker
 
 ## Recent Architectural Updates
+
+### Vector Search Function Calling Integration
+- **Vertex AI Function Calling** - LLM autonomously decides when to use vector search via function declarations
+- **Intelligent Value Discovery** - LLM calls `search_semantic_fields` and `lookup_field_values` when user queries mention specific codes/values
+- **Flask Backend Integration** - `mcp_server.py` now includes vector search as both MCP tools and REST endpoints
+- **Scoped Field Discovery** - Vector search limited to indexed high-cardinality dimensions only
 
 ### MCP Server Consolidation
 - **Single Server Architecture** - `looker_mcp_server.py` now contains all functionality

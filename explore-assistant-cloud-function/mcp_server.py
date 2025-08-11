@@ -23,6 +23,8 @@ import looker_sdk
 from looker_sdk.rtl import api_settings
 import spacy
 from google.cloud import bigquery
+from field_lookup_service import FieldValueLookupService
+import asyncio
 
 logging.basicConfig(level=logging.INFO)
 
@@ -51,6 +53,9 @@ vertex_model = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash-001")
 bq_project_id = os.environ.get("BQ_PROJECT_ID", "ml-accelerator-dbarr")
 bq_dataset_id = os.environ.get("BQ_DATASET_ID", "explore_assistant")
 bq_suggested_table = os.environ.get("BQ_SUGGESTED_TABLE", "silver_queries")
+
+# Initialize field lookup service
+field_lookup_service = FieldValueLookupService()
 
 def get_max_tokens_for_model(model_name: str) -> dict:
     """Get maximum input and output tokens for the current model"""
@@ -680,9 +685,8 @@ def extract_vertex_response_text(vertex_response: Dict[str, Any]) -> Optional[st
 def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries: Dict[str, Any], 
                                  conversation_context: str = "", restricted_explore_keys: list = None) -> Optional[str]:
     """
-    Enhanced explore determination with conversation context and area restrictions.
-    Always determines the best explore based on the prompt and conversation context,
-    but restricts selection to specified explore keys if provided.
+    Enhanced explore determination with conversation context, area restrictions, and optional semantic field discovery.
+    Uses Vertex AI function calling to intelligently search for relevant fields when needed.
     """
     try:
         logging.info("=== EXPLORE DETERMINATION START ===")
@@ -773,6 +777,54 @@ def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries:
         # Create a concise explore list instead of full golden queries dump
         explores_text = "\n".join([f"- {explore}" for explore in available_explores])
         
+        # Define function declarations for semantic field search
+        function_declarations = [
+            {
+                "name": "search_semantic_fields",
+                "description": "Search for Looker field locations that contain actual dimension values related to your search terms. IMPORTANT: Only searches high-cardinality dimensions that have been specifically indexed for vector search (marked with 'index' sets in Looker). This is NOT a comprehensive field search - use only when looking for specific values/codes that might exist in indexed dimension data.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "search_terms": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Array of specific values or codes to search for in indexed dimension data (e.g., ['nike', 'adidas', 'premium'] NOT ['customer', 'revenue'])"
+                        },
+                        "explore_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Optional list of specific explores to search within (e.g., ['ecommerce:order_items', 'thelook:events'])"
+                        },
+                        "max_results": {
+                            "type": "integer",
+                            "description": "Maximum number of field matches to return per search term",
+                            "default": 3
+                        }
+                    },
+                    "required": ["search_terms"]
+                }
+            },
+            {
+                "name": "lookup_field_values", 
+                "description": "Find specific dimension values containing text patterns. IMPORTANT: Only searches values from high-cardinality dimensions that have been indexed for vector search. Use when looking for exact codes, names, SKUs, or identifiers that exist in the actual Looker data.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "search_string": {
+                            "type": "string",
+                            "description": "Specific text pattern to find in indexed dimension values (e.g., 'NIKE123', 'Premium', 'CA', 'Shipped')"
+                        },
+                        "explore_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Optional list of specific explores to search within"
+                        }
+                    },
+                    "required": ["search_string"]
+                }
+            }
+        ]
+        
         system_prompt = f"""You are a Looker Explore Assistant. Your job is to determine which Looker explore is most appropriate for answering a user's question.
 
 IMPORTANT: You must analyze the user's question independently and select the BEST explore for their needs, regardless of any previous explore selections or model information.
@@ -782,13 +834,24 @@ Available Explores:
 
 {f"Conversation Context:{newline_char}{conversation_context}{newline_char}" if conversation_context else ""}
 
+You have access to semantic field search and field value lookup functions. IMPORTANT: These functions only search high-cardinality dimensions that have been specifically indexed (marked with 'index' sets in Looker). Use them ONLY when:
+1. You need to find which explores contain specific product names, codes, SKUs, or identifiers that might exist in the data
+2. You need to verify if specific dimension values (like brand names, status codes, region codes) exist before selecting an explore
+3. The user mentions specific values/codes and you're unsure which explore contains that type of data
+
+DO NOT use these functions for:
+- General business concepts like "revenue", "profit", "customers" (these are typically measures/fields available in explore metadata)
+- Finding fields by semantic meaning (use the provided explore metadata instead)
+- Comprehensive field discovery (only indexed dimensions are searchable)
+
 Instructions:
 1. Analyze the user's current prompt: "{prompt}"
 2. Consider the conversation context to understand what the user has been asking about
-3. Compare against the available explores
-4. Determine which explore would be BEST suited to answer this question
-5. {"Restrict your selection to the provided explore keys only" if restricted_explore_keys else "Ignore any previous explore selections - choose the optimal explore for this specific question"}
-6. Return ONLY the explore key (e.g., "order_items", "events", etc.) as a single string
+3. If needed, use the search functions to find relevant fields or verify data availability
+4. Compare against the available explores
+5. Determine which explore would be BEST suited to answer this question
+6. {"Restrict your selection to the provided explore keys only" if restricted_explore_keys else "Ignore any previous explore selections - choose the optimal explore for this specific question"}
+7. Return ONLY the explore key (e.g., "order_items", "events", etc.) as a single string
 
 Current user prompt: {prompt}
 
@@ -799,7 +862,7 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
         if len(system_prompt) > 10000:
             logging.warning(f"⚠️ System prompt is very long ({len(system_prompt)} chars) - may cause issues")
 
-        # Format request for Vertex AI with task-appropriate tokens
+        # Format request for Vertex AI with function calling capabilities
         max_tokens = calculate_max_output_tokens(system_prompt, vertex_model, "explore_selection")
         
         vertex_request = {
@@ -809,6 +872,7 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
                     "parts": [{"text": system_prompt}]
                 }
             ],
+            "tools": [{"function_declarations": function_declarations}],
             "generationConfig": {
                 "temperature": 0.1,
                 "topP": 0.4,  # Reduced for focused responses
@@ -819,7 +883,7 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
         }
         
         # Log concise request summary for debugging
-        logging.info(f"🤖 LLM Request - Explore Selection | Query: '{prompt[:100]}{'...' if len(prompt) > 100 else ''}' | "
+        logging.info(f"🤖 LLM Request - Explore Selection with Functions | Query: '{prompt[:100]}{'...' if len(prompt) > 100 else ''}' | "
                     f"Options: {len(available_explores)} explores | "
                     f"Restricted: {'Yes' if restricted_explore_keys else 'No'} | "
                     f"Context: {'Yes' if conversation_context else 'No'} | "
@@ -832,6 +896,115 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
             return None
         
         logging.info(f"✅ Got Vertex AI response: {vertex_response}")
+        
+        # Check if the model made function calls
+        if 'candidates' in vertex_response and len(vertex_response['candidates']) > 0:
+            candidate = vertex_response['candidates'][0]
+            content_parts = candidate.get('content', {}).get('parts', [])
+            
+            # Process any function calls
+            for part in content_parts:
+                if 'functionCall' in part:
+                    function_call = part['functionCall']
+                    function_name = function_call['name']
+                    function_args = function_call.get('args', {})
+                    
+                    logging.info(f"🔧 Model requested function call: {function_name} with args: {function_args}")
+                    
+                    # Execute the function call
+                    function_result = None
+                    try:
+                        if function_name == "search_semantic_fields":
+                            search_terms = function_args.get('search_terms', [])
+                            explore_ids = function_args.get('explore_ids', restricted_explore_keys)
+                            max_results = function_args.get('max_results', 3)
+                            
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            try:
+                                field_matches = loop.run_until_complete(
+                                    field_lookup_service.semantic_field_search(
+                                        search_terms=search_terms,
+                                        explore_ids=explore_ids,
+                                        limit_per_term=max_results,
+                                        similarity_threshold=0.6
+                                    )
+                                )
+                                function_result = {
+                                    "field_matches": [
+                                        {
+                                            "field_location": match.field_location,
+                                            "explore_id": f"{match.model_name}:{match.explore_name}",
+                                            "field_type": match.field_type,
+                                            "similarity": round(match.similarity, 3),
+                                            "description": match.field_description or "No description"
+                                        }
+                                        for match in field_matches
+                                    ],
+                                    "total_matches": len(field_matches)
+                                }
+                            finally:
+                                loop.close()
+                        
+                        elif function_name == "lookup_field_values":
+                            search_string = function_args.get('search_string', '')
+                            explore_ids = function_args.get('explore_ids', restricted_explore_keys)
+                            
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            try:
+                                value_matches = loop.run_until_complete(
+                                    field_lookup_service.field_value_lookup(
+                                        search_string=search_string,
+                                        field_location=None,
+                                        limit=10
+                                    )
+                                )
+                                
+                                # Filter by explore_ids if specified
+                                if explore_ids:
+                                    filtered_matches = []
+                                    for match in value_matches:
+                                        explore_id = f"{match['model_name']}:{match['explore_name']}"
+                                        if explore_id in explore_ids:
+                                            filtered_matches.append(match)
+                                    value_matches = filtered_matches
+                                
+                                function_result = {
+                                    "matching_values": value_matches[:10],  # Limit to top 10
+                                    "total_matches": len(value_matches),
+                                    "search_string": search_string
+                                }
+                            finally:
+                                loop.close()
+                        
+                        logging.info(f"✅ Function call result: {function_result}")
+                        
+                        # Continue conversation with function results
+                        follow_up_request = {
+                            "contents": [
+                                {"role": "user", "parts": [{"text": system_prompt}]},
+                                {"role": "model", "parts": [{"functionCall": function_call}]},
+                                {"role": "function", "parts": [{"functionResponse": {
+                                    "name": function_name,
+                                    "response": {"result": function_result}
+                                }}]},
+                                {"role": "user", "parts": [{"text": "Based on the search results, which explore is best suited for the user's question? Return only the explore key."}]}
+                            ],
+                            "generationConfig": {
+                                "temperature": 0.1,
+                                "maxOutputTokens": 100
+                            }
+                        }
+                        
+                        follow_up_response = call_vertex_ai_with_retry(follow_up_request, "explore_determination_followup")
+                        if follow_up_response:
+                            vertex_response = follow_up_response
+                            break  # Use this response instead
+                        
+                    except Exception as e:
+                        logging.error(f"❌ Function call execution failed: {e}")
+                        # Continue with original response if function fails
         
         # Extract the explore key from response
         response_text = extract_vertex_response_text(vertex_response)
@@ -1050,7 +1223,7 @@ Output only the synthesized query."""
 def generate_explore_params_from_query(auth_header: str, query: str, explore_key: str, 
                                      golden_queries: Dict[str, Any], semantic_models: Dict[str, Any],
                                      current_explore: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Second LLM call: Generate explore parameters from a clear, synthesized query"""
+    """Generate explore parameters from a clear, synthesized query with optional semantic field discovery"""
     try:
         # Get semantic model for this specific explore only (optimized for token efficiency)
         explore_semantic_model = semantic_models.get(explore_key, {})
@@ -1136,11 +1309,68 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
             if 'exploreGenerationExamples' in golden_queries:
                 logging.info(f"🔍 Available explores in exploreGenerationExamples: {list(golden_queries['exploreGenerationExamples'].keys())}")
         
-        # Build system prompt for explore parameter generation
+        # Build system prompt for explore parameter generation with function calling
+        function_declarations = [
+            {
+                "name": "search_semantic_fields",
+                "description": "Search for indexed high-cardinality dimension fields when you suspect specific values/codes might exist in the data but aren't sure which field contains them. LIMITATION: Only searches fields that have been specifically indexed with 'index' sets in Looker - NOT all fields.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "search_terms": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Array of specific values/codes to search for (e.g., ['nike', 'premium', 'SKU123'] NOT general concepts like ['revenue', 'customer'])"
+                        },
+                        "explore_ids": {
+                            "type": "array", 
+                            "items": {"type": "string"},
+                            "description": "List of explores to search within (e.g., ['ecommerce:order_items'])",
+                            "default": [explore_key]
+                        },
+                        "max_results": {
+                            "type": "integer",
+                            "description": "Maximum number of field matches to return per search term",
+                            "default": 5
+                        }
+                    },
+                    "required": ["search_terms"]
+                }
+            },
+            {
+                "name": "lookup_field_values",
+                "description": "Find specific values that exist in indexed high-cardinality dimensions. Use when you need to verify exact codes, names, or identifiers exist before creating filters. LIMITATION: Only searches indexed dimension values, not all fields.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "search_string": {
+                            "type": "string",
+                            "description": "Specific text/code to find in indexed dimension values (e.g., 'NIKE', 'Completed', 'CA', 'SKU123')"
+                        },
+                        "field_location": {
+                            "type": "string",
+                            "description": "Optional specific field to search within (format: model.explore.view.field)"
+                        }
+                    },
+                    "required": ["search_string"]
+                }
+            }
+        ]
+        
         system_prompt = f"""Generate Looker explore parameters for: "{query}"
 
 {table_context}
 {example_text}
+
+You have access to semantic field search and field value lookup functions. IMPORTANT: These only search high-cardinality dimensions that have been specifically indexed. Use them ONLY when:
+1. You need to find exact values/codes (like product names, SKUs, brand names) that might exist in indexed dimension data
+2. You need to verify specific dimension values exist before creating filters
+3. The user mentions specific identifiers and you're unsure which indexed field contains them
+
+DO NOT use these functions for:
+- General field discovery (use the provided explore metadata instead) 
+- Business concepts like "revenue" or "profit" (these are typically measures available in the metadata)
+- Comprehensive data exploration (only specific indexed dimensions are searchable)
 
 IMPORTANT: Be extremely concise. Return minimal JSON only.
 
@@ -1164,13 +1394,12 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
         logging.info(f"🔍 Generated prompt size: ~{len(system_prompt):,} characters")
         
         # Calculate dynamic output tokens based on model and task
-        # Use task-specific token management to prevent overthinking
         max_output_tokens = calculate_max_output_tokens(system_prompt, vertex_model, "explore_params")
         thresholds = update_token_warning_thresholds(vertex_model)
         
         logging.info(f"📊 Using task-specific maxOutputTokens: {max_output_tokens:,} for explore params generation")
 
-        # Format request for Vertex AI with dynamic token allocation
+        # Format request for Vertex AI with function calling capabilities
         vertex_request = {
             "contents": [
                 {
@@ -1182,27 +1411,137 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
                     ]
                 }
             ],
+            "tools": [{"function_declarations": function_declarations}],
             "generationConfig": {
                 "temperature": 0.1,
                 "topP": 0.5,
                 "topK": 20,
-                "maxOutputTokens": max_output_tokens,  # Dynamic based on model and prompt
+                "maxOutputTokens": max_output_tokens,
                 "responseMimeType": "application/json",
                 "candidateCount": 1
             }
         }
         
         # Log concise request summary for debugging
-        logging.info(f"🤖 LLM Request - Explore: {explore_key} | Query: '{query[:100]}{'...' if len(query) > 100 else ''}' | "
+        logging.info(f"🤖 LLM Request with Functions - Explore: {explore_key} | Query: '{query[:100]}{'...' if len(query) > 100 else ''}' | "
                     f"Fields: {len(limited_dimensions)} dims, {len(limited_measures)} measures | "
                     f"Examples: {len(golden_queries.get('exploreGenerationExamples', {}).get(explore_key, []))} | "
                     f"Prompt: {len(system_prompt):,} chars | MaxTokens: {max_output_tokens}")
         
-        # Call Vertex AI using service account with retry logic (includes response processing)
-        vertex_response = call_vertex_ai_with_retry(vertex_request, "explore_parameter_generation", process_response=True)
+        # Call Vertex AI using service account with retry logic
+        vertex_response = call_vertex_ai_with_retry(vertex_request, "explore_parameter_generation")
         if not vertex_response:
             logging.warning("❌ Parameter generation failed after retries, using fallback")
             return create_context_aware_fallback(query, explore_key, "", semantic_models)
+        
+        # Check if the model made function calls  
+        if 'candidates' in vertex_response and len(vertex_response['candidates']) > 0:
+            candidate = vertex_response['candidates'][0]
+            content_parts = candidate.get('content', {}).get('parts', [])
+            
+            # Process any function calls
+            for part in content_parts:
+                if 'functionCall' in part:
+                    function_call = part['functionCall']
+                    function_name = function_call['name']
+                    function_args = function_call.get('args', {})
+                    
+                    logging.info(f"🔧 Model requested function call: {function_name} with args: {function_args}")
+                    
+                    # Execute the function call
+                    function_result = None
+                    try:
+                        if function_name == "search_semantic_fields":
+                            search_terms = function_args.get('search_terms', [])
+                            explore_ids = function_args.get('explore_ids', [explore_key])
+                            max_results = function_args.get('max_results', 5)
+                            
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            try:
+                                field_matches = loop.run_until_complete(
+                                    field_lookup_service.semantic_field_search(
+                                        search_terms=search_terms,
+                                        explore_ids=explore_ids,
+                                        limit_per_term=max_results,
+                                        similarity_threshold=0.7
+                                    )
+                                )
+                                function_result = {
+                                    "discovered_fields": [
+                                        {
+                                            "field_location": match.field_location,
+                                            "field_name": match.field_name,
+                                            "field_type": match.field_type,
+                                            "similarity": round(match.similarity, 3),
+                                            "description": match.field_description or "No description",
+                                            "sample_values": [v['value'] for v in match.matching_values[:3]]
+                                        }
+                                        for match in field_matches
+                                    ],
+                                    "search_terms": search_terms,
+                                    "total_matches": len(field_matches)
+                                }
+                            finally:
+                                loop.close()
+                        
+                        elif function_name == "lookup_field_values":
+                            search_string = function_args.get('search_string', '')
+                            field_location = function_args.get('field_location', None)
+                            
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            try:
+                                value_matches = loop.run_until_complete(
+                                    field_lookup_service.field_value_lookup(
+                                        search_string=search_string,
+                                        field_location=field_location,
+                                        limit=10
+                                    )
+                                )
+                                function_result = {
+                                    "matching_values": [
+                                        {
+                                            "field_location": match['field_location'],
+                                            "field_value": match['field_value'],
+                                            "frequency": match['value_frequency']
+                                        }
+                                        for match in value_matches
+                                    ],
+                                    "search_string": search_string,
+                                    "total_matches": len(value_matches)
+                                }
+                            finally:
+                                loop.close()
+                        
+                        logging.info(f"✅ Function call result: {function_result}")
+                        
+                        # Continue conversation with function results
+                        follow_up_request = {
+                            "contents": [
+                                {"role": "user", "parts": [{"text": system_prompt}]},
+                                {"role": "model", "parts": [{"functionCall": function_call}]},
+                                {"role": "function", "parts": [{"functionResponse": {
+                                    "name": function_name,
+                                    "response": {"result": function_result}
+                                }}]},
+                                {"role": "user", "parts": [{"text": "Now generate the Looker query parameters using the search results. Return JSON only."}]}
+                            ],
+                            "generationConfig": {
+                                "temperature": 0.1,
+                                "maxOutputTokens": max_output_tokens,
+                                "responseMimeType": "application/json"
+                            }
+                        }
+                        
+                        follow_up_response = call_vertex_ai_with_retry(follow_up_request, "explore_params_followup", process_response=True)
+                        if follow_up_response:
+                            vertex_response = follow_up_response
+                            break  # Use this response instead
+                        
+                    except Exception as e:
+                        logging.error(f"❌ Function call execution failed: {e}")
+                        # Continue with original response if function fails
         
         # Extract the processed response (already processed by call_vertex_ai_with_retry)
         response_text = vertex_response.get('processed_response') if isinstance(vertex_response, dict) else None

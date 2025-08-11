@@ -29,6 +29,15 @@ from google.cloud import bigquery
 
 logging.basicConfig(level=logging.INFO)
 
+# Custom exceptions for token limit handling
+class TokenLimitExceededException(Exception):
+    """Exception raised when Vertex AI response is truncated due to token limits"""
+    def __init__(self, message="Response truncated due to token limit", current_tokens=None, usage_metadata=None):
+        self.message = message
+        self.current_tokens = current_tokens
+        self.usage_metadata = usage_metadata
+        super().__init__(self.message)
+
 # Load spaCy model once at module level
 try:
     nlp = spacy.load("en_core_web_sm")
@@ -183,12 +192,23 @@ def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
     try:
         logging.info("Extracting user email from token")
         
-        # Remove 'Bearer ' prefix if present
-        if bearer_token.lower().startswith('bearer '):
+        # Add proper null and type checks
+        if not bearer_token or not isinstance(bearer_token, str):
+            logging.error("Invalid bearer token: token is None or not a string")
+            return None
+        
+        # Remove 'Bearer ' prefix if present - with safe string operations
+        bearer_token_lower = bearer_token.lower()
+        if bearer_token_lower.startswith('bearer '):
             bearer_token = bearer_token[7:]
         
         # Remove any whitespace
         bearer_token = bearer_token.strip()
+        
+        # Check if token is empty after processing
+        if not bearer_token:
+            logging.error("Invalid bearer token: empty token after processing")
+            return None
         
         # Split JWT into parts
         token_parts = bearer_token.split('.')
@@ -201,6 +221,12 @@ def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
         import json
         
         payload_data = token_parts[1]
+        
+        # Validate payload data exists
+        if not payload_data:
+            logging.error("Invalid JWT format: empty payload section")
+            return None
+            
         # Add padding if needed for base64 decoding
         payload_data += '=' * (4 - len(payload_data) % 4)
         
@@ -208,12 +234,17 @@ def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
             payload_json = base64.urlsafe_b64decode(payload_data).decode('utf-8')
             payload = json.loads(payload_json)
             
+            # Ensure payload is a dictionary
+            if not isinstance(payload, dict):
+                logging.error("Invalid JWT payload: not a JSON object")
+                return None
+            
             email = payload.get('email')
-            if email:
+            if email and isinstance(email, str):
                 logging.info(f"Extracted user email: {email}")
                 return email
             else:
-                logging.error("No email found in token payload")
+                logging.error("No valid email found in token payload")
                 return None
                 
         except Exception as e:
@@ -300,12 +331,23 @@ def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Opt
         logging.error(f"Error calling Vertex AI API: {e}")
         return None
 
-def call_vertex_ai_with_retry(request_body: Dict[str, Any], context: str = "") -> Optional[Dict[str, Any]]:
+def call_vertex_ai_with_retry(request_body: Dict[str, Any], context: str = "", process_response: bool = False) -> Optional[Dict[str, Any]]:
     """
     Call Vertex AI API with retry logic for token limit errors.
+    Now includes response processing to catch MAX_TOKENS finish reasons.
     Attempts to recover by increasing output token limits only - input context is preserved.
+    
+    Args:
+        request_body: The Vertex AI API request
+        context: Context string for logging
+        process_response: Whether to process response through extract_vertex_response_text()
+    
+    Returns:
+        If process_response=True: {'processed_response': text, 'raw_response': dict}
+        If process_response=False: raw response dict
     """
     max_retries = 2
+    vertex_model = request_body.get('model', 'gemini-1.5-flash')
     original_max_tokens = request_body.get('generationConfig', {}).get('maxOutputTokens', 2048)
     
     for attempt in range(max_retries + 1):
@@ -314,7 +356,7 @@ def call_vertex_ai_with_retry(request_body: Dict[str, Any], context: str = "") -
             
             response = call_vertex_ai_api_with_service_account(request_body)
             
-            # Check if this was a token limit error
+            # Check if this was a token limit error from API
             if isinstance(response, dict) and response.get('error') == 'token_limit':
                 if attempt < max_retries:
                     logging.warning(f"⚠️ Token limit exceeded, attempting retry {attempt + 1}")
@@ -352,10 +394,51 @@ def call_vertex_ai_with_retry(request_body: Dict[str, Any], context: str = "") -
                     logging.error(f"❌ All retry attempts exhausted for API failure")
                     return None
             else:
-                # Success!
-                if attempt > 0:
-                    logging.info(f"✅ Retry successful after {attempt} attempts")
-                return response
+                # Got a response - now process it if requested
+                if process_response:
+                    try:
+                        # Process the response, which may raise TokenLimitExceededException
+                        processed_response = extract_vertex_response_text(response)
+                        # If we get here, processing was successful
+                        if attempt > 0:
+                            logging.info(f"✅ Retry successful after {attempt} attempts")
+                        return {'processed_response': processed_response, 'raw_response': response}
+                    except TokenLimitExceededException as tle:
+                        # Response was truncated due to token limits - retry with higher limits
+                        if attempt < max_retries:
+                            logging.warning(f"⚠️ Response truncated due to MAX_TOKENS, attempting retry {attempt + 1}")
+                            logging.info(f"📊 Current token usage: {tle.usage_metadata}")
+                            
+                            # Strategy: Increase output token limits progressively
+                            current_max_tokens = request_body.get('generationConfig', {}).get('maxOutputTokens', 2048)
+                            
+                            # Progressive increase: 2x, then max out at model limit
+                            if attempt == 0:
+                                # First retry: Double the tokens (up to 8192)
+                                new_max_tokens = min(current_max_tokens * 2, 8192)
+                                request_body['generationConfig']['maxOutputTokens'] = new_max_tokens
+                                logging.info(f"📈 Retry {attempt + 1}: Increased maxOutputTokens from {current_max_tokens} to {new_max_tokens}")
+                                continue
+                            elif attempt == 1:
+                                # Second retry: Max out at model's maximum output capacity
+                                model_limits = get_max_tokens_for_model(vertex_model)
+                                max_model_output = model_limits.get("output", 8192)
+                                if current_max_tokens < max_model_output:
+                                    request_body['generationConfig']['maxOutputTokens'] = max_model_output
+                                    logging.info(f"📈 Retry {attempt + 1}: Maxed out maxOutputTokens to model limit: {max_model_output}")
+                                    continue
+                                else:
+                                    logging.error(f"❌ Already at maximum output tokens ({current_max_tokens}), cannot increase further")
+                                    break
+                        else:
+                            logging.error(f"❌ All retry attempts exhausted - response still truncated")
+                            logging.error(f"💡 Consider optimizing the input context or using a higher-capacity model")
+                            return None
+                else:
+                    # Return raw response without processing
+                    if attempt > 0:
+                        logging.info(f"✅ Retry successful after {attempt} attempts")
+                    return response
                 
         except Exception as e:
             logging.error(f"❌ Error in retry attempt {attempt + 1}: {e}")
@@ -408,6 +491,16 @@ def get_looker_sdk():
 def find_looker_user_by_email(email: str) -> Optional[Dict[str, Any]]:
     """Find Looker user by email address using Looker SDK"""
     try:
+        # Input validation
+        if not email or not isinstance(email, str):
+            logging.error("Invalid email parameter: email is None or not a string")
+            return None
+            
+        email = email.strip()
+        if not email:
+            logging.error("Invalid email parameter: empty email after stripping")
+            return None
+        
         # Initialize Looker SDK
         sdk = get_looker_sdk()
         if not sdk:
@@ -415,25 +508,50 @@ def find_looker_user_by_email(email: str) -> Optional[Dict[str, Any]]:
             return None
         
         # Search for user by email using SDK
-        users = sdk.search_users(email=email)
+        try:
+            users = sdk.search_users(email=email)
+        except Exception as sdk_error:
+            logging.error(f"Looker SDK search_users failed: {sdk_error}")
+            return None
         
-        if not users:
+        # Validate search results
+        if not users or len(users) == 0:
             logging.error(f"No Looker user found with email: {email}")
             return None
         
-        # Convert the first user object to dict
+        # Convert the first user object to dict with safe attribute access
         user = users[0]
-        user_dict = {
-            'id': user.id,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'is_disabled': user.is_disabled,
-            'role_ids': user.role_ids
-        }
+        try:
+            user_dict = {
+                'id': getattr(user, 'id', None),
+                'email': getattr(user, 'email', None),
+                'first_name': getattr(user, 'first_name', None),
+                'last_name': getattr(user, 'last_name', None),
+                'is_disabled': getattr(user, 'is_disabled', None),
+                'role_ids': getattr(user, 'role_ids', [])
+            }
+        except Exception as conversion_error:
+            logging.error(f"Error converting user object to dict: {conversion_error}")
+            # Return a minimal dict with available information
+            user_dict = {
+                'id': str(user) if user else None,
+                'email': email,
+                'first_name': None,
+                'last_name': None,
+                'is_disabled': None,
+                'role_ids': []
+            }
 
-        # Log the found user details
-        logging.info(f"Found Looker user: {user_dict['id']} - {user_dict['email']} - {user_dict['role_ids']}")
+        # Validate essential fields
+        if not user_dict.get('id'):
+            logging.error("User found but missing essential 'id' field")
+            return None
+
+        # Log the found user details (safely)
+        user_id = user_dict.get('id', 'unknown')
+        user_email = user_dict.get('email', 'unknown')
+        user_roles = user_dict.get('role_ids', [])
+        logging.info(f"Found Looker user: {user_id} - {user_email} - {user_roles}")
         return user_dict
         
     except Exception as e:
@@ -450,34 +568,80 @@ def extract_vertex_response_text(vertex_response: Dict[str, Any]) -> Optional[st
     try:
         logging.info(f"🔍 extract_vertex_response_text - Input: {vertex_response}")
         
+        # Add proper null and type validation
+        if not vertex_response or not isinstance(vertex_response, dict):
+            logging.error("❌ Invalid vertex response: None or not a dictionary")
+            return None
+        
         # Check for MAX_TOKENS or other finish reasons that indicate incomplete responses
         candidates = vertex_response.get('candidates', [])
+        if not candidates:
+            logging.error("❌ No candidates found in Vertex AI response")
+            return None
+            
         if candidates:
             finish_reason = candidates[0].get('finishReason')
             if finish_reason == 'MAX_TOKENS':
-                logging.error("❌ VERTEX AI RESPONSE TRUNCATED: Hit maximum token limit")
-                logging.error("💡 Consider reducing prompt size or using a model with higher token limits")
+                logging.warning("⚠️ VERTEX AI RESPONSE TRUNCATED: Hit maximum token limit - will retry with higher limits")
                 usage_metadata = vertex_response.get('usageMetadata', {})
-                logging.error(f"📊 Token usage: {usage_metadata}")
-                return None
+                current_tokens = usage_metadata.get('candidatesTokenCount', 0)
+                
+                # Raise exception to trigger retry mechanism
+                raise TokenLimitExceededException(
+                    "Response truncated due to maximum token limit", 
+                    current_tokens=current_tokens,
+                    usage_metadata=usage_metadata
+                )
             elif finish_reason and finish_reason != 'STOP':
                 logging.warning(f"⚠️ Unexpected finish reason: {finish_reason}")
         
-        # Validate structure using pydantic
-        resp_model = VertexAIResponse.parse_obj(vertex_response)
-        # Extract raw text
-        first = resp_model.candidates[0]
-        content = first.get('content', {})
-        parts = content.get('parts', []) or []
+        # Try pydantic validation first, but handle failures gracefully
+        try:
+            resp_model = VertexAIResponse.parse_obj(vertex_response)
+            # Extract raw text
+            first = resp_model.candidates[0]
+            content = first.get('content', {})
+            parts = content.get('parts', []) or []
+        except ValidationError as ve:
+            logging.warning(f"Vertex AI response schema mismatch: {ve}")
+            # Fall back to manual extraction
+            first_candidate = candidates[0]
+            content = first_candidate.get('content', {})
+            parts = content.get('parts', []) or []
+        except Exception as e:
+            logging.error(f"Pydantic validation error: {e}")
+            # Fall back to manual extraction
+            first_candidate = candidates[0]
+            content = first_candidate.get('content', {})
+            parts = content.get('parts', []) or []
+        
         if not parts:
             logging.warning("❌ No parts found in response content")
             return None
-        raw_text = parts[0].get('text') if isinstance(parts[0], dict) else parts[0]
+            
+        # Safely extract text from parts - concatenate all parts
+        raw_text = ""
+        for part in parts:
+            if isinstance(part, dict) and 'text' in part:
+                part_text = part.get('text', '')
+                if isinstance(part_text, str):
+                    raw_text += part_text
+            elif isinstance(part, str):
+                raw_text += part
+                
+        if not raw_text:
+            logging.warning("❌ No text content found in response parts")
+            return None
+            
         logging.info(f"🔍 Extracted raw text: '{raw_text}' (type: {type(raw_text)})")
         
         # Attempt to parse JSON from raw_text
-        parsed = parse_llm_response(raw_text)
-        logging.info(f"🔍 Parsed result: {parsed} (type: {type(parsed)})")
+        try:
+            parsed = parse_llm_response(raw_text)
+            logging.info(f"🔍 Parsed result: {parsed} (type: {type(parsed)})")
+        except Exception as e:
+            logging.warning(f"JSON parsing failed: {e}")
+            parsed = None
         
         # Validate response size for brevity
         final_result = parsed if parsed is not None else raw_text
@@ -491,33 +655,29 @@ def extract_vertex_response_text(vertex_response: Dict[str, Any]) -> Optional[st
                 logging.warning(f"⚠️ Dict response too large ({len(dict_str)} chars), may need simplification")
         
         return final_result
-    except ValidationError as ve:
-        logging.warning(f"Vertex AI response schema mismatch: {ve}")
-        # Fallback extraction
-        try:
-            candidates = vertex_response.get('candidates', [])
-            logging.info(f"🔍 Fallback - candidates: {candidates}")
-            if candidates:
-                # Check finish reason in fallback as well
-                finish_reason = candidates[0].get('finishReason')
-                if finish_reason == 'MAX_TOKENS':
-                    logging.error("❌ FALLBACK: Response truncated due to MAX_TOKENS")
-                    return None
-                
-                content = candidates[0].get('content', {})
-                parts = content.get('parts', []) or []
-                logging.info(f"🔍 Fallback - parts: {parts}")
-                if parts:
-                    raw_text = parts[0].get('text', '') if isinstance(parts[0], dict) else parts[0]
-                    logging.info(f"🔍 Fallback - raw text: '{raw_text}' (type: {type(raw_text)})")
-                    parsed = parse_llm_response(raw_text)
-                    logging.info(f"🔍 Fallback - parsed: {parsed} (type: {type(parsed)})")
-                    return parsed if parsed is not None else raw_text
-        except Exception as e:
-            logging.error(f"Fallback extraction error: {e}")
-        return None
+        
+    except TokenLimitExceededException:
+        # Re-raise TokenLimitExceededException so retry mechanism can catch it
+        raise
     except Exception as e:
         logging.error(f"Error extracting Vertex AI response: {e}")
+        # Final fallback extraction attempt
+        try:
+            if vertex_response and isinstance(vertex_response, dict):
+                candidates = vertex_response.get('candidates', [])
+                if candidates and len(candidates) > 0:
+                    first_candidate = candidates[0]
+                    if isinstance(first_candidate, dict):
+                        content = first_candidate.get('content', {})
+                        if isinstance(content, dict):
+                            parts = content.get('parts', [])
+                            if parts and len(parts) > 0:
+                                first_part = parts[0]
+                                if isinstance(first_part, dict) and 'text' in first_part:
+                                    return first_part['text']
+        except Exception as fallback_error:
+            logging.error(f"Final fallback extraction failed: {fallback_error}")
+        
         return None
 
 def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries: Dict[str, Any], 
@@ -1041,14 +1201,14 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
                     f"Examples: {len(golden_queries.get('exploreGenerationExamples', {}).get(explore_key, []))} | "
                     f"Prompt: {len(system_prompt):,} chars | MaxTokens: {max_output_tokens}")
         
-        # Call Vertex AI using service account with retry logic
-        vertex_response = call_vertex_ai_with_retry(vertex_request, "explore_parameter_generation")
+        # Call Vertex AI using service account with retry logic (includes response processing)
+        vertex_response = call_vertex_ai_with_retry(vertex_request, "explore_parameter_generation", process_response=True)
         if not vertex_response:
             logging.warning("❌ Parameter generation failed after retries, using fallback")
             return create_context_aware_fallback(query, explore_key, "", semantic_models)
         
-        # Extract and parse the JSON response
-        response_text = extract_vertex_response_text(vertex_response)
+        # Extract the processed response (already processed by call_vertex_ai_with_retry)
+        response_text = vertex_response.get('processed_response') if isinstance(vertex_response, dict) else None
         if response_text:
             try:
                 # Handle dict directly

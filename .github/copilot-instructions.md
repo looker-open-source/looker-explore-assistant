@@ -471,3 +471,10 @@ python vector_table_manager.py --action stats
 - **MCP Tool Format** - Updated hooks to use `{tool_name: 'generate_explore_params', arguments: {...}}`
 - **Automatic Explore Selection** - Frontend passes `restricted_explore_keys` array instead of single `explore_key`
 - **Enhanced Error Handling** - Better error boundaries and user feedback for MCP operations
+
+
+## README Creation 
+Do not create README files, instead modify these instructions in a concise and useful way.
+
+## File Structure
+Organize separate concerns in new files instead of writing very large files.

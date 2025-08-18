@@ -28,6 +28,7 @@ from olympic_mcp_integration import OlympicMCPIntegration
 
 from enhanced_vector_integration import EnhancedVectorSearchIntegration
 from vector_search_mcp_integration import add_vector_search_mcp_tools, VECTOR_SEARCH_MCP_TOOLS
+from looker_reference import get_system_prompt_template
 import asyncio
 
 logging.basicConfig(level=logging.INFO)
@@ -151,16 +152,16 @@ def calculate_max_output_tokens(system_prompt: str, model_name: str, task_type: 
         task_limits = {
             "explore_selection": 400,      # Extra buffer for thinking process
             "synthesis": 600,              # More room for reasoning
-            "explore_params": 2000,        # Main task needs substantial buffer
+            "explore_params": 6000,        # Increased for complex JSON responses
             "general": max_output // 3     # Conservative but not too restrictive
         }
         logging.info(f"🧠 Using thinking model limits for {model_name}")
     else:
-        # Standard models - more conservative limits
+        # Standard models - more generous limits for quality
         task_limits = {
             "explore_selection": 150,      # Just need the explore key
             "synthesis": 300,              # Synthesized query should be concise  
-            "explore_params": 1200,        # JSON structure with fields, filters, etc.
+            "explore_params": 6000,        # Increased for complex JSON responses
             "general": max_output // 4     # Conservative default for other tasks
         }
         logging.info(f"📝 Using standard model limits for {model_name}")
@@ -196,6 +197,25 @@ def update_token_warning_thresholds(model_name: str) -> dict:
         "prompt_critical": int(model_limits["input"] * 0.95),  # Critical at 95% of input limit
         "total_critical": int((model_limits["input"] + model_limits["output"]) * 0.95)
     }
+
+def get_model_generation_defaults(model_name: str) -> dict:
+    """Get appropriate generation config defaults based on model type"""
+    is_thinking_model = "thinking" in model_name.lower() or "2.5" in model_name.lower()
+    
+    if is_thinking_model:
+        # Thinking models - slightly more conservative due to internal reasoning
+        return {
+            "temperature": 0.15,
+            "topP": 0.6,
+            "topK": 30
+        }
+    else:
+        # Standard models - more creative for field name matching
+        return {
+            "temperature": 0.2,
+            "topP": 0.7,
+            "topK": 40
+        }
 
 def get_response_headers():
     return {
@@ -898,6 +918,7 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
 
         # Format request for Vertex AI with function calling capabilities
         max_tokens = calculate_max_output_tokens(system_prompt, vertex_model, "explore_selection")
+        defaults = get_model_generation_defaults(vertex_model)
         
         vertex_request = {
             "contents": [
@@ -908,9 +929,9 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
             ],
             "tools": [{"function_declarations": function_declarations}],
             "generationConfig": {
-                "temperature": 0.1,
-                "topP": 0.4,  # Reduced for focused responses
-                "topK": 20,  # Reduced for brevity
+                "temperature": defaults["temperature"],
+                "topP": defaults["topP"],
+                "topK": defaults["topK"],
                 "maxOutputTokens": max_tokens,
                 "candidateCount": 1
             }
@@ -1198,6 +1219,7 @@ Output only the synthesized query."""
 
         # Format request for Vertex AI with task-appropriate tokens
         max_tokens = calculate_max_output_tokens(synthesis_prompt, vertex_model, "synthesis")
+        defaults = get_model_generation_defaults(vertex_model)
         
         vertex_request = {
             "contents": [
@@ -1211,9 +1233,9 @@ Output only the synthesized query."""
                 }
             ],
             "generationConfig": {
-                "temperature": 0.1,
-                "topP": 0.5,  # Reduced for more focused responses
-                "topK": 20,  # Reduced for brevity
+                "temperature": defaults["temperature"],
+                "topP": defaults["topP"],
+                "topK": defaults["topK"],
                 "maxOutputTokens": max_tokens,
                 "responseMimeType": "text/plain",
                 "candidateCount": 1
@@ -1295,70 +1317,45 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
         measures = explore_semantic_model.get('measures', [])
         explore_description = explore_semantic_model.get('description', '')
         
-        # Dynamic field limiting based on model capacity
-        model_limits = get_max_tokens_for_model(vertex_model)
-        
-        # Adjust field limits based on model input capacity
-        if model_limits["input"] >= 1000000:  # High-capacity models (2M+ tokens)
-            MAX_FIELDS_PER_TYPE = 25
-            description_limit = 100
-        elif model_limits["input"] >= 500000:  # Medium-capacity models (500K+ tokens)
-            MAX_FIELDS_PER_TYPE = 20
-            description_limit = 80
-        else:  # Lower-capacity models
-            MAX_FIELDS_PER_TYPE = 15
-            description_limit = 50
-        
-        def format_field_concise(field):
+        # No field limiting - provide full context for better quality
+        def format_field_complete(field):
             name = field.get('name', '')
             label = field.get('label', '')
-            description = field.get('description', '')[:description_limit]
+            description = field.get('description', '')
             return f"- {name}: {label}" + (f" ({description})" if description else "")
-
-        # Take only the first N fields to manage token usage
-        limited_dimensions = dimensions[:MAX_FIELDS_PER_TYPE] if dimensions else []
-        limited_measures = measures[:MAX_FIELDS_PER_TYPE] if measures else []
         
-        # If we still have too many fields, be more aggressive for smaller models
-        total_fields = len(limited_dimensions) + len(limited_measures)
-        if total_fields > 30 and model_limits["input"] < 100000:
-            logging.warning(f"⚠️ Too many fields ({total_fields}) for model capacity, reducing further")
-            limited_dimensions = dimensions[:8] if dimensions else []
-            limited_measures = measures[:8] if measures else []
+        # Use all available dimensions and measures for complete context
+        limited_dimensions = dimensions if dimensions else []
+        limited_measures = measures if measures else []
         
         table_context = f"""
 # Looker Explore: {explore_key}
-{f"Description: {explore_description[:200]}" if explore_description else ""}
+{f"Description: {explore_description}" if explore_description else ""}
 
-## Available Dimensions ({len(limited_dimensions)} of {len(dimensions)}):
-{chr(10).join([format_field_concise(dim) for dim in limited_dimensions])}
+## Available Dimensions ({len(limited_dimensions)}):
+{chr(10).join([format_field_complete(dim) for dim in limited_dimensions])}
 
-## Available Measures ({len(limited_measures)} of {len(measures)}):
-{chr(10).join([format_field_concise(measure) for measure in limited_measures])}
+## Available Measures ({len(limited_measures)}):
+{chr(10).join([format_field_complete(measure) for measure in limited_measures])}
 """
 
-        # Get examples with dynamic limits based on model capacity
+        # Get examples - provide more complete examples for better quality
         example_text = ""
-        if model_limits["input"] >= 1000000:
-            max_examples = 3
-            max_input_chars = 120
-        elif model_limits["input"] >= 500000:
-            max_examples = 2
-            max_input_chars = 100
-        else:
-            max_examples = 1
-            max_input_chars = 80
         
         # Try to get relevant examples from filtered golden queries
         if 'exploreGenerationExamples' in golden_queries and explore_key in golden_queries['exploreGenerationExamples']:
             examples = golden_queries['exploreGenerationExamples'][explore_key]
             if isinstance(examples, list) and examples:
-                limited_examples = examples[:max_examples]
+                # Use more examples with full input text for better context
                 example_text = f"\nExample queries:\n"
-                for i, ex in enumerate(limited_examples, 1):
-                    input_text = ex.get('input', '')[:max_input_chars]
-                    example_text += f"{i}. {input_text}\n"
-                logging.info(f"✅ Using {len(limited_examples)} filtered examples for explore: {explore_key}")
+                for i, ex in enumerate(examples, 1):
+                    input_text = ex.get('input', '')  # No truncation
+                    output_text = ex.get('output', '')
+                    example_text += f"{i}. Input: \"{input_text}\"\n"
+                    if output_text:
+                        example_text += f"   Output: {output_text}\n"
+                    example_text += "\n"
+                logging.info(f"✅ Using {len(examples)} complete examples for explore: {explore_key}")
             else:
                 logging.info(f"⚠️ No examples found for explore in filtered golden queries: {explore_key}")
         else:
@@ -1451,10 +1448,18 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
             }
         ]
         
-        system_prompt = f"""Generate Looker explore parameters for: "{query}"
-
-{table_context}
-{example_text}
+        # Build comprehensive system prompt with Looker documentation
+        system_prompt_template = get_system_prompt_template(explore_key)
+        
+        # Create the base comprehensive prompt
+        base_prompt = system_prompt_template.format(
+            query=query,
+            table_context=table_context,
+            example_text=example_text
+        )
+        
+        # Add vector search and function calling specific instructions
+        vector_search_instructions = f"""
 {param_context}
 
 ⚠️ ENHANCED VECTOR SEARCH RESULTS AVAILABLE ⚠️
@@ -1483,23 +1488,10 @@ EXAMPLES OF VALUES THAT REQUIRE FUNCTION CALLS:
 - Location codes: CA, NY, US, etc.
 
 ⚠️ VIOLATION WARNING: Generating a response without calling the required functions is a critical error.
-
-After completing function calls, return JSON:
-{{
-  "explore_key": "{explore_key}",
-  "explore_params": {{
-    "fields": ["field1", "field2"],
-    "filters": {{}},
-    "sorts": ["field1"],
-    "limit": "500",
-    "vis_config": {{"type": "table"}}
-  }},
-  "message_type": "explore",
-  "summary": "Brief description"
-}}
-
-Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_line, looker_area, looker_pie
 """
+        
+        # Combine the comprehensive documentation with vector search functionality
+        system_prompt = base_prompt + vector_search_instructions
 
         logging.info(f"🔍 Generated prompt size: ~{len(system_prompt):,} characters")
         
@@ -1510,6 +1502,8 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
         logging.info(f"📊 Using task-specific maxOutputTokens: {max_output_tokens:,} for explore params generation")
 
         # Format request for Vertex AI with function calling capabilities
+        defaults = get_model_generation_defaults(vertex_model)
+        
         vertex_request = {
             "contents": [
                 {
@@ -1523,9 +1517,9 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
             ],
             "tools": [{"function_declarations": function_declarations}],
             "generationConfig": {
-                "temperature": 0.1,
-                "topP": 0.5,
-                "topK": 20,
+                "temperature": defaults["temperature"],
+                "topP": defaults["topP"],
+                "topK": defaults["topK"],
                 "maxOutputTokens": max_output_tokens,
                 "responseMimeType": "application/json",
                 "candidateCount": 1

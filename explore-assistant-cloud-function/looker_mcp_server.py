@@ -44,6 +44,7 @@ from mcp.types import (
 # Import existing utilities
 from llm_utils import parse_llm_response, VertexAIResponse
 from olympic_query_manager import OlympicQueryManager, QueryRank
+from looker_reference import get_system_prompt_template
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -427,6 +428,8 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
             logging.warning(f"⚠️ System prompt is very long ({len(system_prompt)} chars) - may cause issues")
 
         # Format request for Vertex AI
+        defaults = get_model_generation_defaults(VERTEX_MODEL)
+        
         vertex_request = {
             "contents": [
                 {
@@ -435,9 +438,9 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
                 }
             ],
             "generationConfig": {
-                "temperature": 0.1,
-                "topP": 0.4,  # Reduced for focused responses
-                "topK": 20,  # Reduced for brevity
+                "temperature": defaults["temperature"],
+                "topP": defaults["topP"],
+                "topK": defaults["topK"],
                 "maxOutputTokens": 1000,  # Small for explore selection
                 "candidateCount": 1
             }
@@ -495,6 +498,25 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
     except Exception as e:
         logging.error(f"❌ Error determining explore: {e}")
         return None
+
+def get_model_generation_defaults(model_name: str) -> dict:
+    """Get appropriate generation config defaults based on model type"""
+    is_thinking_model = "thinking" in model_name.lower() or "2.5" in model_name.lower()
+    
+    if is_thinking_model:
+        # Thinking models - slightly more conservative due to internal reasoning
+        return {
+            "temperature": 0.15,
+            "topP": 0.6,
+            "topK": 30
+        }
+    else:
+        # Standard models - more creative for field name matching
+        return {
+            "temperature": 0.2,
+            "topP": 0.7,
+            "topK": 40
+        }
 
 class LookerExploreAssistantMCPServer:
     """MCP Server for Looker Explore Assistant with comprehensive functionality"""
@@ -1181,7 +1203,8 @@ class LookerExploreAssistantMCPServer:
         prompt = arguments["prompt"]
         model = arguments.get("model", VERTEX_MODEL)
         max_tokens = arguments.get("max_tokens", 8192)
-        temperature = arguments.get("temperature", 0.1)
+        defaults = get_model_generation_defaults(model)
+        temperature = arguments.get("temperature", defaults["temperature"])
         
         try:
             start_time = time.time()
@@ -1525,15 +1548,9 @@ class LookerExploreAssistantMCPServer:
                 'modelName': model_name
             }
             
-            # Step 2: Generate parameters for the determined explore
-            # Build a comprehensive prompt for Vertex AI that includes field metadata
-            system_prompt = f"""
-You are an expert Looker analyst. Convert the user's natural language query into structured Looker explore parameters.
-
-TARGET EXPLORE: {determined_explore_key} (Model: {model_name}, Explore: {explore_name})
-
-AVAILABLE FIELDS:
-"""
+            # Step 2: Generate parameters with comprehensive documentation
+            # Build field context
+            field_context = ""
             
             # Get available fields for this explore
             await self._ensure_looker_sdk()
@@ -1546,64 +1563,51 @@ AVAILABLE FIELDS:
                 
                 if explore_detail.fields:
                     if explore_detail.fields.dimensions:
-                        system_prompt += "\nDIMENSIONS:\n"
-                        for dim in explore_detail.fields.dimensions[:20]:  # Limit to avoid token overflow
-                            system_prompt += f"- {dim.view}.{dim.name}: {dim.label or dim.name}"
+                        field_context += f"\n## Available Dimensions ({len(explore_detail.fields.dimensions)}):\n"
+                        for dim in explore_detail.fields.dimensions:  # No field limiting
+                            field_context += f"- {dim.view}.{dim.name}: {dim.label or dim.name}"
                             if dim.description:
-                                system_prompt += f" ({dim.description})"
-                            system_prompt += "\n"
+                                field_context += f" ({dim.description})"
+                            field_context += "\n"
                     
                     if explore_detail.fields.measures:
-                        system_prompt += "\nMEASURES:\n"
-                        for measure in explore_detail.fields.measures[:20]:  # Limit to avoid token overflow
-                            system_prompt += f"- {measure.view}.{measure.name}: {measure.label or measure.name}"
+                        field_context += f"\n## Available Measures ({len(explore_detail.fields.measures)}):\n"
+                        for measure in explore_detail.fields.measures:  # No field limiting
+                            field_context += f"- {measure.view}.{measure.name}: {measure.label or measure.name}"
                             if measure.description:
-                                system_prompt += f" ({measure.description})"
-                            system_prompt += "\n"
+                                field_context += f" ({measure.description})"
+                            field_context += "\n"
                             
             except Exception as e:
                 logger.warning(f"Could not fetch explore fields: {e}")
-                system_prompt += "\n(Field metadata not available - using generic field patterns)\n"
+                field_context = "\n(Field metadata not available - using generic field patterns)\n"
             
             # Add conversation context if provided
+            example_text = ""
             if conversation_context:
-                system_prompt += f"\nCONVERSATION CONTEXT:\n{conversation_context}\n"
+                example_text = f"\n## Conversation Context:\n{conversation_context}\n"
             
-            system_prompt += f"""
-USER QUERY: {prompt}
-
-Generate a JSON response with these explore parameters (using Looker API format):
-{{
-  "model": "{model_name}",
-  "view": "{explore_name}",
-  "fields": ["dimension1", "measure1", "dimension2"],
-  "filters": {{"field": "value"}},
-  "sorts": ["field desc"],
-  "limit": 500,
-  "total": false,
-  "query_timezone": "America/Los_Angeles"
-}}
-
-Instructions:
-1. Only include fields that exist in the available fields list
-2. Use proper field references (view.field_name format)
-3. Choose appropriate filters based on the user query
-4. Combine both dimensions and measures into the "fields" array
-5. Use "view" instead of "explore" (legacy API requirement)
-6. Add appropriate sorting if mentioned or implied
-7. Keep limit reasonable (500 or less)
-8. Return only valid JSON without additional text
-"""
+            # Use the comprehensive system prompt template
+            system_prompt_template = get_system_prompt_template(determined_explore_key)
+            system_prompt = system_prompt_template.format(
+                query=prompt,
+                table_context=f"# Looker Explore: {determined_explore_key}\n\n{field_context}",
+                example_text=example_text
+            )
             
             # Call Vertex AI to generate the parameters
+            defaults = get_model_generation_defaults(VERTEX_MODEL)
+            
             vertex_request = {
                 "contents": [{
                     "role": "user",
                     "parts": [{"text": system_prompt}]
                 }],
                 "generationConfig": {
-                    "maxOutputTokens": 2048,
-                    "temperature": 0.1
+                    "maxOutputTokens": 6000,  # Increased for complex JSON responses
+                    "temperature": defaults["temperature"],
+                    "topP": defaults["topP"],
+                    "topK": defaults["topK"]
                 }
             }
             

@@ -18,6 +18,7 @@ COPY enhanced_vector_integration.py ./
 COPY vector_search_mcp_integration.py ./
 COPY vector_table_manager.py ./
 COPY llm_utils.py ./
+COPY looker_reference.py ./
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt

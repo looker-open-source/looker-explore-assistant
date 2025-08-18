@@ -103,9 +103,6 @@ const FeedbackDialog: React.FC<FeedbackDialogProps> = ({
   
   const { 
     submitFeedback,
-    submitPositiveFeedback,
-    submitNegativeFeedback,
-    requestResponseImprovement,
     isSubmitting
   } = useFeedback()
 
@@ -123,52 +120,19 @@ const FeedbackDialog: React.FC<FeedbackDialogProps> = ({
   const handleSubmit = async () => {
     try {
       const queryId = uuidv4() // Generate unique ID for this feedback session
-      let success = false
-
-      if (feedbackType === 'positive') {
-        success = await submitPositiveFeedback({
-          queryId,
-          userInput: originalPrompt,
-          response: JSON.stringify(generatedParams),
-          feedbackNotes: userComment.trim() || undefined
-        })
-      } else if (feedbackType === 'negative') {
-        if (issues.length === 0) {
-          // Fallback to generic issue if none specified
-          setIssues(['Response did not match expectations'])
-        }
-        
-        success = await submitNegativeFeedback({
-          queryId,
-          userInput: originalPrompt,
-          response: JSON.stringify(generatedParams),
-          issues: issues.length > 0 ? issues : ['Response did not match expectations'],
-          improvementSuggestions: suggestedImprovements.trim() || undefined,
-          feedbackNotes: userComment.trim() || undefined
-        })
-      } else if (feedbackType === 'refinement') {
-        const improvementRequest = suggestedImprovements.trim() || 'Please refine this query to better match my needs'
-        
-        success = await requestResponseImprovement({
-          queryId,
-          originalInput: originalPrompt,
-          originalResponse: JSON.stringify(generatedParams),
-          improvementRequest,
-          context: userComment.trim() || undefined
-        })
-      } else {
-        // For alternative feedback, use the original method
-        success = await submitFeedback({
-          exploreId,
-          originalPrompt,
-          generatedParams,
-          shareUrl,
-          feedbackType,
-          userId,
-          userComment: userComment.trim() || undefined,
-          suggestedImprovements: suggestedImprovements.trim() ? { comment: suggestedImprovements.trim() } : undefined
-        })
-      }
+    
+      const success = await submitFeedback({
+        exploreId,
+        originalPrompt,
+        generatedParams,
+        shareUrl,
+        feedbackType,
+        userId: 'system_user',
+        userComment: userComment.trim() || undefined,
+        suggestedImprovements: suggestedImprovements.trim() ? { comment: suggestedImprovements.trim() } : undefined,
+        issues: feedbackType === 'negative' && issues.length > 0 ? issues : undefined,
+        queryId
+      })
       
       setSubmitSuccess(success)
       onFeedbackSubmitted?.(feedbackType, success)
@@ -393,19 +357,36 @@ export const FeedbackButton: React.FC<FeedbackButtonProps> = ({
   const [snackbarMessage, setSnackbarMessage] = useState('')
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success')
 
+  const { 
+    submitFeedback,
+    isSubmitting
+  } = useFeedback()
+
   const handleQuickFeedback = async (type: FeedbackType) => {
     if (type === 'positive' || type === 'negative') {
-      // For simple feedback, submit directly
       try {
-        // TODO: Replace with actual MCP call or API call
-        console.log('Quick feedback:', { type, exploreId, originalPrompt })
+        const queryId = uuidv4() // Generate unique ID for tracking
+        
+        // Use the existing submitFeedback function for both positive and negative
+        const success = await submitFeedback({
+          exploreId,
+          originalPrompt,
+          generatedParams,
+          shareUrl,
+          feedbackType: type,
+          userId: 'system_user',
+          userComment: `Quick ${type} feedback via thumbs ${type === 'positive' ? 'up' : 'down'}`,
+          issues: type === 'negative' ? ['Quick thumbs down - unhelpful'] : undefined,
+          queryId
+        })
         
         setSnackbarMessage(`Thank you for your ${type} feedback!`)
         setSnackbarSeverity('success')
         setSnackbarOpen(true)
         
-        onFeedbackSubmitted?.(type, true)
+        onFeedbackSubmitted?.(type, success)
       } catch (error) {
+        console.error('Failed to submit quick feedback:', error)
         setSnackbarMessage('Failed to submit feedback')
         setSnackbarSeverity('error')
         setSnackbarOpen(true)

@@ -2574,15 +2574,17 @@ def main():
     """Main entry point - supports both MCP and Flask HTTP modes"""
     import sys
     
-    if len(sys.argv) > 1 and sys.argv[1] == "--flask":
-        # Flask HTTP mode for Cloud Run
-        adapter = FlaskMCPAdapter()
-        port = int(os.environ.get("PORT", 8080))
-        adapter.run(host='0.0.0.0', port=port, debug=False)
-    else:
+    # Default: run Flask HTTP server for Cloud Run
+    # Only run desktop MCP mode if explicitly requested
+    if len(sys.argv) > 1 and sys.argv[1] in ("--stdio", "--desktop"):
         # Pure MCP mode for desktop clients
         server = LookerExploreAssistantMCPServer()
         asyncio.run(server.run())
+    else:
+        # Flask HTTP mode for Cloud Run (default)
+        adapter = FlaskMCPAdapter()
+        port = int(os.environ.get("PORT", 8080))
+        adapter.run(host='0.0.0.0', port=port, debug=False)
 
 # For Cloud Run deployment
 app = create_flask_app()

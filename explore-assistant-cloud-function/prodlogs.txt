@@ -1,0 +1,245 @@
+Micron Confidential
+
+ 
+
+INFO 2025-08-15T20:01:38.595511Z [httpRequest.requestMethod: POST] [httpRequest.status: 200] [httpRequest.responseSize: 824 B] [httpRequest.latency: 977 ms] [httpRequest.userAgent: Chrome 139.0.0.0] https://looker-ea-test.micron.com/
+
+INFO:root:Received POST request to main endpoint
+
+INFO:root:Request headers: {'Host': 'looker-ea-test.micron.com', 'Content-Length': '484771', 'Sec-Ch-Ua-Platform': '"Windows"', 'Authorization': 'Bearer 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'Sec-Ch-Ua': '"Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"', 'Content-Type': 'application/json', 'Sec-Ch-Ua-Mobile': '?0', 'Accept': '*/*', 'Origin': 'https://looker-test.micron.com', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'https://looker-test.micron.com/', 'Accept-Language': 'en-US,en;q=0.9', 'Priority': 'u=1, i', 'X-Forwarded-Proto': 'https', 'Via': '1.1 google', 'X-Forwarded-For': '10.109.186.126,10.8.9.181', 'X-Cloud-Trace-Context': '23b9d515c0cc5eb4698fdd35505f8759/11380889569311937355;o=1', 'Traceparent': '00-23b9d515c0cc5eb4698fdd35505f8759-9df10ac3c6c9534b-01', 'Forwarded': 'for="[fda3:e722:ac3:cc00:75:6882:a6d:ba7e]";proto=https', 'Accept-Encoding': 'gzip, deflate, br, zstd'}
+
+INFO:root:Request origin: https://looker-test.micron.com
+
+INFO:root:User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36
+
+INFO:root:Processing POST request...
+
+INFO:root:Authorization header present: True
+
+INFO:root:Authorization header received, proceeding with request...
+
+INFO:root:Getting request body...
+
+INFO:root:Request data keys: ['prompt', 'conversation_id', 'prompt_history', 'thread_messages', 'golden_queries', 'semantic_models', 'vertex_model', 'test_mode', 'restricted_explore_keys', 'vertex_temperature', 'vertex_top_p', 'vertex_top_k']
+
+INFO:root:Test mode: False
+
+INFO:root:Processing explore assistant request...
+
+INFO:root:Starting process_explore_assistant_request
+
+INFO:root:Extracting user email from token
+
+INFO:root:Extracted user email: jcoble@micron.com
+
+INFO:root:Initializing Looker SDK using LOOKERSDK_ environment variables...
+
+INFO:root:LOOKERSDK_BASE_URL: https://looker-test.micron.com
+
+INFO:root:LOOKERSDK_CLIENT_ID: 87150849...
+
+INFO:root:LOOKERSDK_CLIENT_SECRET: ***
+
+INFO:root:Looker SDK initialized successfully
+
+INFO:looker_sdk.rtl.requests_transport:POST(https://looker-test.micron.com/api/4.0/login)
+
+/usr/local/lib/python3.10/site-packages/urllib3/connectionpool.py:1097: InsecureRequestWarning: Unverified HTTPS request is being made to host 'looker-test.micron.com'. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.io/en/latest/advanced-usage.html#tls-warnings
+
+warnings.warn(
+
+WARNING:root:Looker SDK test failed:
+
+message: {"message":"Not found","documentation_url":https://cloud.google.com/looker/docs/r/err/4.0/404/post/login}
+
+documentation_url:
+
+error_doc_url:
+
+error details:
+
+ 
+
+ 
+
+INFO:looker_sdk.rtl.requests_transport:POST(https://looker-test.micron.com/api/4.0/login)
+
+/usr/local/lib/python3.10/site-packages/urllib3/connectionpool.py:1097: InsecureRequestWarning: Unverified HTTPS request is being made to host 'looker-test.micron.com'. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.io/en/latest/advanced-usage.html#tls-warnings
+
+warnings.warn(
+
+ERROR:root:Looker SDK search_users failed:
+
+message: {"message":"Not found","documentation_url":https://cloud.google.com/looker/docs/r/err/4.0/404/post/login}
+
+documentation_url:
+
+error_doc_url:
+
+error details:
+
+ 
+
+ 
+
+INFO:root:🔍 Filtering golden queries to explores: ['inventory_assistant:Inventory_Assistant']
+
+INFO:root: exploreGenerationExamples: 7 -> 1
+
+INFO:root: exploreRefinementExamples: 7 -> 1
+
+INFO:root: exploreSamples: 7 -> 1
+
+INFO:root: exploreEntries: kept as-is
+
+INFO:root:🔍 Filtered semantic models: 7 -> 1
+
+INFO:root:🎯 Applied filtering for 1 restricted explores
+
+INFO:root:User: jcoble@micron.com
+
+INFO:root:Conversation ID: 69885bd7-0a4e-4e13-a956-e2e69ccc8c2f
+
+INFO:root:Prompt history length: 1
+
+INFO:root:Thread messages length: 0
+
+INFO:root:Selected area: None
+
+INFO:root:Restricted explore keys: ['inventory_assistant:Inventory_Assistant']
+
+INFO:root:Built conversation context: Previous prompts in this conversation:
+
+INFO:root:🎯 Single explore restriction - using: inventory_assistant:Inventory_Assistant
+
+INFO:root:Determined explore key: inventory_assistant:Inventory_Assistant
+
+INFO:root:Extracted from explore key - Model: inventory_assistant, Explore: Inventory_Assistant
+
+INFO:root:🔍 Filtering golden queries to explores: ['inventory_assistant:Inventory_Assistant']
+
+INFO:root: exploreGenerationExamples: 1 -> 1
+
+INFO:root: exploreRefinementExamples: 1 -> 1
+
+INFO:root: exploreSamples: 1 -> 1
+
+INFO:root: exploreEntries: kept as-is
+
+INFO:root:🔍 Filtered semantic models: 1 -> 1
+
+INFO:root:🎯 Optimized context for parameter generation to single explore: inventory_assistant:Inventory_Assistant
+
+INFO:root:=== GENERATE_EXPLORE_PARAMS START ===
+
+INFO:root:Original prompt: what is the current quantity of B47R in SG23.
+
+INFO:root:Has conversation context: True
+
+INFO:root:✅ Conversation context contains no meaningful history - skipping synthesis step for efficiency
+
+INFO:root:✅ SYNTHESIS FALLBACK/SKIPPED - Using original prompt: 'what is the current quantity of B47R in SG23.'
+
+INFO:root:Using query for explore params: what is the current quantity of B47R in SG23.
+
+INFO:root:✅ Using 3 filtered examples for explore: inventory_assistant:Inventory_Assistant
+
+INFO:root:🔍 Generated prompt size: ~7,960 characters
+
+INFO:root:🧠 Using thinking model limits for gemini-2.5-flash-lite
+
+INFO:root:📊 Model: gemini-2.5-flash-lite, Task: explore_params
+
+INFO:root:📊 Max input tokens: 1,048,576
+
+INFO:root:📊 Max output tokens: 8,192
+
+INFO:root:📊 Estimated prompt tokens: 1,990
+
+INFO:root:📊 Using task-appropriate tokens: 2,000 (task: explore_params)
+
+INFO:root:📊 Using task-specific maxOutputTokens: 2,000 for explore params generation
+
+INFO:root:🤖 LLM Request - Explore: inventory_assistant:Inventory_Assistant | Query: 'what is the current quantity of B47R in SG23.' | Fields: 25 dims, 14 measures | Examples: 7 | Prompt: 7,960 chars | MaxTokens: 2000 | Temp: 0.1 | TopP: 0.5 | TopK: 20
+
+INFO:root:🔄 Vertex AI API attempt 1/3 for explore_parameter_generation
+
+INFO:root:Calling Vertex AI API with service account: https://us-west1-aiplatform.googleapis.com/v1/projects/gdw-test-looker/locations/us-west1/publishers/google/models/gemini-2.5-flash-lite:generateContent
+
+INFO:root:Using model: gemini-2.5-flash-lite
+
+INFO:root:📊 Token Usage - Prompt: 1,812, Total: 1,967, Cached: 0
+
+INFO:root:📊 Model capacity utilization: 0.2% of input limit
+
+INFO:root:Vertex AI API call successful
+
+INFO:root:🔍 extract_vertex_response_text - Input: {'candidates': [{'content': {'role': 'model', 'parts': [{'text': '{\n "explore_key": "inventory_assistant:Inventory_Assistant",\n "explore_params": {\n "fields": [\n "Inventory_Assistant.currentquantity"\n ],\n "filters": {\n "Inventory_Assistant.part_number": "B47R",\n "Inventory_Assistant.site": "SG23"\n },\n "sorts": [],\n "limit": "500",\n "vis_config": {\n "type": "single_value"\n }\n },\n "message_type": "explore",\n "summary": "Current quantity of B47R in SG23"\n}'}]}, 'finishReason': 'STOP', 'avgLogprobs': -0.01862698062773674}], 'usageMetadata': {'promptTokenCount': 1812, 'candidatesTokenCount': 155, 'totalTokenCount': 1967, 'trafficType': 'ON_DEMAND', 'promptTokensDetails': [{'modality': 'TEXT', 'tokenCount': 1812}], 'candidatesTokensDetails': [{'modality': 'TEXT', 'tokenCount': 155}]}, 'modelVersion': 'gemini-2.5-flash-lite', 'createTime': '2025-08-15T20:01:39.054166Z', 'responseId': 'I5KfaJanA7D-tOUP7_Sa6Ao'}
+
+INFO:root:🔍 Extracted raw text: '{
+
+"explore_key": "inventory_assistant:Inventory_Assistant",
+
+"explore_params": {
+
+"fields": [
+
+"Inventory_Assistant.currentquantity"
+
+],
+
+"filters": {
+
+"Inventory_Assistant.part_number": "B47R",
+
+"Inventory_Assistant.site": "SG23"
+
+},
+
+"sorts": [],
+
+"limit": "500",
+
+"vis_config": {
+
+"type": "single_value"
+
+}
+
+},
+
+"message_type": "explore",
+
+"summary": "Current quantity of B47R in SG23"
+
+}' (type: <class 'str'>)
+
+INFO:root:🔍 Parsed result: {'explore_key': 'inventory_assistant:Inventory_Assistant', 'explore_params': {'fields': ['Inventory_Assistant.currentquantity'], 'filters': {'Inventory_Assistant.part_number': 'B47R', 'Inventory_Assistant.site': 'SG23'}, 'sorts': [], 'limit': '500', 'vis_config': {'type': 'single_value'}}, 'message_type': 'explore', 'summary': 'Current quantity of B47R in SG23'} (type: <class 'dict'>)
+
+INFO:root:Generated explore params for inventory_assistant:Inventory_Assistant using model gemini-2.5-flash-lite
+
+INFO:root:Response structure: ['explore_key', 'explore_params', 'message_type', 'summary']
+
+INFO:root:=== GENERATE_EXPLORE_PARAMS RESULT ===
+
+INFO:root:Result keys: ['explore_key', 'explore_params', 'message_type', 'summary']
+
+INFO:root:Explore params fields: ['Inventory_Assistant.currentquantity']
+
+INFO:root:🔍 FEEDBACK DETECTION START
+
+INFO:root:📜 Prompt history (1): ['what is the current quantity of B47R in SG23.']
+
+INFO:root:💬 Thread messages (0): []
+
+INFO:root:🎯 Current prompt: 'what is the current quantity of B47R in SG23.'
+
+INFO:root:📊 Total interactions: 1
+
+INFO:root:❌ Not enough interactions for feedback pattern
+
+INFO:root:Request processing completed, result type: <class 'dict'>
+
+INFO:root:Result keys: ['explore_key', 'explore_params', 'message_type', 'summary', 'conversation_id', 'prompt_added_to_history']
+
+INFO:root:Sending response...

@@ -13,6 +13,7 @@ import {
 } from './slices/assistantSlice'
 import AgentPage from './pages/AgentPage'
 import QueryPromotionPage from './pages/QueryPromotionPage'
+import VectorPage from './pages/VectorPage'
 import SettingsModal from './pages/AgentPage/Settings'
 import { Box, CircularProgress, Typography, Button } from '@material-ui/core'
 
@@ -118,6 +119,9 @@ const ExploreApp = () => {
         </Route>
         <Route path="/promotion" exact>
           <QueryPromotionPage />
+        </Route>
+        <Route path="/vector-setup" exact>
+          <VectorPage />
         </Route>
         <Route>
           <Redirect to="/index" />

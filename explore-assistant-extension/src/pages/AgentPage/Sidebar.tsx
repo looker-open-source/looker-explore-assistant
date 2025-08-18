@@ -5,6 +5,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import AddIcon from '@mui/icons-material/Add'
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline'
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { useDispatch, useSelector } from 'react-redux'
 import { useHistory } from 'react-router-dom'
 import {
@@ -49,12 +50,19 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const canReset = isChatMode && !isQuerying
 
   const handleNewChat = () => {
+    // Always navigate to the main conversation page first
+    history.push('/index')
+
+    // Then reset chat if conditions are met
     if (canReset) {
       dispatch(resetChat())
     }
   }
 
   const handleHistoryClick = (thread: ExploreThread) => {
+    // Always navigate to the main conversation page first
+    history.push('/index')
+
     dispatch(resetChat())
     dispatch(setCurrentThread(thread))
     dispatch(setIsChatMode(true))
@@ -69,7 +77,9 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
   const navigateToPromotion = () => {
     history.push('/promotion')
   }
-
+  const navigateToVectorSetup = () => {
+    history.push('/vector-setup')
+  }
   const reverseHistory = [...chatHistory].reverse() as ExploreThread[]
 
   return (
@@ -94,17 +104,9 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
           <div
             className={`
               mr-2 flex flex-row items-center
-
-              ${
-                canReset
-                  ? 'cursor-pointer bg-gray-300 text-gray-600 hover:text-gray-700'
-                  : 'bg-gray-200 text-gray-400'
-              }
-              
+              cursor-pointer bg-gray-300 text-gray-600 hover:text-gray-700
               rounded-full p-2
-              
               transition-all duration-300 ease-in-out
-            
             `}
             onClick={handleNewChat}
           >
@@ -170,6 +172,22 @@ const Sidebar = ({ expanded, toggleDrawer }: SidebarProps) => {
         )}
       </nav>
       <div className="mt-auto p-4 border-t">
+        <Tooltip title={expanded ? '' : 'Vector Search Setup'} placement="top" arrow>
+          <div
+            className={`mr-2 flex flex-row text-gray-400 items-center cursor-pointer p-2 transition-all duration-300 ease-in-out hover:text-gray-600`}
+            onClick={navigateToVectorSetup}
+          >
+            <ArrowForwardIcon />
+            <div
+              className={`
+                   whitespace-nowrap transition-all duration-300 ease-in-out
+                  ${isExpanded ? 'mx-3 opacity-100' : 'opacity-0'}
+                  `}
+            >
+              {isExpanded && 'Vector Search Setup'}
+            </div>
+          </div>
+        </Tooltip>
         <Tooltip title={expanded ? '' : 'Query Promotion'} placement="top" arrow>
           <div
             className={`mr-2 flex flex-row text-gray-400 items-center cursor-pointer p-2 transition-all duration-300 ease-in-out hover:text-gray-600`}

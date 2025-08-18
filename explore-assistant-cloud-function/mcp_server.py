@@ -12,7 +12,7 @@ import traceback
 from pydantic import ValidationError
 from llm_utils import parse_llm_response, VertexAIResponse
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
 import requests
@@ -24,6 +24,10 @@ from looker_sdk.rtl import api_settings
 import spacy
 from google.cloud import bigquery
 from field_lookup_service import FieldValueLookupService
+from olympic_mcp_integration import OlympicMCPIntegration
+
+from enhanced_vector_integration import EnhancedVectorSearchIntegration
+from vector_search_mcp_integration import add_vector_search_mcp_tools, VECTOR_SEARCH_MCP_TOOLS
 import asyncio
 
 logging.basicConfig(level=logging.INFO)
@@ -54,8 +58,21 @@ bq_project_id = os.environ.get("BQ_PROJECT_ID", "ml-accelerator-dbarr")
 bq_dataset_id = os.environ.get("BQ_DATASET_ID", "explore_assistant")
 bq_suggested_table = os.environ.get("BQ_SUGGESTED_TABLE", "silver_queries")
 
+
 # Initialize field lookup service
 field_lookup_service = FieldValueLookupService()
+
+# Initialize enhanced vector search integration
+enhanced_vector_search = EnhancedVectorSearchIntegration()
+
+# Initialize Olympic MCP integration - will be instantiated per request with specific BQ client
+olympic_mcp_integration = None
+
+
+# Global MCP tools registry
+tools = {}
+
+
 
 def get_max_tokens_for_model(model_name: str) -> dict:
     """Get maximum input and output tokens for the current model"""
@@ -189,15 +206,15 @@ def get_response_headers():
         "Access-Control-Allow-Credentials": "false"
     }
 
-def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
-    """Extract user email from JWT token without validation (infrastructure handles auth)"""
+def extract_user_info_from_token(bearer_token: str) -> dict:
+    """Extract user information (email, sub, name, etc.) from JWT token without validation"""
     try:
-        logging.info("Extracting user email from token")
+        logging.info("Extracting user info from token")
         
         # Add proper null and type checks
         if not bearer_token or not isinstance(bearer_token, str):
             logging.error("Invalid bearer token: token is None or not a string")
-            return None
+            return {"email": None, "user_id": None, "name": None}
         
         # Remove 'Bearer ' prefix if present - with safe string operations
         bearer_token_lower = bearer_token.lower()
@@ -210,15 +227,15 @@ def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
         # Check if token is empty after processing
         if not bearer_token:
             logging.error("Invalid bearer token: empty token after processing")
-            return None
+            return {"email": None, "user_id": None, "name": None}
         
         # Split JWT into parts
         token_parts = bearer_token.split('.')
         if len(token_parts) != 3:
             logging.error(f"Invalid JWT format: expected 3 parts, got {len(token_parts)}")
-            return None
+            return {"email": None, "user_id": None, "name": None}
         
-        # Decode the payload (second part) to extract email
+        # Decode the payload (second part) to extract user info
         import base64
         import json
         
@@ -227,7 +244,7 @@ def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
         # Validate payload data exists
         if not payload_data:
             logging.error("Invalid JWT format: empty payload section")
-            return None
+            return {"email": None, "user_id": None, "name": None}
             
         # Add padding if needed for base64 decoding
         payload_data += '=' * (4 - len(payload_data) % 4)
@@ -239,23 +256,35 @@ def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
             # Ensure payload is a dictionary
             if not isinstance(payload, dict):
                 logging.error("Invalid JWT payload: not a JSON object")
-                return None
+                return {"email": None, "user_id": None, "name": None}
             
+            # Extract user information from various possible fields
             email = payload.get('email')
-            if email and isinstance(email, str):
-                logging.info(f"Extracted user email: {email}")
-                return email
-            else:
-                logging.error("No valid email found in token payload")
-                return None
+            user_id = payload.get('sub') or payload.get('user_id') or payload.get('id') or email
+            name = payload.get('name') or payload.get('given_name') or payload.get('display_name')
+            
+            user_info = {
+                "email": email if isinstance(email, str) else None,
+                "user_id": user_id if isinstance(user_id, str) else None,
+                "name": name if isinstance(name, str) else None,
+                "raw_payload": payload  # For debugging
+            }
+            
+            logging.info(f"Extracted user info - Email: {user_info['email']}, User ID: {user_info['user_id']}, Name: {user_info['name']}")
+            return user_info
                 
         except Exception as e:
             logging.error(f"Failed to decode JWT payload: {e}")
-            return None
+            return {"email": None, "user_id": None, "name": None}
         
     except Exception as e:
-        logging.error(f"Error extracting email from token: {e}")
-        return None
+        logging.error(f"Failed to extract user info from token: {e}")
+        return {"email": None, "user_id": None, "name": None}
+
+def extract_user_email_from_token(bearer_token: str) -> Optional[str]:
+    """Extract user email from JWT token without validation (infrastructure handles auth)"""
+    user_info = extract_user_info_from_token(bearer_token)
+    return user_info.get("email")
 
 def call_vertex_ai_api_with_service_account(request_body: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Call Vertex AI API using service account credentials"""
@@ -781,14 +810,14 @@ def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries:
         function_declarations = [
             {
                 "name": "search_semantic_fields",
-                "description": "Search for Looker field locations that contain actual dimension values related to your search terms. IMPORTANT: Only searches high-cardinality dimensions that have been specifically indexed for vector search (marked with 'index' sets in Looker). This is NOT a comprehensive field search - use only when looking for specific values/codes that might exist in indexed dimension data.",
+                "description": "Search for fields that contain specific values for filters. Use this when the user mentions specific brands, codes, names, or identifiers and you need to find which field contains them for filtering. Example: User says 'Nike products' - search for 'nike' to find it's in products.brand field.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "search_terms": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Array of specific values or codes to search for in indexed dimension data (e.g., ['nike', 'adidas', 'premium'] NOT ['customer', 'revenue'])"
+                            "description": "Array of specific values to search for in filters (e.g., ['nike', '2xu', 'completed'] - brands, codes, status values, etc.)"
                         },
                         "explore_ids": {
                             "type": "array",
@@ -806,13 +835,13 @@ def determine_explore_from_prompt(auth_header: str, prompt: str, golden_queries:
             },
             {
                 "name": "lookup_field_values", 
-                "description": "Find specific dimension values containing text patterns. IMPORTANT: Only searches values from high-cardinality dimensions that have been indexed for vector search. Use when looking for exact codes, names, SKUs, or identifiers that exist in the actual Looker data.",
+                "description": "Verify that specific values exist for filters. Use this to check if a brand, status, code, or identifier actually exists before creating a filter. Example: User says '2XU products' - lookup '2XU' to verify it exists and find which field contains it.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "search_string": {
                             "type": "string",
-                            "description": "Specific text pattern to find in indexed dimension values (e.g., 'NIKE123', 'Premium', 'CA', 'Shipped')"
+                            "description": "Specific value to search for in filters (e.g., 'Nike', '2XU', 'Completed', 'CA', 'Premium')"
                         },
                         "explore_ids": {
                             "type": "array",
@@ -834,24 +863,29 @@ Available Explores:
 
 {f"Conversation Context:{newline_char}{conversation_context}{newline_char}" if conversation_context else ""}
 
-You have access to semantic field search and field value lookup functions. IMPORTANT: These functions only search high-cardinality dimensions that have been specifically indexed (marked with 'index' sets in Looker). Use them ONLY when:
-1. You need to find which explores contain specific product names, codes, SKUs, or identifiers that might exist in the data
-2. You need to verify if specific dimension values (like brand names, status codes, region codes) exist before selecting an explore
-3. The user mentions specific values/codes and you're unsure which explore contains that type of data
+🚨 MANDATORY FUNCTION CALLS REQUIRED 🚨
 
-DO NOT use these functions for:
-- General business concepts like "revenue", "profit", "customers" (these are typically measures/fields available in explore metadata)
-- Finding fields by semantic meaning (use the provided explore metadata instead)
-- Comprehensive field discovery (only indexed dimensions are searchable)
+CRITICAL: The user query contains specific brand names, product names, codes, or identifiers that REQUIRE function verification.
 
-Instructions:
-1. Analyze the user's current prompt: "{prompt}"
-2. Consider the conversation context to understand what the user has been asking about
-3. If needed, use the search functions to find relevant fields or verify data availability
-4. Compare against the available explores
-5. Determine which explore would be BEST suited to answer this question
-6. {"Restrict your selection to the provided explore keys only" if restricted_explore_keys else "Ignore any previous explore selections - choose the optimal explore for this specific question"}
-7. Return ONLY the explore key (e.g., "order_items", "events", etc.) as a single string
+REQUIRED STEPS:
+1. Identify ALL specific values mentioned in the query: "{prompt}"
+2. For EACH specific value, you MUST call lookup_field_values() to verify it exists
+3. Use search_semantic_fields() to find which explores contain these values
+4. Only after function calls can you select the best explore
+
+VALUES REQUIRING FUNCTION CALLS include:
+- Brand names (Nike, Adidas, 2XU, Apple, etc.)
+- Product codes (SKU-123, PROD-456, etc.)
+- Status values (Completed, Pending, Active, etc.)
+- Location codes (CA, NY, US, etc.)
+
+⚠️ You CANNOT select an explore without first calling the required functions for any specific values mentioned.
+
+Available functions:
+- lookup_field_values("specific_value") - MANDATORY for each brand/code/identifier
+- search_semantic_fields(["value1", "value2"]) - MANDATORY to find containing explores
+
+After completing ALL required function calls, select the best explore and return ONLY the explore key as plain text.
 
 Current user prompt: {prompt}
 
@@ -897,6 +931,9 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
         
         logging.info(f"✅ Got Vertex AI response: {vertex_response}")
         
+        # Track vector search usage for user notifications
+        vector_search_used = []
+        
         # Check if the model made function calls
         if 'candidates' in vertex_response and len(vertex_response['candidates']) > 0:
             candidate = vertex_response['candidates'][0]
@@ -910,6 +947,14 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
                     function_args = function_call.get('args', {})
                     
                     logging.info(f"🔧 Model requested function call: {function_name} with args: {function_args}")
+                    
+                    # Track vector search usage
+                    if function_name in ["search_semantic_fields", "lookup_field_values"]:
+                        vector_search_used.append({
+                            "function": function_name,
+                            "args": function_args,
+                            "phase": "explore_selection"
+                        })
                     
                     # Execute the function call
                     function_result = None
@@ -1042,6 +1087,15 @@ Response format: Return only the explore key as plain text (no JSON, no explanat
             
             logging.info(f"✅ Determined explore with context: {explore_key}")
             logging.info("=== EXPLORE DETERMINATION COMPLETE ===")
+            
+            # Add vector search usage information to the result
+            # Since this function returns just the explore_key, we need to modify the caller
+            # to handle vector search metadata. For now, log it for the calling function.
+            if vector_search_used:
+                logging.info(f"🔍 Vector search used during explore selection: {vector_search_used}")
+                # Store in a way the calling function can access it
+                # We'll need to modify the return to include this metadata
+            
             return explore_key
         
         logging.error("❌ Failed to extract explore key from response - response_text is None or empty")
@@ -1097,6 +1151,10 @@ def generate_explore_params(auth_header: str, prompt: str, explore_key: str,
             logging.info(f"Result keys: {keys_log}")
             if isinstance(result, dict) and 'explore_params' in result:
                 logging.info(f"Explore params fields: {result['explore_params'].get('fields', [])}")
+            
+            # Log vector search usage for user notification purposes
+            if isinstance(result, dict) and result.get('vector_search_used'):
+                logging.info(f"🔍 Vector search was used - user should be notified: {result.get('vector_search_summary', {}).get('user_messages', [])}")
         else:
             logging.warning("No result from generate_explore_params_from_query")
             
@@ -1309,18 +1367,54 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
             if 'exploreGenerationExamples' in golden_queries:
                 logging.info(f"🔍 Available explores in exploreGenerationExamples: {list(golden_queries['exploreGenerationExamples'].keys())}")
         
+        # ENHANCED VECTOR SEARCH INTEGRATION
+        # Use LLM to extract entities and automatically execute vector searches
+        try:
+            logging.info(f"🚀 Starting enhanced vector search integration for query: {query}")
+            
+            # Run vector search enhancement asynchronously
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                param_context, explore_context, search_results = loop.run_until_complete(
+                    enhanced_vector_search.enhance_query_with_vector_search(query, call_vertex_ai_with_retry)
+                )
+            finally:
+                loop.close()
+            
+            # Track vector search usage for frontend reporting
+            vector_search_used = []
+            if search_results:
+                for entity, results in search_results.items():
+                    vector_search_used.append({
+                        "function": "enhanced_vector_search",
+                        "args": {"search_entity": entity, "results_count": len(results)},
+                        "phase": "parameter_generation_preprocessing",
+                        "results_summary": f"Found {len(results)} locations for '{entity}'"
+                    })
+                logging.info(f"🔍 Enhanced vector search found {len(search_results)} entities with data")
+            else:
+                logging.info(f"⚪ No entities requiring vector search found in query")
+                
+        except Exception as e:
+            logging.error(f"❌ Error in enhanced vector search integration: {e}")
+            param_context = ""
+            explore_context = ""
+            search_results = {}
+            vector_search_used = []
+        
         # Build system prompt for explore parameter generation with function calling
         function_declarations = [
             {
                 "name": "search_semantic_fields",
-                "description": "Search for indexed high-cardinality dimension fields when you suspect specific values/codes might exist in the data but aren't sure which field contains them. LIMITATION: Only searches fields that have been specifically indexed with 'index' sets in Looker - NOT all fields.",
+                "description": "🚨 MANDATORY FUNCTION: You MUST call this function whenever the user mentions ANY brand names, product names, codes, or identifiers. This is REQUIRED to find the correct field locations. Example: If user says 'Nike products' or '2XU items', you MUST call this function with those values. NO EXCEPTIONS.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "search_terms": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Array of specific values/codes to search for (e.g., ['nike', 'premium', 'SKU123'] NOT general concepts like ['revenue', 'customer'])"
+                            "description": "REQUIRED: Array of all brand names, product names, codes mentioned by the user (e.g., ['nike', '2XU', 'completed', 'premium'])"
                         },
                         "explore_ids": {
                             "type": "array", 
@@ -1339,13 +1433,13 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
             },
             {
                 "name": "lookup_field_values",
-                "description": "Find specific values that exist in indexed high-cardinality dimensions. Use when you need to verify exact codes, names, or identifiers exist before creating filters. LIMITATION: Only searches indexed dimension values, not all fields.",
+                "description": "🚨 MANDATORY FUNCTION: You MUST call this function for every specific brand name, code, or identifier mentioned by the user to verify it exists and get the correct field location. Example: If user mentions 'Nike', you MUST call lookup_field_values('Nike'). This is NOT optional.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "search_string": {
                             "type": "string",
-                            "description": "Specific text/code to find in indexed dimension values (e.g., 'NIKE', 'Completed', 'CA', 'SKU123')"
+                            "description": "REQUIRED: The exact brand name, code, or identifier to verify (e.g., 'Nike', '2XU', 'Completed', 'Premium')"
                         },
                         "field_location": {
                             "type": "string",
@@ -1361,20 +1455,36 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
 
 {table_context}
 {example_text}
+{param_context}
 
-You have access to semantic field search and field value lookup functions. IMPORTANT: These only search high-cardinality dimensions that have been specifically indexed. Use them ONLY when:
-1. You need to find exact values/codes (like product names, SKUs, brand names) that might exist in indexed dimension data
-2. You need to verify specific dimension values exist before creating filters
-3. The user mentions specific identifiers and you're unsure which indexed field contains them
+⚠️ ENHANCED VECTOR SEARCH RESULTS AVAILABLE ⚠️
 
-DO NOT use these functions for:
-- General field discovery (use the provided explore metadata instead) 
-- Business concepts like "revenue" or "profit" (these are typically measures available in the metadata)
-- Comprehensive data exploration (only specific indexed dimensions are searchable)
+IMPORTANT: Vector search has already been executed for this query. Use the search results above to create accurate filters with the exact field locations provided. Do not call additional functions - the data has already been found for you.
 
-IMPORTANT: Be extremely concise. Return minimal JSON only.
+⚠️ MANDATORY FUNCTION CALLS REQUIRED ⚠️
 
-Return JSON:
+CRITICAL INSTRUCTION: This query contains specific values that REQUIRE function calls before generating any response.
+
+Analysis of query "{query}":
+- Contains brand/product names that MUST be verified using functions
+- You CANNOT generate any response without first calling the required functions
+- Do NOT assume field names or filter values exist
+
+REQUIRED STEPS (Execute these functions FIRST):
+1. Identify ALL specific brand names, product names, codes, or identifiers in the query
+2. For EACH identified value, you MUST call lookup_field_values() to verify it exists
+3. Only after getting function results can you generate the explore parameters
+4. Use the actual field locations returned by the functions in your response
+
+EXAMPLES OF VALUES THAT REQUIRE FUNCTION CALLS:
+- Brand names: Nike, Adidas, 2XU, Apple, etc.
+- Product codes: SKU-123, PROD-456, etc.
+- Status values: Completed, Pending, Active, etc.
+- Location codes: CA, NY, US, etc.
+
+⚠️ VIOLATION WARNING: Generating a response without calling the required functions is a critical error.
+
+After completing function calls, return JSON:
 {{
   "explore_key": "{explore_key}",
   "explore_params": {{
@@ -1428,12 +1538,18 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
                     f"Examples: {len(golden_queries.get('exploreGenerationExamples', {}).get(explore_key, []))} | "
                     f"Prompt: {len(system_prompt):,} chars | MaxTokens: {max_output_tokens}")
         
+        # DEBUG: Log function declarations being sent
+        logging.info(f"🔧 Function declarations being sent to LLM:")
+        for func_decl in function_declarations:
+            logging.info(f"  - {func_decl['name']}: {func_decl['description'][:100]}...")
+        
         # Call Vertex AI using service account with retry logic
-        vertex_response = call_vertex_ai_with_retry(vertex_request, "explore_parameter_generation")
+        vertex_response = call_vertex_ai_with_retry(vertex_request, "explore_parameter_generation", process_response=True)
         if not vertex_response:
             logging.warning("❌ Parameter generation failed after retries, using fallback")
             return create_context_aware_fallback(query, explore_key, "", semantic_models)
         
+        # Vector search usage is now tracked in the enhanced integration above
         # Check if the model made function calls  
         if 'candidates' in vertex_response and len(vertex_response['candidates']) > 0:
             candidate = vertex_response['candidates'][0]
@@ -1447,6 +1563,14 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
                     function_args = function_call.get('args', {})
                     
                     logging.info(f"🔧 Model requested function call: {function_name} with args: {function_args}")
+                    
+                    # Track additional vector search usage (append to existing from enhanced integration)
+                    if function_name in ["search_semantic_fields", "lookup_field_values"]:
+                        vector_search_used.append({
+                            "function": function_name,
+                            "args": function_args,
+                            "phase": "parameter_generation_llm_fallback"
+                        })
                     
                     # Execute the function call
                     function_result = None
@@ -1585,6 +1709,12 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
                         fallback_result['summary'] = result.get('summary')
                     result = fallback_result
                 
+                # Add vector search usage metadata to the result
+                if vector_search_used:
+                    result['vector_search_used'] = vector_search_used
+                    result['vector_search_summary'] = generate_vector_search_summary(vector_search_used)
+                    logging.info(f"🔍 Vector search used during parameter generation: {vector_search_used}")
+                
                 return result
                 
             except json.JSONDecodeError as e:
@@ -1597,6 +1727,57 @@ Vis types: single_value, table, looker_grid, looker_column, looker_bar, looker_l
     except Exception as e:
         logging.error(f"Error generating explore params from query: {e}")
         return None
+
+def generate_vector_search_summary(vector_search_used: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Generate a user-friendly summary of vector search usage"""
+    search_functions = []
+    lookup_functions = []
+    total_searches = 0
+    
+    for usage in vector_search_used:
+        function_name = usage.get('function', '')
+        args = usage.get('args', {})
+        phase = usage.get('phase', 'unknown')
+        
+        if function_name == 'search_semantic_fields':
+            search_terms = args.get('search_terms', [])
+            search_functions.append({
+                'phase': phase,
+                'search_terms': search_terms,
+                'explore_count': len(args.get('explore_ids', []))
+            })
+            total_searches += len(search_terms)
+        elif function_name == 'lookup_field_values':
+            search_string = args.get('search_string', '')
+            lookup_functions.append({
+                'phase': phase,
+                'search_string': search_string,
+                'field_location': args.get('field_location')
+            })
+            total_searches += 1
+    
+    # Generate user-friendly messages
+    messages = []
+    
+    if search_functions:
+        terms_searched = []
+        for search in search_functions:
+            terms_searched.extend(search['search_terms'])
+        if terms_searched:
+            messages.append(f"Searched for specific values: {', '.join(terms_searched[:5])}")
+    
+    if lookup_functions:
+        strings_looked_up = [lookup['search_string'] for lookup in lookup_functions if lookup['search_string']]
+        if strings_looked_up:
+            messages.append(f"Verified existence of: {', '.join(strings_looked_up[:3])}")
+    
+    return {
+        'total_vector_searches': total_searches,
+        'search_semantic_fields_count': len(search_functions),
+        'lookup_field_values_count': len(lookup_functions),
+        'user_messages': messages,
+        'detailed_usage': vector_search_used
+    }
 
 def create_context_aware_fallback(prompt: str, explore_key: str, conversation_context: str, semantic_models: Dict[str, Any]) -> Dict[str, Any]:
     """Create a context-aware fallback response when AI parsing fails"""
@@ -2924,6 +3105,20 @@ def handle_mcp_tool(tool_name: str, arguments: dict, user_email: str, auth_heade
     try:
         logging.info(f"Handling MCP tool: {tool_name} for user {user_email}")
         logging.info(f"Tool arguments: {arguments}")
+
+        # Check global tools registry first (for vector search and other tools)
+        if tool_name in tools:
+            tool_func = tools[tool_name]
+            # Support async and sync handlers
+            if callable(tool_func):
+                import inspect
+                if inspect.iscoroutinefunction(tool_func):
+                    import asyncio
+                    return asyncio.run(tool_func(arguments))
+                else:
+                    return tool_func(arguments)
+            else:
+                return {"error": f"Tool {tool_name} is not callable"}
         
         # Olympic Query Management Tools
         if tool_name == "get_queries_for_promotion":
@@ -2973,6 +3168,43 @@ def handle_mcp_tool(tool_name: str, arguments: dict, user_email: str, auth_heade
                 "history": history,
                 "total": len(history)
             }
+        
+        elif tool_name == "delete_olympic_query":
+            query_id = arguments.get('query_id')
+            confirm_delete = arguments.get('confirm_delete', False)
+            
+            if not query_id:
+                return {"error": "query_id is required"}
+            
+            if not confirm_delete:
+                return {"error": "confirm_delete must be set to true to delete queries"}
+            
+            if not is_authorized_for_promotion(user_email):
+                return {"error": "User not authorized for query deletion operations"}
+            
+            try:
+                # Initialize Olympic query manager
+                bq_client = bigquery.Client(project=bq_project_id)
+                from olympic_query_manager import OlympicQueryManager
+                
+                manager = OlympicQueryManager(bq_client, bq_project_id, bq_dataset_id)
+                success = manager.delete_query(query_id)
+                
+                if success:
+                    return {
+                        "success": True,
+                        "message": f"Query {query_id} deleted successfully",
+                        "deleted_by": user_email
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "message": f"Query {query_id} not found or could not be deleted"
+                    }
+                    
+            except Exception as e:
+                logging.error(f"Error deleting query {query_id}: {e}")
+                return {"error": f"Failed to delete query: {str(e)}"}
 
         # Existing feedback tools (keeping for compatibility)
         elif tool_name == "submit_query_feedback":
@@ -3012,28 +3244,132 @@ def handle_mcp_tool(tool_name: str, arguments: dict, user_email: str, auth_heade
             return {"feedback_history": feedback_history}
 
         elif tool_name == "get_query_stats":
-            # Get query statistics (implement this function)
-            stats = get_query_statistics_from_bigquery()
-            return {"query_statistics": stats}
+            try:
+                # Use Olympic system statistics instead of legacy placeholder
+                bq_client = bigquery.Client(project=bq_project_id)
+                olympic_integration = OlympicMCPIntegration(bq_client, bq_project_id, bq_dataset_id)
+                
+                # Get Olympic system stats
+                olympic_stats = olympic_integration._get_olympic_system_stats()
+                
+                return {"query_statistics": olympic_stats}
+            except Exception as e:
+                logging.error(f"Error in get_query_stats: {e}")
+                return {"error": f"Failed to get query stats: {str(e)}"}
 
         # Explicit Feedback Tools (from recent implementation)
         elif tool_name == "submit_positive_feedback":
             query_id = arguments.get('query_id')
             user_input = arguments.get('user_input', '')
             response = arguments.get('response', '')
+            explore_key = arguments.get('explore_key', '')  # Get explore_key from arguments
             feedback_notes = arguments.get('feedback_notes', '')
             
             if not query_id:
                 return {"error": "query_id is required"}
             
-            success = save_explicit_feedback_to_bigquery(
-                query_id, user_input, response, 'positive', user_email, feedback_notes
-            )
-            
-            if success:
-                return {"success": True, "message": "Positive feedback submitted successfully"}
-            else:
-                return {"error": "Failed to submit positive feedback"}
+            try:
+                # Initialize BigQuery client
+                bq_client = bigquery.Client(project=bq_project_id)
+                
+                # Parse the response to extract other details
+                parsed_response = None
+                link = None
+                
+                try:
+                    parsed_response = json.loads(response)
+                    # Try to construct a share URL (placeholder for now)
+                    link = f"https://looker.example.com/explore/{explore_key.replace(':', '/')}" if explore_key else None
+                except json.JSONDecodeError:
+                    logging.warning(f"Could not parse response as JSON: {response}")
+                
+                # Check if we have explore_key for Olympic integration
+                if not explore_key:
+                    logging.warning("No explore_key provided, storing feedback only")
+                    success = save_explicit_feedback_to_bigquery(
+                        query_id, user_input, response, 'positive', user_email, feedback_notes
+                    )
+                    
+                    if success:
+                        return {"success": True, "message": "Positive feedback submitted successfully (stored as explicit feedback only)"}
+                    else:
+                        return {"error": "Failed to submit positive feedback"}
+                
+                # Add query to silver queries using Olympic system
+                try:
+                    logging.info(f"📊 Creating Olympic integration - Project: {bq_project_id}, Dataset: {bq_dataset_id}")
+                    olympic_integration = OlympicMCPIntegration(bq_client, bq_project_id, bq_dataset_id)
+                    
+                    # Log the table details being used
+                    table_id = olympic_integration.olympic_manager.full_table_id
+                    logging.info(f"🏗️ Using Olympic table: {table_id}")
+                    
+                    # Ensure the Olympic table exists and has correct schema
+                    logging.info(f"🔧 Ensuring Olympic table exists: {table_id}")
+                    olympic_integration.olympic_manager.ensure_table_exists()
+                    
+                    # Validate and fix schema if needed
+                    logging.info(f"🔍 Validating table schema...")
+                    schema_fixed = olympic_integration.olympic_manager.validate_and_fix_table_schema()
+                    if schema_fixed:
+                        logging.info(f"✅ Table schema was fixed")
+                    else:
+                        logging.info(f"✅ Table schema is correct")
+                    
+                    # Get and log current table schema for debugging
+                    try:
+                        client = olympic_integration.olympic_manager.client
+                        table = client.get_table(table_id)
+                        schema_fields = [field.name for field in table.schema]
+                        logging.info(f"📋 Current table schema fields: {schema_fields}")
+                        
+                        # Check if user_id field exists
+                        has_user_id = 'user_id' in schema_fields
+                        logging.info(f"🔍 Table has user_id field: {has_user_id}")
+                        
+                    except Exception as schema_error:
+                        logging.error(f"❌ Failed to get table schema: {schema_error}")
+                    
+                    logging.info(f"🎯 Adding positive feedback to silver queries with explore_key: {explore_key}")
+                    silver_query_id = olympic_integration.olympic_manager.add_silver_query(
+                        explore_id=explore_key,  # Use explore_key from arguments
+                        input_text=user_input,
+                        output=response,
+                        link=link or "",
+                        user_id=user_email or "anonymous", 
+                        feedback_type="positive",
+                        conversation_history=None
+                    )
+                    
+                    logging.info(f"✅ Added positive feedback query to silver queries: {silver_query_id}")
+                    
+                    # Also store explicit feedback
+                    save_explicit_feedback_to_bigquery(
+                        query_id, user_input, response, 'positive', user_email, feedback_notes
+                    )
+                    
+                    return {
+                        "success": True, 
+                        "message": "Positive feedback submitted and added to silver queries",
+                        "silver_query_id": silver_query_id,
+                        "explore_id": explore_key  # Return explore_key for consistency
+                    }
+                    
+                except Exception as e:
+                    logging.error(f"Failed to add to silver queries: {e}")
+                    # Fallback to just storing explicit feedback
+                    success = save_explicit_feedback_to_bigquery(
+                        query_id, user_input, response, 'positive', user_email, feedback_notes
+                    )
+                    
+                    if success:
+                        return {"success": True, "message": f"Positive feedback submitted (explicit feedback only - silver query failed: {str(e)})"}
+                    else:
+                        return {"error": f"Failed to submit positive feedback: {str(e)}"}
+                        
+            except Exception as e:
+                logging.error(f"Error in submit_positive_feedback: {e}")
+                return {"error": f"Failed to submit positive feedback: {str(e)}"}
 
         elif tool_name == "submit_negative_feedback":
             query_id = arguments.get('query_id')
@@ -3074,6 +3410,150 @@ def handle_mcp_tool(tool_name: str, arguments: dict, user_email: str, auth_heade
                 return {"success": True, "message": "Improvement request submitted successfully"}
             else:
                 return {"error": "Failed to submit improvement request"}
+
+        # Olympic Migration Tools
+        elif tool_name == "check_migration_status":
+            try:
+                # Initialize Olympic MCP integration with BigQuery client
+                bq_client = bigquery.Client(project=bq_project_id)
+                olympic_integration = OlympicMCPIntegration(bq_client, bq_project_id, bq_dataset_id)
+                
+                # Call the async handler (run in current thread since we're already handling the request)
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(olympic_integration.handle_check_migration_status(arguments))
+                loop.close()
+                
+                return result
+            except Exception as e:
+                logging.error(f"Error in check_migration_status: {e}")
+                return {"error": f"Failed to check migration status: {str(e)}"}
+
+        elif tool_name == "migrate_to_olympic_system":
+            try:
+                # Initialize Olympic MCP integration with BigQuery client
+                bq_client = bigquery.Client(project=bq_project_id)
+                olympic_integration = OlympicMCPIntegration(bq_client, bq_project_id, bq_dataset_id)
+                
+                # Call the async handler
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(olympic_integration.handle_migrate_to_olympic_system(arguments))
+                loop.close()
+                
+                return result
+            except Exception as e:
+                logging.error(f"Error in migrate_to_olympic_system: {e}")
+                return {"error": f"Failed to perform migration: {str(e)}"}
+
+        elif tool_name == "get_system_status":
+            try:
+                # Initialize Olympic MCP integration with BigQuery client
+                bq_client = bigquery.Client(project=bq_project_id)
+                olympic_integration = OlympicMCPIntegration(bq_client, bq_project_id, bq_dataset_id)
+                
+                # Call the async handler
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(olympic_integration.handle_get_system_status(arguments))
+                loop.close()
+                
+                return result
+            except Exception as e:
+                logging.error(f"Error in get_system_status: {e}")
+                return {"error": f"Failed to get system status: {str(e)}"}
+
+        elif tool_name == "get_queries_by_rank":
+            try:
+                # Initialize Olympic MCP integration with BigQuery client
+                bq_client = bigquery.Client(project=bq_project_id)
+                olympic_integration = OlympicMCPIntegration(bq_client, bq_project_id, bq_dataset_id)
+                
+                # Call the async handler
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(olympic_integration.handle_get_queries_by_rank(arguments))
+                loop.close()
+                
+                return result
+            except Exception as e:
+                logging.error(f"Error in get_queries_by_rank: {e}")
+                return {"error": f"Failed to get queries by rank: {str(e)}"}
+
+        elif tool_name == "promote_query_flexible":
+            try:
+                # Extract user information from token
+                auth_header = request.headers.get("Authorization")
+                user_info = extract_user_info_from_token(auth_header) if auth_header else {"email": None, "user_id": None}
+                user_email = user_info.get("email")
+                user_id = user_info.get("user_id") or user_email  # Fallback to email if no user_id
+                
+                # Inject user information into arguments
+                if not arguments.get('promoted_by'):
+                    arguments['promoted_by'] = user_email or user_id or 'system'
+                    logging.info(f"promote_query_flexible: Injected promoted_by from token: {arguments['promoted_by']}")
+                
+                # Initialize Olympic MCP integration with BigQuery client
+                bq_client = bigquery.Client(project=bq_project_id)
+                olympic_integration = OlympicMCPIntegration(bq_client, bq_project_id, bq_dataset_id)
+                
+                # Call the async handler
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(olympic_integration.handle_promote_query_flexible(arguments))
+                loop.close()
+                
+                return result
+            except Exception as e:
+                logging.error(f"Error in promote_query_flexible: {e}")
+                return {"error": f"Failed to promote query: {str(e)}"}
+
+        elif tool_name == "add_feedback_query":
+            try:
+                # Extract user information from token
+                auth_header = request.headers.get("Authorization")
+                user_info = extract_user_info_from_token(auth_header) if auth_header else {"email": None, "user_id": None}
+                user_email = user_info.get("email")
+                user_id = user_info.get("user_id") or user_email  # Fallback to email if no user_id
+                
+                # Log the BigQuery project and dataset being used
+                logging.info(f"add_feedback_query: Using BigQuery project='{bq_project_id}', dataset='{bq_dataset_id}'")
+                logging.info(f"add_feedback_query: Target table will be '{bq_project_id}.{bq_dataset_id}.olympic_queries'")
+                logging.info(f"add_feedback_query: User info - Email: {user_email}, User ID: {user_id}")
+                
+                # Inject user information into arguments if not already present
+                if not arguments.get('user_id'):
+                    arguments['user_id'] = user_id
+                    logging.info(f"add_feedback_query: Injected user_id from token: {user_id}")
+                
+                # Log the feedback data being processed
+                feedback_type = arguments.get('feedback_type', 'unknown')
+                explore_id = arguments.get('explore_id', 'unknown')
+                logging.info(f"add_feedback_query: Processing {feedback_type} feedback for explore '{explore_id}'")
+                
+                # Initialize Olympic MCP integration with BigQuery client
+                bq_client = bigquery.Client(project=bq_project_id)
+                olympic_integration = OlympicMCPIntegration(bq_client, bq_project_id, bq_dataset_id)
+                
+                # Call the async handler
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(olympic_integration.handle_add_feedback_query(arguments))
+                loop.close()
+                
+                # Log the result
+                if result.get('status') == 'success':
+                    query_id = result.get('result', {}).get('query_id', 'unknown')
+                    rank = result.get('result', {}).get('rank', 'unknown')
+                    logging.info(f"add_feedback_query: Successfully added feedback query {query_id} with rank '{rank}'")
+                else:
+                    logging.error(f"add_feedback_query: Failed with error: {result.get('error', 'unknown error')}")
+                
+                return result
+            except Exception as e:
+                logging.error(f"Error in add_feedback_query: {e}")
+                logging.error(f"add_feedback_query: BigQuery target was '{bq_project_id}.{bq_dataset_id}.olympic_queries'")
+                return {"error": f"Failed to add feedback query: {str(e)}"}
 
         else:
             return {"error": f"Unknown MCP tool: {tool_name}"}
@@ -3140,7 +3620,20 @@ def create_mcp_flask_app():
     """Create Flask app with MCP endpoints"""
     app = Flask(__name__)
     CORS(app)
-    
+
+    # Register vector search MCP tools
+    try:
+        bq_client = bigquery.Client(project=bq_project_id)
+        add_vector_search_mcp_tools(
+            tools,
+            bq_client=bq_client,
+            project_id=bq_project_id,
+            dataset_id=bq_dataset_id
+        )
+        logging.info("✅ Vector search MCP tools registered in MCP server")
+    except Exception as e:
+        logging.error(f"❌ Failed to register vector search MCP tools: {e}")
+
     # Log registered endpoints
     logging.info("Registering MCP endpoints...")
     
@@ -3619,10 +4112,20 @@ def filter_semantic_models_by_explores(semantic_models: Dict[str, Any], allowed_
     
     return filtered
 
-# For running directly as a Flask app (Cloud Run)
+
+# Always create the Flask app and register tools at module level for Cloud Run compatibility
+import os
+
+# Log BigQuery configuration at startup
+logging.info(f"MCP Server starting with BigQuery configuration:")
+logging.info(f"  BQ_PROJECT_ID: {bq_project_id}")
+logging.info(f"  BQ_DATASET_ID: {bq_dataset_id}")
+logging.info(f"  Olympic table: {bq_project_id}.{bq_dataset_id}.olympic_queries")
+
+app = create_mcp_flask_app()
+
+# Only run app.run() if executed directly (for local dev)
 if __name__ == "__main__":
-    import os
-    app = create_mcp_flask_app()
     port = int(os.environ.get("PORT", 8080))
     logging.info(f"Starting Flask app on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)

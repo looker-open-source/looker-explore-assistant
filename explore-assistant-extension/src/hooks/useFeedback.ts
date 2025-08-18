@@ -15,12 +15,15 @@ interface FeedbackData {
   userId: string
   userComment?: string
   suggestedImprovements?: any
+  issues?: string[]
+  conversationContext?: string
 }
 
 interface ExplicitFeedbackData {
   queryId: string
   userInput: string
   response: string
+  exploreKey?: string  // Add explore_key for Olympic integration
   feedbackNotes?: string
 }
 
@@ -98,6 +101,7 @@ export const useFeedback = () => {
         query_id: data.queryId,
         user_input: data.userInput,
         response: data.response,
+        explore_key: data.exploreKey,  // Include explore_key for Olympic integration
         feedback_notes: data.feedbackNotes
       })
 
@@ -166,19 +170,23 @@ export const useFeedback = () => {
         throw new Error('Identity token not available')
       }
 
-      // Prepare the request body for MCP server
+      // Use the new add_feedback_query MCP tool with comprehensive data structure
       const requestBody = {
-        tool_name: 'submit_query_feedback',
+        tool_name: 'add_feedback_query',
         arguments: {
-          query_id: feedbackData.queryId,
           explore_id: feedbackData.exploreId,
           original_prompt: feedbackData.originalPrompt,
           generated_params: feedbackData.generatedParams,
           share_url: feedbackData.shareUrl,
           feedback_type: feedbackData.feedbackType,
           user_id: feedbackData.userId,
+          conversation_context: null, // TODO: Add conversation context from state
           user_comment: feedbackData.userComment,
-          suggested_improvements: feedbackData.suggestedImprovements
+          suggested_improvements: typeof feedbackData.suggestedImprovements === 'string' 
+            ? feedbackData.suggestedImprovements 
+            : JSON.stringify(feedbackData.suggestedImprovements),
+          issues: feedbackData.issues || (feedbackData.feedbackType === 'negative' ? ['User marked as unhelpful'] : null),
+          query_id: feedbackData.queryId
         }
       }
 
@@ -198,8 +206,8 @@ export const useFeedback = () => {
       const result = await response.json()
       
       // Check if the MCP server returned success
-      if (result.error) {
-        throw new Error(result.error)
+      if (result.error || result.status !== 'success') {
+        throw new Error(result.error || 'Failed to submit feedback')
       }
 
       return true

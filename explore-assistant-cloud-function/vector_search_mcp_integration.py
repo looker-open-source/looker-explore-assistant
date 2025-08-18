@@ -9,7 +9,7 @@ separate from Olympic query management.
 import logging
 from typing import Dict, Any, List
 from google.cloud import bigquery
-from .vector_table_manager import VectorTableManager
+from vector_table_manager import VectorTableManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -383,29 +383,34 @@ class VectorSearchMCPIntegration:
         }
 
 
-def add_vector_search_mcp_tools(mcp_server):
+def add_vector_search_mcp_tools(
+    tools_dict,
+    bq_client=None,
+    project_id=None,
+    dataset_id="explore_assistant"
+):
     """
-    Add vector search management tools to an existing MCP server.
-    
+    Register vector search management tools into a global tools dict.
     Args:
-        mcp_server: The MCP server instance to add tools to
+        tools_dict: The global tools dictionary
+        bq_client: BigQuery client (optional, will create if None)
+        project_id: GCP project id
+        dataset_id: BigQuery dataset id (default: 'explore_assistant')
     """
-    
-    # Initialize vector search MCP integration
+    if bq_client is None:
+        from google.cloud import bigquery as bq_mod
+        bq_client = bq_mod.Client(project=project_id)
     vector_integration = VectorSearchMCPIntegration(
-        bq_client=mcp_server.bq_client,
-        project_id=mcp_server.project_id,
-        dataset_id=mcp_server.dataset_id
+        bq_client=bq_client,
+        project_id=project_id,
+        dataset_id=dataset_id
     )
-    
-    # Add vector search management tools
-    mcp_server.tools['check_vector_search_status'] = vector_integration.handle_check_vector_search_status
-    mcp_server.tools['setup_vector_search'] = vector_integration.handle_setup_vector_search
-    mcp_server.tools['populate_vector_data'] = vector_integration.handle_populate_vector_data
-    mcp_server.tools['test_vector_search'] = vector_integration.handle_test_vector_search
-    mcp_server.tools['refresh_vector_embeddings'] = vector_integration.handle_refresh_vector_embeddings
-    
-    logger.info("Vector search MCP tools added to server")
+    tools_dict['check_vector_search_status'] = vector_integration.handle_check_vector_search_status
+    tools_dict['setup_vector_search'] = vector_integration.handle_setup_vector_search
+    tools_dict['populate_vector_data'] = vector_integration.handle_populate_vector_data
+    tools_dict['test_vector_search'] = vector_integration.handle_test_vector_search
+    tools_dict['refresh_vector_embeddings'] = vector_integration.handle_refresh_vector_embeddings
+    logger.info("Vector search MCP tools added to global tools dict")
 
 
 # Tool descriptions for MCP server registration

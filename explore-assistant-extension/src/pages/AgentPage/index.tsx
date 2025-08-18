@@ -218,7 +218,8 @@ const AgentPage = () => {
       console.log('Current explore before processing:', currentExplore)
       console.log('Response explore_key:', response.explore_key)
       
-
+      // Only update explore_key if response contains a valid one
+      if (response.explore_key) {
         exploreKey = response.explore_key
         console.log('Setting new explore from response.explore_key:', exploreKey)
         console.log('Current explore state before update:', currentExplore)
@@ -251,7 +252,7 @@ const AgentPage = () => {
         } else {
           console.error('Invalid explore_key format:', exploreKey, 'Expected format: modelName:exploreId')
         }
-      
+      }
 
       // Update thread with response data
       dispatch(
@@ -289,6 +290,8 @@ const AgentPage = () => {
             actor: 'system',
             createdAt: Date.now(),
             type: 'explore',
+            vectorSearchUsed: response.vector_search_used || [],
+            vectorSearchSummary: response.vector_search_summary || null,
           }),
         )
       }

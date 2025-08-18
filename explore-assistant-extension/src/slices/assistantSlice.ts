@@ -79,6 +79,22 @@ export interface ExploreMessage {
   type: 'explore'
   summarizedPrompt: string
   summary?: string
+  vectorSearchUsed?: VectorSearchUsage[]
+  vectorSearchSummary?: VectorSearchSummaryInfo
+}
+
+export interface VectorSearchUsage {
+  function: 'search_semantic_fields' | 'lookup_field_values'
+  args: Record<string, any>
+  phase: 'explore_selection' | 'parameter_generation'
+}
+
+export interface VectorSearchSummaryInfo {
+  total_vector_searches: number
+  search_semantic_fields_count: number
+  lookup_field_values_count: number
+  user_messages: string[]
+  detailed_usage: VectorSearchUsage[]
 }
 
 export interface SummarizeMesage {

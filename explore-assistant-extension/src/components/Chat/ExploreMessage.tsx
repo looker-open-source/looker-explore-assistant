@@ -5,13 +5,13 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useDispatch } from 'react-redux'
 import FeedbackButton from '../Feedback/FeedbackButton'
 
-import { ExploreParams, setSidePanelExploreParams } from '../../slices/assistantSlice'
+import { ExploreParams, setSidePanelExploreParams, VectorSearchSummaryInfo } from '../../slices/assistantSlice'
 import { ExploreHelper } from '../../utils/ExploreHelper'
 
 import {
   openSidePanel,
 } from '../../slices/assistantSlice'
-import { OpenInNew } from '@material-ui/icons'
+import { OpenInNew, Search, FindInPage } from '@material-ui/icons'
 
 interface ExploreMessageProps {
   exploreId: string
@@ -23,6 +23,7 @@ interface ExploreMessageProps {
   fields?: string[]
   isLoading?: boolean
   summary?: string
+  vectorSearchSummary?: VectorSearchSummaryInfo
 }
 
 export default function ExploreMessage({
@@ -35,6 +36,7 @@ export default function ExploreMessage({
   fields,
   isLoading,
   summary,
+  vectorSearchSummary,
 }: ExploreMessageProps) {
   const dispatch = useDispatch()
   const { extensionSDK } = useContext(ExtensionContext)
@@ -67,6 +69,28 @@ export default function ExploreMessage({
               <div>{summary}</div>
             </div>
           )}
+          
+          {/* Vector Search Usage Notification */}
+          {vectorSearchSummary && vectorSearchSummary.total_vector_searches > 0 && (
+            <div className="mb-3 p-3 bg-purple-50 border-l-4 border-purple-400 text-purple-800 text-sm rounded">
+              <div className="flex items-center font-medium mb-1">
+                <Search className="mr-2" fontSize="small" />
+                Smart Data Discovery Used
+              </div>
+              <div className="text-xs space-y-1">
+                {vectorSearchSummary.user_messages.map((message, idx) => (
+                  <div key={idx} className="flex items-center">
+                    <FindInPage className="mr-1" fontSize="small" />
+                    {message}
+                  </div>
+                ))}
+                <div className="text-purple-600 mt-1">
+                  ({vectorSearchSummary.total_vector_searches} smart {vectorSearchSummary.total_vector_searches === 1 ? 'search' : 'searches'} performed)
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div
             className="bg-gray-400 text-white rounded-md p-4 my-2 shadow-lg hover:bg-gray-500 cursor-pointer"
             onClick={openSidePanelExplore}

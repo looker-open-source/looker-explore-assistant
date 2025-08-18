@@ -40,7 +40,19 @@ const useSendCloudRunMessage = () => {
           body: JSON.stringify(payload),
         })
         console.log('fetchProxy request successful')
-        return response
+        console.log('fetchProxy response structure:', typeof response, Object.keys(response || {}))
+        
+        // fetchProxy returns a FetchProxyDataResponse, extract the body
+        if (response && response.body) {
+          console.log('fetchProxy response body type:', typeof response.body)
+          console.log('fetchProxy response body:', response.body)
+          
+          // The body should already be parsed JSON
+          return response.body
+        } else {
+          console.error('fetchProxy response missing body:', response)
+          throw new Error('Invalid response from fetchProxy - no body')
+        }
       } catch (proxyError) {
         console.warn('fetchProxy failed, falling back to direct fetch...', proxyError)
         // Fallback to direct fetch
@@ -56,7 +68,9 @@ const useSendCloudRunMessage = () => {
         })
         if (response.ok) {
           console.log('Direct fetch with Bearer token successful')
-          return await response.json()
+          const jsonResponse = await response.json()
+          console.log('Direct fetch response structure:', typeof jsonResponse, Object.keys(jsonResponse || {}))
+          return jsonResponse
         } else {
           const errorText = await response.text()
           throw new Error(`Cloud Run fetch error: ${response.status} ${response.statusText} - ${errorText}`)

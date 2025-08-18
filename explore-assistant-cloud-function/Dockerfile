@@ -7,7 +7,16 @@ WORKDIR /app
 # Copy only the required files
 COPY requirements.txt ./
 COPY looker_mcp_server.py ./
+COPY mcp_server.py ./
 COPY olympic_query_manager.py ./
+COPY olympic_mcp_integration.py ./
+COPY olympic_migration_manager.py ./
+COPY graceful_table_manager.py ./
+COPY vector_table_manager.py ./
+COPY field_lookup_service.py ./
+COPY enhanced_vector_integration.py ./
+COPY vector_search_mcp_integration.py ./
+COPY vector_table_manager.py ./
 COPY llm_utils.py ./
 
 # Install any needed packages specified in requirements.txt
@@ -24,4 +33,4 @@ EXPOSE 8080
 ENV FLASK_ENV=production
 
 # Run the application
-CMD ["python", "looker_mcp_server.py", "--flask"]
+CMD ["python", "mcp_server.py"]

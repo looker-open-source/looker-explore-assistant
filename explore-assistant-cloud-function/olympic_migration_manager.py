@@ -305,48 +305,84 @@ class OlympicMigrationManager:
                 
                 # Build flexible field mapping
                 available_fields = source_schema['available_fields']
-                field_mappings = []
                 
                 # Handle explore field mapping (explore_key -> explore_id)
+                explore_field_sql = ""
                 if source_schema['explore_field'] == 'explore_id':
-                    field_mappings.append("explore_id")
+                    explore_field_sql = "explore_id"
                 elif source_schema['explore_field'] == 'explore_key':
-                    field_mappings.append("explore_key as explore_id")  # Map explore_key to explore_id
+                    explore_field_sql = "explore_key"  # Field name only, not aliased
                 else:
-                    field_mappings.append("'unknown' as explore_id")  # Default if missing
+                    explore_field_sql = "'unknown'"  # Default if missing
                 
-                # Handle core fields with safe defaults
-                for field in migration['core_fields']:
-                    if field in available_fields:
-                        field_mappings.append(field)
-                    else:
-                        # Provide defaults for missing core fields
-                        if field == 'id':
-                            field_mappings.append("GENERATE_UUID() as id")
-                        elif field == 'input':
-                            field_mappings.append("'Legacy query' as input")
-                        elif field in ['output', 'link']:
-                            field_mappings.append(f"NULL as {field}")
-                        elif field == 'created_at':
-                            field_mappings.append("CURRENT_TIMESTAMP() as created_at")
+                # Handle core fields with safe defaults - these are now handled directly in the SQL
+                # The migration query below handles all field mapping and defaults
+                
+                # Check if source table has id field
+                table_ref = f"{self.project_id}.{self.dataset_id}.{migration['source']}"
+                table = self.bq_client.get_table(table_ref)
+                source_fields = {field.name for field in table.schema}
+                has_id_field = 'id' in source_fields
+                
+                logger.info(f"Source table {migration['source']} fields: {sorted(source_fields)}")
+                logger.info(f"Source table has 'id' field: {has_id_field}")
+                
+                # Determine ID field handling
+                if has_id_field:
+                    id_field_sql = "COALESCE(id, GENERATE_UUID())"
+                    dedup_condition = "AND COALESCE(id, GENERATE_UUID()) NOT IN (SELECT id FROM `{}.{}.olympic_queries` WHERE id IS NOT NULL)".format(
+                        self.project_id, self.dataset_id)
+                else:
+                    id_field_sql = "GENERATE_UUID()"
+                    dedup_condition = "-- No deduplication needed for generated UUIDs"
+                
+                # Handle optional fields - check if they exist in source table
+                optional_fields = {
+                    'user_email': 'NULL',
+                    'query_run_count': '1', 
+                    'feedback_type': 'NULL',
+                    'conversation_history': 'NULL',
+                    'promoted_by': 'NULL',
+                    'promoted_at': 'NULL',
+                    'link': 'NULL',
+                    'output': 'NULL'
+                }
+                
+                field_selects = []
+                for field, default in optional_fields.items():
+                    if field in source_fields:
+                        if field == 'promoted_at':
+                            # Handle timestamp type compatibility for promoted_at
+                            field_selects.append(f"SAFE_CAST(COALESCE({field}, {default}) AS TIMESTAMP) as {field}")
                         else:
-                            field_mappings.append(f"NULL as {field}")
-                
-                # Handle optional fields with smart mapping
-                optional_mappings = []
-                for field in migration['optional_fields']:
-                    if field in available_fields:
-                        optional_mappings.append(field)
+                            field_selects.append(f"COALESCE({field}, {default}) as {field}")
                     else:
-                        # Smart mapping for common field variations
-                        if field == 'user_email' and 'user_id' in available_fields:
-                            optional_mappings.append("user_id as user_email")
-                        elif field == 'query_run_count':
-                            optional_mappings.append("1 as query_run_count")
+                        if field == 'promoted_at':
+                            field_selects.append(f"CAST({default} AS TIMESTAMP) as {field}")
                         else:
-                            optional_mappings.append(f"NULL as {field}")
+                            field_selects.append(f"{default} as {field}")
                 
-                field_mappings.extend(optional_mappings)
+                # Handle required fields
+                if 'input' in source_fields:
+                    input_sql = "COALESCE(input, 'Legacy query')"
+                elif 'prompt' in source_fields:
+                    input_sql = "COALESCE(prompt, 'Legacy query')"
+                elif 'input_question' in source_fields:
+                    input_sql = "COALESCE(input_question, 'Legacy query')"
+                else:
+                    input_sql = "'Legacy query'"
+                    
+                if 'created_at' in source_fields:
+                    # Handle type compatibility by casting created_at to TIMESTAMP if it's a string
+                    created_at_sql = "COALESCE(SAFE_CAST(created_at AS TIMESTAMP), CURRENT_TIMESTAMP())"
+                else:
+                    created_at_sql = "CURRENT_TIMESTAMP()"
+                
+                # Handle promoted_at field with proper type casting
+                if 'promoted_at' in source_fields:
+                    promoted_at_sql = "SAFE_CAST(promoted_at AS TIMESTAMP)"
+                else:
+                    promoted_at_sql = "CAST(NULL AS TIMESTAMP)"
                 
                 # Build migration query with deduplication and data validation
                 migration_query = f"""
@@ -354,30 +390,28 @@ class OlympicMigrationManager:
                 (id, explore_id, input, output, link, user_email, rank, query_run_count, 
                  feedback_type, conversation_history, promoted_by, promoted_at, created_at, updated_at)
                 SELECT 
-                    COALESCE(id, GENERATE_UUID()) as id,
-                    COALESCE({field_mappings[0]}, 'unknown') as explore_id,
-                    COALESCE(input, 'Legacy query') as input,
-                    output,
-                    link,
-                    user_email,
+                    {id_field_sql} as id,
+                    COALESCE({explore_field_sql}, 'unknown') as explore_id,
+                    {input_sql} as input,
+                    {field_selects[7].split(' as ')[0]} as output,
+                    {field_selects[6].split(' as ')[0]} as link,
+                    {field_selects[0].split(' as ')[0]} as user_email,
                     '{migration['rank']}' as rank,
-                    COALESCE(query_run_count, 1) as query_run_count,
-                    feedback_type,
-                    conversation_history,
-                    promoted_by,
-                    promoted_at,
-                    COALESCE(created_at, CURRENT_TIMESTAMP()) as created_at,
+                    {field_selects[1].split(' as ')[0]} as query_run_count,
+                    {field_selects[2].split(' as ')[0]} as feedback_type,
+                    {field_selects[3].split(' as ')[0]} as conversation_history,
+                    {field_selects[4].split(' as ')[0]} as promoted_by,
+                    {promoted_at_sql} as promoted_at,
+                    {created_at_sql} as created_at,
                     CURRENT_TIMESTAMP() as updated_at
                 FROM `{self.project_id}.{self.dataset_id}.{migration['source']}`
                 WHERE {source_schema['explore_field']} IS NOT NULL  -- Only migrate records with explore field
-                  AND COALESCE(id, GENERATE_UUID()) NOT IN (
-                    SELECT id FROM `{self.project_id}.{self.dataset_id}.olympic_queries`
-                    WHERE id IS NOT NULL
-                  )
+                  {dedup_condition}
                 """
                 
                 logger.info(f"Migrating from {migration['source']} (schema: {source_schema['explore_field']})")
-                logger.debug(f"Migration query field mappings: {field_mappings}")
+                logger.debug(f"Using ID field SQL: {id_field_sql}")
+                logger.debug(f"Migration query: {migration_query[:200]}...")
                 
                 result = self.bq_client.query(migration_query).result()
                 

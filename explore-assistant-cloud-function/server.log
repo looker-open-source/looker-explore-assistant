@@ -1,0 +1,103 @@
+nohup: ignoring input
+INFO:root:Loaded environment variables from .env file
+INFO:root:MCP Server starting with BigQuery configuration:
+INFO:root:  BQ_PROJECT_ID: ml-accelerator-dbarr
+INFO:root:  BQ_DATASET_ID: explore_assistant
+INFO:root:  Olympic table: ml-accelerator-dbarr.explore_assistant.olympic_queries
+INFO:root:Registering MCP endpoints...
+INFO:root:Registered endpoint: / (POST)
+INFO:root:Registered endpoint: /health
+INFO:root:Registered endpoint: /vertex-passthrough (POST)
+INFO:root:MCP Flask app created with Vertex AI endpoints
+INFO:root:Starting Flask app on port 8001
+ * Serving Flask app 'mcp_server'
+ * Debug mode: off
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8001
+ * Running on http://172.23.99.89:8001
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+INFO:root:Received POST request to main endpoint
+INFO:root:Request headers: {'Host': 'localhost:8001', 'User-Agent': 'curl/7.81.0', 'Accept': '*/*', 'Authorization': 'Bearer ya29.fake_token_for_testing', 'Content-Type': 'application/json', 'Content-Length': '666'}
+INFO:root:Request origin: No origin header
+INFO:root:User agent: curl/7.81.0
+INFO:root:Processing POST request...
+INFO:root:Authorization header present: True
+INFO:root:Authorization header received, proceeding with request...
+INFO:root:Getting request body...
+INFO:root:Request data keys: ['tool_name', 'arguments']
+INFO:root:Test mode: False
+INFO:root:Processing MCP tool request: generate_explore_params
+INFO:root:Extracting user info from token
+ERROR:root:Invalid JWT format: expected 3 parts, got 2
+INFO:werkzeug:127.0.0.1 - - [13/Aug/2025 19:37:39] "[31m[1mPOST / HTTP/1.1[0m" 401 -
+INFO:root:Received POST request to main endpoint
+INFO:root:Request headers: {'Host': 'localhost:8001', 'User-Agent': 'python-requests/2.32.3', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept': '*/*', 'Connection': 'keep-alive', 'Authorization': 'Bearer ya29.test_token', 'Content-Type': 'application/json', 'Content-Length': '285'}
+INFO:root:Request origin: No origin header
+INFO:root:User agent: python-requests/2.32.3
+INFO:root:Processing POST request...
+INFO:root:Authorization header present: True
+INFO:root:Authorization header received, proceeding with request...
+INFO:root:Getting request body...
+INFO:root:Request data keys: ['tool_name', 'arguments']
+INFO:root:Test mode: False
+INFO:root:Processing MCP tool request: generate_explore_params
+INFO:root:Extracting user info from token
+ERROR:root:Invalid JWT format: expected 3 parts, got 2
+INFO:werkzeug:127.0.0.1 - - [13/Aug/2025 20:01:45] "[31m[1mPOST / HTTP/1.1[0m" 401 -
+INFO:root:Received POST request to main endpoint
+INFO:root:Request headers: {'Host': 'localhost:8001', 'User-Agent': 'python-requests/2.32.3', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept': '*/*', 'Connection': 'keep-alive', 'Authorization': 'Bearer ya29.test_token', 'Content-Type': 'application/json', 'Content-Length': '304'}
+INFO:root:Request origin: No origin header
+INFO:root:User agent: python-requests/2.32.3
+INFO:root:Processing POST request...
+INFO:root:Authorization header present: True
+INFO:root:Authorization header received, proceeding with request...
+INFO:root:Getting request body...
+INFO:root:Request data keys: ['tool_name', 'arguments']
+INFO:root:Test mode: False
+INFO:root:Processing MCP tool request: generate_explore_params
+INFO:root:Extracting user info from token
+ERROR:root:Invalid JWT format: expected 3 parts, got 2
+INFO:werkzeug:127.0.0.1 - - [13/Aug/2025 20:01:45] "[31m[1mPOST / HTTP/1.1[0m" 401 -
+INFO:root:Received POST request to main endpoint
+INFO:root:Request headers: {'Host': 'localhost:8001', 'User-Agent': 'python-requests/2.32.3', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept': '*/*', 'Connection': 'keep-alive', 'Authorization': 'Bearer ya29.test_token', 'Content-Type': 'application/json', 'Content-Length': '290'}
+INFO:root:Request origin: No origin header
+INFO:root:User agent: python-requests/2.32.3
+INFO:root:Processing POST request...
+INFO:root:Authorization header present: True
+INFO:root:Authorization header received, proceeding with request...
+INFO:root:Getting request body...
+INFO:root:Request data keys: ['tool_name', 'arguments']
+INFO:root:Test mode: False
+INFO:root:Processing MCP tool request: generate_explore_params
+INFO:root:Extracting user info from token
+ERROR:root:Invalid JWT format: expected 3 parts, got 2
+INFO:werkzeug:127.0.0.1 - - [13/Aug/2025 20:01:45] "[31m[1mPOST / HTTP/1.1[0m" 401 -
+INFO:root:Received POST request to main endpoint
+INFO:root:Request headers: {'Host': 'localhost:8001', 'User-Agent': 'python-requests/2.32.3', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept': '*/*', 'Connection': 'keep-alive', 'Authorization': 'Bearer ya29.test_token', 'Content-Type': 'application/json', 'Content-Length': '300'}
+INFO:root:Request origin: No origin header
+INFO:root:User agent: python-requests/2.32.3
+INFO:root:Processing POST request...
+INFO:root:Authorization header present: True
+INFO:root:Authorization header received, proceeding with request...
+INFO:root:Getting request body...
+INFO:root:Request data keys: ['tool_name', 'arguments']
+INFO:root:Test mode: False
+INFO:root:Processing MCP tool request: generate_explore_params
+INFO:root:Extracting user info from token
+ERROR:root:Invalid JWT format: expected 3 parts, got 2
+INFO:werkzeug:127.0.0.1 - - [13/Aug/2025 20:01:45] "[31m[1mPOST / HTTP/1.1[0m" 401 -
+INFO:root:Received POST request to main endpoint
+INFO:root:Request headers: {'Host': 'localhost:8001', 'User-Agent': 'python-requests/2.32.3', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept': '*/*', 'Connection': 'keep-alive', 'Authorization': 'Bearer ya29.test_token', 'Content-Type': 'application/json', 'Content-Length': '294'}
+INFO:root:Request origin: No origin header
+INFO:root:User agent: python-requests/2.32.3
+INFO:root:Processing POST request...
+INFO:root:Authorization header present: True
+INFO:root:Authorization header received, proceeding with request...
+INFO:root:Getting request body...
+INFO:root:Request data keys: ['tool_name', 'arguments']
+INFO:root:Test mode: False
+INFO:root:Processing MCP tool request: generate_explore_params
+INFO:root:Extracting user info from token
+ERROR:root:Invalid JWT format: expected 3 parts, got 2
+INFO:werkzeug:127.0.0.1 - - [13/Aug/2025 20:01:45] "[31m[1mPOST / HTTP/1.1[0m" 401 -

@@ -8,9 +8,10 @@ Integrates with the looker_mcp_server.py to provide migration capabilities.
 from typing import Dict, Any, List
 import logging
 from google.cloud import bigquery
-from .olympic_migration_manager import OlympicMigrationManager
-from .graceful_table_manager import GracefulTableManager
-from .vector_table_manager import VectorTableManager
+from olympic_migration_manager import OlympicMigrationManager
+from olympic_query_manager import OlympicQueryManager
+from graceful_table_manager import GracefulTableManager
+from vector_table_manager import VectorTableManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,8 +29,9 @@ class OlympicMCPIntegration:
         self.project_id = project_id
         self.dataset_id = dataset_id
         self.migration_manager = OlympicMigrationManager(bq_client, project_id, dataset_id)
+        self.olympic_manager = OlympicQueryManager(bq_client, project_id, dataset_id)
         self.table_manager = GracefulTableManager(bq_client, project_id, dataset_id)
-        self.vector_manager = VectorTableManager(bq_client, project_id, dataset_id)
+        self.vector_manager = VectorTableManager()  # VectorTableManager has no params
     
     async def handle_check_migration_status(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -57,12 +59,66 @@ class OlympicMCPIntegration:
         except Exception as e:
             logger.error(f"Migration status check failed: {str(e)}")
             return {
-                "tool": "check_migration_status", 
+                "tool": "promote_query_flexible", 
                 "status": "error",
                 "error": str(e),
                 "result": None
             }
     
+    def _check_olympic_table_exists(self) -> bool:
+        """Check if Olympic queries table exists."""
+        try:
+            self.bq_client.get_table(f"{self.project_id}.{self.dataset_id}.olympic_queries")
+            return True
+        except Exception:
+            return False
+    
+    def _get_olympic_system_stats(self) -> Dict[str, Any]:
+        """Get Olympic system statistics."""
+        try:
+            # Get total record count
+            query = f"""
+            SELECT 
+                COUNT(*) as total_records,
+                COUNTIF(rank = 'bronze') as bronze_count,
+                COUNTIF(rank = 'silver') as silver_count, 
+                COUNTIF(rank = 'gold') as gold_count
+            FROM `{self.project_id}.{self.dataset_id}.olympic_queries`
+            """
+            
+            results = list(self.bq_client.query(query).result())
+            if results:
+                row = results[0]
+                return {
+                    'total_records': row.total_records,
+                    'records_by_rank': {
+                        'bronze': row.bronze_count,
+                        'silver': row.silver_count,
+                        'gold': row.gold_count
+                    }
+                }
+        except Exception as e:
+            logger.error(f"Failed to get Olympic system stats: {e}")
+        
+        return {'total_records': 0, 'records_by_rank': {}}
+
+    def _generate_status_summary(self, status: Dict[str, Any]) -> str:
+        """Generate user-friendly summary of system status."""
+        if status.get('olympic_table_exists', False):
+            olympic_count = status.get('olympic_record_count', 0)
+            legacy_count = len(status.get('legacy_tables', []))
+            if legacy_count > 0:
+                return f"✅ Olympic system active ({olympic_count} records) + {legacy_count} legacy tables"
+            else:
+                return f"✅ Olympic system active with {olympic_count} records"
+        else:
+            legacy_count = len(status.get('legacy_tables', []))
+            if legacy_count > 0:
+                total_records = status.get('estimated_record_count', 0)
+                return f"🔄 Legacy system only: {legacy_count} tables with {total_records} records"
+            else:
+                return "ℹ️ No query system detected - will create Olympic table when first query is added"
+
     async def handle_migrate_to_olympic_system(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         MCP tool to perform migration to Olympic system.
@@ -126,7 +182,23 @@ class OlympicMCPIntegration:
         """
         try:
             logger.info("Getting system status via MCP")
-            status = self.table_manager.get_system_status()
+            
+            # Check Olympic table status first
+            olympic_table_exists = self._check_olympic_table_exists()
+            
+            # Get legacy system status from table manager
+            legacy_status = self.table_manager.get_system_status()
+            
+            # Get Olympic system status
+            olympic_stats = self._get_olympic_system_stats() if olympic_table_exists else {}
+            
+            # Combine the status information
+            status = {
+                **legacy_status,
+                'olympic_table_exists': olympic_table_exists,
+                'olympic_record_count': olympic_stats.get('total_records', 0),
+                'olympic_records_by_rank': olympic_stats.get('records_by_rank', {})
+            }
             
             # Add migration recommendation
             status['migration_recommendation'] = self._generate_migration_recommendation(status)
@@ -264,6 +336,152 @@ class OlympicMCPIntegration:
                 "result": None
             }
     
+    async def handle_get_queries_by_rank(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        MCP tool to get queries by rank (bronze, silver, gold).
+        
+        Args:
+            arguments: Query parameters including rank, explore_id (optional), limit (optional)
+            
+        Returns:
+            dict: Query results
+        """
+        try:
+            # Validate required arguments
+            if 'rank' not in arguments:
+                return {
+                    "tool": "get_queries_by_rank",
+                    "status": "error", 
+                    "error": "Missing required field: rank",
+                    "result": None
+                }
+            
+            rank_str = arguments['rank']
+            explore_id = arguments.get('explore_id')
+            limit = arguments.get('limit', 100)
+            
+            # Convert rank string to QueryRank enum
+            from olympic_query_manager import QueryRank
+            try:
+                rank_enum = QueryRank(rank_str.lower())
+            except ValueError:
+                return {
+                    "tool": "get_queries_by_rank",
+                    "status": "error",
+                    "error": f"Invalid rank: {rank_str}. Must be 'bronze', 'silver', or 'gold'",
+                    "result": None
+                }
+            
+            # Get queries by rank from the Olympic manager (not async)
+            queries = self.olympic_manager.get_queries_by_rank(
+                rank=rank_enum,
+                explore_id=explore_id,
+                limit=limit
+            )
+            
+            return {
+                "tool": "get_queries_by_rank",
+                "status": "success",
+                "result": {
+                    "queries": queries,
+                    "count": len(queries),
+                    "rank": rank_str,
+                    "explore_id": explore_id
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Get queries by rank failed: {str(e)}")
+            return {
+                "tool": "get_queries_by_rank",
+                "status": "error",
+                "error": str(e),
+                "result": None
+            }
+    
+    async def handle_add_feedback_query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        MCP tool to add comprehensive feedback query with conversation history.
+        Uses SILVER rank for positive feedback, DISQUALIFIED rank for negative feedback.
+        
+        Args:
+            arguments: Feedback data including explore_id, original_prompt, generated_params,
+                      share_url, feedback_type, user_id, conversation_context, user_comment,
+                      suggested_improvements, issues, query_id
+        
+        Returns:
+            dict: Addition result
+        """
+        try:
+            # Log the BigQuery target information
+            logger.info(f"add_feedback_query: Targeting BigQuery table {self.project_id}.{self.dataset_id}.olympic_queries")
+            
+            # Validate required arguments
+            required_fields = ['explore_id', 'original_prompt', 'generated_params', 
+                              'share_url', 'feedback_type', 'user_id']
+            missing_fields = [field for field in required_fields if field not in arguments]
+            
+            if missing_fields:
+                return {
+                    "tool": "add_feedback_query",
+                    "status": "error",
+                    "error": f"Missing required fields: {missing_fields}",
+                    "result": None
+                }
+            
+            # Ensure Olympic table exists and has correct schema
+            try:
+                self.olympic_manager.ensure_table_exists()
+                # Validate schema and fix if needed
+                schema_fixed = self.olympic_manager.validate_and_fix_table_schema()
+                if schema_fixed:
+                    logger.info("Olympic table schema was updated for feedback queries")
+            except Exception as schema_error:
+                logger.error(f"Failed to validate Olympic table schema: {schema_error}")
+                return {
+                    "tool": "add_feedback_query",
+                    "status": "error", 
+                    "error": f"Table schema validation failed: {str(schema_error)}",
+                    "result": None
+                }
+            
+            # Add feedback query using Olympic manager
+            query_id = self.olympic_manager.add_feedback_query(
+                explore_id=arguments['explore_id'],
+                original_prompt=arguments['original_prompt'],
+                generated_params=arguments['generated_params'],
+                share_url=arguments['share_url'],
+                feedback_type=arguments['feedback_type'],
+                user_id=arguments['user_id'],
+                conversation_context=arguments.get('conversation_context'),
+                user_comment=arguments.get('user_comment'),
+                suggested_improvements=arguments.get('suggested_improvements'),
+                issues=arguments.get('issues'),
+                query_id=arguments.get('query_id')
+            )
+            
+            # Determine final rank for response
+            rank = "disqualified" if arguments['feedback_type'] == 'negative' else "silver"
+            
+            return {
+                "tool": "add_feedback_query",
+                "status": "success",
+                "result": {
+                    "query_id": query_id,
+                    "rank": rank,
+                    "feedback_type": arguments['feedback_type']
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Add feedback query failed: {str(e)}")
+            return {
+                "tool": "add_feedback_query",
+                "status": "error",
+                "error": str(e),
+                "result": None
+            }
+
     async def handle_promote_query_flexible(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         MCP tool to promote query between ranks with flexible handling.
@@ -351,6 +569,8 @@ class OlympicMCPIntegration:
             return "ℹ️ No query data found - system will create Olympic table when first query is added"
 
 
+
+
 def add_olympic_mcp_tools(mcp_server):
     """
     Add Olympic migration tools to an existing MCP server.
@@ -373,7 +593,9 @@ def add_olympic_mcp_tools(mcp_server):
     
     # Add flexible query management tools
     mcp_server.tools['add_bronze_query_flexible'] = olympic_integration.handle_add_bronze_query_flexible
+    mcp_server.tools['add_feedback_query'] = olympic_integration.handle_add_feedback_query
     mcp_server.tools['get_golden_queries_flexible'] = olympic_integration.handle_get_golden_queries_flexible
+    mcp_server.tools['get_queries_by_rank'] = olympic_integration.handle_get_queries_by_rank
     mcp_server.tools['promote_query_flexible'] = olympic_integration.handle_promote_query_flexible
     
     logger.info("Olympic MCP tools added to server")
@@ -430,6 +652,26 @@ OLYMPIC_MCP_TOOLS = {
             "required": ["explore_id", "input_text", "output_data", "link", "user_email"]
         }
     },
+    "add_feedback_query": {
+        "description": "Add comprehensive feedback query combining conversation history with user feedback (SILVER for positive, DISQUALIFIED for negative)",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "explore_id": {"type": "string", "description": "Explore identifier"},
+                "original_prompt": {"type": "string", "description": "User's original query prompt"},
+                "generated_params": {"type": "object", "description": "AI-generated query parameters"},
+                "share_url": {"type": "string", "description": "URL to shared query"},
+                "feedback_type": {"type": "string", "description": "Type of feedback: positive, negative, refinement, alternative"},
+                "user_id": {"type": "string", "description": "User who provided feedback"},
+                "conversation_context": {"type": "string", "description": "Previous conversation history context"},
+                "user_comment": {"type": "string", "description": "User's additional comments"},
+                "suggested_improvements": {"type": "string", "description": "Specific improvement suggestions"},
+                "issues": {"type": "array", "items": {"type": "string"}, "description": "List of issues for negative feedback"},
+                "query_id": {"type": "string", "description": "Optional specific query ID to use"}
+            },
+            "required": ["explore_id", "original_prompt", "generated_params", "share_url", "feedback_type", "user_id"]
+        }
+    },
     "get_golden_queries_flexible": {
         "description": "Get golden queries with flexible schema handling",
         "parameters": {
@@ -439,6 +681,18 @@ OLYMPIC_MCP_TOOLS = {
                 "limit": {"type": "integer", "description": "Maximum number of queries to return", "default": 100}
             },
             "required": []
+        }
+    },
+    "get_queries_by_rank": {
+        "description": "Get queries filtered by rank (bronze, silver, gold) with flexible schema handling",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "rank": {"type": "string", "description": "Query rank to filter by (bronze, silver, gold)"},
+                "explore_id": {"type": "string", "description": "Filter by explore ID (optional)"},
+                "limit": {"type": "integer", "description": "Maximum number of queries to return", "default": 100}
+            },
+            "required": ["rank"]
         }
     },
     "promote_query_flexible": {

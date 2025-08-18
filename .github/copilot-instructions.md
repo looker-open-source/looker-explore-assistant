@@ -2,14 +2,19 @@
 
 ## Architecture Overview
 
-This is a **natural language to Looker query system** with 4 main components:
+This is a **natural language to Looker query system** with modern agent-based architecture:
 
-1. **Frontend Extension** (`explore-assistant-extension/`) - React/TypeScript Looker extension with Redux state management
-2. **Backend MCP Server** (`explore-assistant-cloud-function/looker_mcp_server.py`) - Unified Model Context Protocol server with Vertex AI, Looker integration, and semantic field discovery
-3. **Vector Search System** (`explore-assistant-cloud-function/vector_table_manager.py`) - BigQuery ML-powered semantic field discovery with dimension value vectorization
-4. **Training/Examples** (`explore-assistant-examples/`) - BigQuery tables with golden query examples for LLM training
+### Core Components
+1. **Frontend Extension** (`explore-assistant-extension/`) - React/TypeScript Looker extension with Redux Toolkit state management and area-based explore selection
+2. **MCP Server Architecture** (`explore-assistant-cloud-function/`) - Unified backend with dual MCP servers:
+   - `looker_mcp_server.py` - Primary MCP server with Vertex AI proxy and vector search integration
+   - `mcp_server.py` - Flask-based HTTP adapter for web requests with comprehensive MCP tool support
+3. **Vector Search System** (`explore-assistant-cloud-function/vector_table_manager.py`) - BigQuery ML semantic field discovery with LLM function calling
+4. **Olympic Query System** (`explore-assistant-cloud-function/olympic_query_manager.py`) - Bronze/Silver/Gold query progression with unified table design
+5. **Training Data** (`explore-assistant-examples/`) - BigQuery golden queries and area-based explore organization
 
-The system converts natural language → automatic explore selection → structured Looker queries → embedded visualizations.
+### Data Flow
+Natural language → Area/explore selection → Vector search (when needed) → Structured Looker queries → Embedded visualizations → Query promotion pipeline
 
 ## New MCP Server Architecture (looker_mcp_server.py)
 
@@ -472,6 +477,127 @@ python vector_table_manager.py --action stats
 - **Automatic Explore Selection** - Frontend passes `restricted_explore_keys` array instead of single `explore_key`
 - **Enhanced Error Handling** - Better error boundaries and user feedback for MCP operations
 
+
+## Common Debugging Patterns & Integration Issues
+
+### Frontend-Backend Communication Issues
+
+#### fetchProxy vs Direct Fetch Inconsistency
+**Problem**: The Looker extension SDK's `fetchProxy` returns different response formats than standard `fetch`
+- `fetchProxy` returns a `FetchProxyDataResponse` object with structure: `{ok, status, statusText, headers, body}`  
+- The actual JSON data is in `response.body`, not the response itself
+- Direct `fetch` returns standard Response object where you call `await response.json()`
+
+**Solution**: Always extract JSON from fetchProxy responses:
+```typescript
+// WRONG - returns Response object instead of JSON
+return response
+
+// CORRECT - extracts JSON from body
+if (response && response.body) {
+  return response.body
+}
+```
+
+#### Missing Conditional Logic in Frontend Processing
+**Problem**: Frontend code unconditionally overwrites values from backend responses
+- Example: `exploreKey = response.explore_key` without checking if `response.explore_key` exists
+- Results in `undefined` values when backend doesn't return the expected field
+
+**Solution**: Always check if response fields exist before using:
+```typescript
+// WRONG
+exploreKey = response.explore_key
+
+// CORRECT  
+if (response.explore_key) {
+  exploreKey = response.explore_key
+}
+```
+
+#### Missing Data in Feedback Submission
+**Problem**: Positive feedback submissions missing critical context data
+- Backend needs `explore_key` to determine which explore/model the query belongs to
+- Frontend components have access to explore information but don't pass it through
+
+**Solution**: Ensure all necessary context is passed through the component hierarchy:
+```typescript
+// Component receives exploreId prop but must pass to feedback system
+const handlePositiveFeedback = () => {
+  submitPositiveFeedback({
+    // ... other data
+    exploreKey: exploreId // Pass the explore context
+  })
+}
+```
+
+### Backend Integration Issues
+
+#### Olympic Query System Schema Mismatches  
+**Problem**: BigQuery tables exist but have outdated schemas missing required fields
+- Error: `no such field: user_id` indicates table schema doesn't match code expectations
+- `ensure_table_exists()` only creates tables if they don't exist, doesn't update schemas
+
+**Solution**: Add schema validation and recreation logic:
+```python
+def validate_and_fix_table_schema(self):
+    """Validates table schema and recreates if necessary"""
+    try:
+        table = self.client.get_table(self.full_table_id)
+        current_fields = {field.name for field in table.schema}
+        expected_fields = {field.name for field in self.schema}
+        
+        if not expected_fields.issubset(current_fields):
+            # Recreate table with correct schema
+            self.client.delete_table(self.full_table_id)
+            self._create_table()
+    except NotFound:
+        self._create_table()
+```
+
+#### Project Configuration Consistency
+**Problem**: Multiple project configurations across different components
+- `BQ_PROJECT_ID` vs `PROJECT` environment variables
+- Different components using different project defaults
+
+**Solution**: Use consistent project configuration throughout:
+- Olympic integration should accept `project_id` parameter from MCP server
+- All components should use the same environment variable source
+
+### MCP Server Response Processing
+**Problem**: Missing `process_response=True` parameter in Vertex AI calls
+- Results in "No result from generate_explore_params_from_query" errors
+- Backend logs show request completion but no actual response processing
+
+**Solution**: Always include response processing flag:
+```python
+response = call_vertex_ai_with_retry(
+    # ... other parameters
+    process_response=True  # Critical for response extraction
+)
+```
+
+### Debugging Tools & Techniques
+**Essential Debugging Commands**:
+```bash
+# Test backend directly
+curl -X POST http://localhost:8001 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"tool_name": "submit_positive_feedback", "arguments": {...}}'
+
+# Check Olympic table status  
+python vector_table_manager.py --action stats
+
+# Monitor Cloud Run deployment
+./redeploy.sh  # Includes health check verification
+```
+
+**Key Console Logs to Check**:
+- `fetchProxy response structure:` - Shows response format issues
+- `Response explore_key:` - Confirms backend data structure  
+- `Current explore before processing:` - Shows frontend state
+- Olympic table validation logs - Confirms schema correctness
 
 ## README Creation 
 Do not create README files, instead modify these instructions in a concise and useful way.

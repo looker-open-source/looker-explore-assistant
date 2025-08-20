@@ -5,25 +5,51 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Copy only the required files
+# Copy requirements first for better layer caching
 COPY requirements.txt ./
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the new modular structure
+COPY core/ ./core/
+COPY vertex/ ./vertex/
+COPY vector_search/ ./vector_search/
+COPY explore_selection/ ./explore_selection/
+COPY parameter_generation/ ./parameter_generation/
+
+# Copy main server files and remaining utilities
+COPY restful_backend.py ./
+COPY gunicorn.conf.py ./
 COPY looker_mcp_server.py ./
 COPY mcp_server.py ./
+
+# Copy additional module directories that may exist
+COPY areas/ ./areas/
+
+# Copy still-needed legacy utility files (based on import analysis)
+COPY llm_utils.py ./
 COPY olympic_query_manager.py ./
 COPY olympic_mcp_integration.py ./
-COPY olympic_migration_manager.py ./
+COPY field_lookup_service.py ./
+
+# Copy additional files that may be imported dynamically
 COPY graceful_table_manager.py ./
 COPY vector_table_manager.py ./
-COPY field_lookup_service.py ./
+COPY looker_reference.py ./
+
+# Copy legacy files for backward compatibility (can be removed later)
 COPY enhanced_vector_integration.py ./
 COPY vector_search_mcp_integration.py ./
-COPY llm_utils.py ./
-
-RUN pip install --no-cache-dir -r requirements.txt
-RUN python -m spacy download en_core_web_sm
+COPY olympic_migration_manager.py ./
 
 EXPOSE 8080
 ENV FLASK_ENV=production
 
-# Entrypoint for the true MCP server
-CMD ["python", "looker_mcp_server.py"]
+# Production entrypoint using Gunicorn
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "restful_backend:app"]
+
+# Alternative entrypoints (uncomment as needed):
+# For MCP server: CMD ["python", "looker_mcp_server.py"]
+# For legacy server: CMD ["python", "mcp_server.py"]
+# For development: CMD ["python", "restful_backend.py"]

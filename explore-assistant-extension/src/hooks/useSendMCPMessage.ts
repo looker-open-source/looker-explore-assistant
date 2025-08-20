@@ -1,3 +1,13 @@
+/**
+ * @deprecated This hook is deprecated. Use REST API endpoints directly instead.
+ * 
+ * The frontend has been updated to call REST endpoints directly:
+ * - System status: useSystemStatus hook with /api/v1/system-status
+ * - Query processing: useSendCloudRunMessage with /api/v1/query  
+ * - Olympic operations: useOlympicMigration (partially converted to REST)
+ * 
+ * This provides better error handling, type safety, and performance.
+ */
 import { useCallback, useContext } from 'react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store'

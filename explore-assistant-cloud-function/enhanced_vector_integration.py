@@ -266,7 +266,7 @@ vector_search_integration = EnhancedVectorSearchIntegration()
 async def demo_integration():
     """Test the integration with sample queries."""
     
-    from mcp_server import call_vertex_ai_with_retry
+    from vertex.client import call_vertex_ai_with_retry
     
     test_queries = [
         "Show me Nike sales data",

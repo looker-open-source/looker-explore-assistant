@@ -7,6 +7,7 @@ Integrates with the looker_mcp_server.py to provide migration capabilities.
 
 from typing import Dict, Any, List
 import logging
+from datetime import datetime
 from google.cloud import bigquery
 from olympic_migration_manager import OlympicMigrationManager
 from olympic_query_manager import OlympicQueryManager
@@ -172,41 +173,33 @@ class OlympicMCPIntegration:
     
     async def handle_get_system_status(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
-        MCP tool to get current table system status.
+        MCP tool to get current table system status using shared service.
         
         Args:
             arguments: Tool arguments (empty for this tool)
             
         Returns:
-            dict: System status information
+            dict: System status information in MCP format
         """
         try:
-            logger.info("Getting system status via MCP")
+            logger.info("Getting system status via MCP using shared service")
             
-            # Check Olympic table status first
-            olympic_table_exists = self._check_olympic_table_exists()
+            # Use shared system status service
+            from core.system_status import SystemStatusService
             
-            # Get legacy system status from table manager
-            legacy_status = self.table_manager.get_system_status()
+            status_service = SystemStatusService(
+                bq_client=self.bq_client,
+                project_id=self.project_id,
+                dataset_id=self.dataset_id
+            )
             
-            # Get Olympic system status
-            olympic_stats = self._get_olympic_system_stats() if olympic_table_exists else {}
-            
-            # Combine the status information
-            status = {
-                **legacy_status,
-                'olympic_table_exists': olympic_table_exists,
-                'olympic_record_count': olympic_stats.get('total_records', 0),
-                'olympic_records_by_rank': olympic_stats.get('records_by_rank', {})
-            }
-            
-            # Add migration recommendation
-            status['migration_recommendation'] = self._generate_migration_recommendation(status)
+            # Get comprehensive status from shared service
+            status_data = status_service.get_comprehensive_status()
             
             return {
                 "tool": "get_system_status",
                 "status": "success",
-                "result": status
+                "result": status_data
             }
             
         except Exception as e:
@@ -215,7 +208,11 @@ class OlympicMCPIntegration:
                 "tool": "get_system_status",
                 "status": "error", 
                 "error": str(e),
-                "result": None
+                "result": {
+                    "system_status": "error",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "error_message": str(e)
+                }
             }
     
     async def handle_add_bronze_query_flexible(self, arguments: Dict[str, Any]) -> Dict[str, Any]:

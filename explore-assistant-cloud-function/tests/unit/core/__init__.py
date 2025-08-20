@@ -1,0 +1,3 @@
+"""
+Core module unit tests
+"""

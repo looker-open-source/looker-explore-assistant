@@ -22,3 +22,4 @@ cache
 local_env.sh
 *.pem
 venv
+explore-assistant-cloud-function/test_mcp_deployment.py

@@ -448,12 +448,6 @@ const QueryPromotionPage: React.FC = () => {
             </Alert>
           )}
 
-          {isOlympicSystemAvailable && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              Olympic system active: {totalQueries} total queries across all ranks.
-            </Alert>
-          )}
-
           {error && (
             <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>
               {error}

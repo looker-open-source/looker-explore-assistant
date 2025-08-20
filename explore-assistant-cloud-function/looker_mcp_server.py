@@ -45,6 +45,9 @@ from mcp.types import (
 from llm_utils import parse_llm_response, VertexAIResponse
 from olympic_query_manager import OlympicQueryManager, QueryRank
 from looker_reference import get_system_prompt_template
+# Import modular functions
+from parameter_generation.generator import generate_explore_params_from_query
+from explore_selection.context import synthesize_conversation_context
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -58,6 +61,17 @@ VERTEX_MODEL = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash-001")
 # BigQuery configuration
 BQ_PROJECT_ID = os.environ.get("BQ_PROJECT_ID", "ml-accelerator-dbarr")
 BQ_DATASET_ID = os.environ.get("BQ_DATASET_ID", "explore_assistant")
+
+# Looker configuration for area-based facts tools (using standard LOOKERSDK_ prefix)
+LOOKER_BASE_URL = os.environ.get("LOOKERSDK_BASE_URL", "https://bytecodeef.looker.com")
+LOOKER_CLIENT_ID = os.environ.get("LOOKERSDK_CLIENT_ID", "")
+LOOKER_CLIENT_SECRET = os.environ.get("LOOKERSDK_CLIENT_SECRET", "")
+
+# Debug logging for environment variables
+logger.info(f"🔗 LOOKERSDK_BASE_URL loaded: {LOOKER_BASE_URL}")
+logger.info(f"🔑 LOOKERSDK_CLIENT_ID loaded: {'[SET]' if LOOKER_CLIENT_ID else '[NOT SET]'}")
+logger.info(f"🔐 LOOKERSDK_CLIENT_SECRET loaded: {'[SET]' if LOOKER_CLIENT_SECRET else '[NOT SET]'}")
+logger.info(f"📊 Available environment variables: {[k for k in os.environ.keys() if 'LOOKER' in k]}")
 FIELD_VALUES_TABLE = "field_values_for_vectorization"
 EMBEDDING_MODEL = "text_embedding_model"
 
@@ -1147,6 +1161,126 @@ class LookerExploreAssistantMCPServer:
         async def handle_call_tool(name: str, arguments: dict) -> List[TextContent]:
             """Handle tool calls - delegates to the main handler method"""
             return await self.handle_tool_call(name, arguments)
+    
+    def _get_areas_from_bigquery(self) -> List[Dict[str, str]]:
+        """Get areas from BigQuery areas table"""
+        try:
+            if not self.bq_client:
+                self.bq_client = bigquery.Client()
+            
+            query = f"""
+            SELECT DISTINCT area, explore_key, description
+            FROM `{PROJECT_ID}.explore_assistant.areas`
+            ORDER BY area
+            """
+            
+            results = list(self.bq_client.query(query))
+            return [
+                {
+                    "area": row.area,
+                    "explore_key": row.explore_key, 
+                    "description": row.description
+                }
+                for row in results
+            ]
+        except Exception as e:
+            logging.warning(f"Could not load areas from BigQuery: {e}")
+            return []
+
+    async def get_tools_list(self) -> List[Tool]:
+        """Get the list of available tools - used by HTTP adapter"""
+        tools = [
+            # Vertex AI Proxy Tools
+            Tool(
+                name="vertex_ai_query",
+                description="Send queries to Vertex AI with secure token management and response parsing",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "prompt": {
+                            "type": "string",
+                            "description": "The prompt to send to Vertex AI"
+                        },
+                        "model": {
+                            "type": "string",
+                            "description": "Optional model to use (defaults to configured model)",
+                            "default": VERTEX_MODEL
+                        },
+                        "max_tokens": {
+                            "type": "integer",
+                            "description": "Maximum tokens for response",
+                            "default": 8192
+                        },
+                        "temperature": {
+                            "type": "number",
+                            "description": "Sampling temperature (0.0 to 1.0)",
+                            "default": 0.1,
+                            "minimum": 0.0,
+                            "maximum": 1.0
+                        }
+                    },
+                    "required": ["prompt"]
+                }
+            ),
+            Tool(
+                name="vector_search", 
+                description="Search vector database for semantically similar fields, tables, and content. Use this tool to discover relevant database fields when the user asks about specific business concepts or metrics.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search query describing the business concept, metric, or field you're looking for"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of results to return (default 10)",
+                            "default": 10
+                        },
+                        "similarity_threshold": {
+                            "type": "number",
+                            "description": "Minimum similarity score (0-1, default 0.7)",
+                            "default": 0.7
+                        }
+                    },
+                    "required": ["query"]
+                }
+            )
+        ]
+        
+        # Add dynamic area-based facts tools
+        areas = self._get_areas_from_bigquery()
+        unique_areas = {}
+        for area_info in areas:
+            area = area_info["area"]
+            if area not in unique_areas:
+                unique_areas[area] = area_info
+        
+        for area, area_info in unique_areas.items():
+            # Create a clean tool name from the area
+            tool_name = area.lower().replace(' ', '_').replace('&', 'and').replace('-', '_') + "_facts"
+            tool_name = re.sub(r'[^a-z0-9_]', '', tool_name)  # Remove any other special characters
+            
+            tools.append(Tool(
+                name=tool_name,
+                description=f"Use this tool to get {area.lower()} data from Looker. Call this tool whenever a user asks ANY question about {area.lower()}, sales, revenue, brands, or related metrics. Pass their question directly to the user_question parameter.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "user_question": {
+                            "type": "string",
+                            "description": "The user's question exactly as they asked it. For example: 'what were total sales in 2024 for Adidas?' or 'show me top brands by revenue'. Copy their question word-for-word."
+                        },
+                        "oauth_token": {
+                            "type": "string",
+                            "description": "Optional Looker OAuth token for API access"
+                        }
+                    },
+                    "required": ["user_question"]
+                }
+            ))
+        
+        return tools
             
     async def handle_tool_call(self, name: str, arguments: dict) -> List[TextContent]:
         """Main tool call handler - accessible from Flask adapter"""
@@ -1187,6 +1321,10 @@ class LookerExploreAssistantMCPServer:
                     return await self._handle_get_queries_by_rank(arguments)
                 elif name == "get_promotion_history":
                     return await self._handle_get_promotion_history(arguments)
+                elif name == "vector_search":
+                    return await self._handle_vector_search(arguments)
+                elif name.endswith("_facts"):
+                    return await self._handle_area_facts(name, arguments)
                 else:
                     raise ValueError(f"Unknown tool: {name}")
                     
@@ -1521,7 +1659,10 @@ class LookerExploreAssistantMCPServer:
             # This is typically passed as Bearer token, but we'll use service account
             auth_header = "Bearer service_account"  # Placeholder since we use service account
             
-            # Determine the best explore
+            # Use the vector search enhanced parameter generation from mcp_server.py
+            logger.info("🔍 Using vector search enhanced parameter generation")
+            
+            # Step 1: Determine the best explore (with vector search capabilities)
             determined_explore_key = determine_explore_from_prompt(
                 auth_header=auth_header,
                 prompt=prompt,
@@ -1535,153 +1676,97 @@ class LookerExploreAssistantMCPServer:
             
             logger.info(f"Determined explore: {determined_explore_key}")
             
-            # Extract model and explore names from determined explore_key
+            # Extract model and explore names
             if ":" not in determined_explore_key:
                 raise ValueError("determined explore_key must be in format 'model:explore'")
             
             model_name, explore_name = determined_explore_key.split(":", 1)
             
-            # Create current_explore context for compatibility
+            # Create current_explore context
             current_explore = {
                 'exploreKey': explore_name,
                 'exploreId': determined_explore_key,
                 'modelName': model_name
             }
             
-            # Step 2: Generate parameters with comprehensive documentation
-            # Build field context
-            field_context = ""
-            
-            # Get available fields for this explore
-            await self._ensure_looker_sdk()
-            try:
-                explore_detail = self.looker_sdk.lookml_model_explore(
-                    lookml_model_name=model_name,
-                    explore_name=explore_name,
-                    fields='fields'
-                )
-                
-                if explore_detail.fields:
-                    if explore_detail.fields.dimensions:
-                        field_context += f"\n## Available Dimensions ({len(explore_detail.fields.dimensions)}):\n"
-                        for dim in explore_detail.fields.dimensions:  # No field limiting
-                            field_context += f"- {dim.view}.{dim.name}: {dim.label or dim.name}"
-                            if dim.description:
-                                field_context += f" ({dim.description})"
-                            field_context += "\n"
-                    
-                    if explore_detail.fields.measures:
-                        field_context += f"\n## Available Measures ({len(explore_detail.fields.measures)}):\n"
-                        for measure in explore_detail.fields.measures:  # No field limiting
-                            field_context += f"- {measure.view}.{measure.name}: {measure.label or measure.name}"
-                            if measure.description:
-                                field_context += f" ({measure.description})"
-                            field_context += "\n"
-                            
-            except Exception as e:
-                logger.warning(f"Could not fetch explore fields: {e}")
-                field_context = "\n(Field metadata not available - using generic field patterns)\n"
-            
-            # Add conversation context if provided
-            example_text = ""
+            # Step 2: Synthesize conversation context if provided
+            synthesized_query = prompt
             if conversation_context:
-                example_text = f"\n## Conversation Context:\n{conversation_context}\n"
+                logger.info("🔄 Synthesizing conversation context...")
+                synthesized_result = synthesize_conversation_context(auth_header, prompt, conversation_context)
+                if synthesized_result:
+                    synthesized_query = synthesized_result
+                    logger.info(f"✅ Synthesized query: {synthesized_query}")
             
-            # Use the comprehensive system prompt template
-            system_prompt_template = get_system_prompt_template(determined_explore_key)
-            system_prompt = system_prompt_template.format(
-                query=prompt,
-                table_context=f"# Looker Explore: {determined_explore_key}\n\n{field_context}",
-                example_text=example_text
+            # Step 3: Generate parameters with MANDATORY vector search enhancement
+            logger.info("🚀 Generating parameters with vector search enhancement...")
+            
+            # Get semantic models for this explore (empty dict for now, can be enhanced later)
+            semantic_models = {determined_explore_key: {}}
+            
+            # Call the vector search enhanced parameter generation
+            result = generate_explore_params_from_query(
+                auth_header=auth_header,
+                query=synthesized_query,
+                explore_key=determined_explore_key,
+                golden_queries=golden_queries,
+                semantic_models=semantic_models,
+                current_explore=current_explore
             )
             
-            # Call Vertex AI to generate the parameters
-            defaults = get_model_generation_defaults(VERTEX_MODEL)
-            
-            vertex_request = {
-                "contents": [{
-                    "role": "user",
-                    "parts": [{"text": system_prompt}]
-                }],
-                "generationConfig": {
-                    "maxOutputTokens": 6000,  # Increased for complex JSON responses
-                    "temperature": defaults["temperature"],
-                    "topP": defaults["topP"],
-                    "topK": defaults["topK"]
-                }
-            }
-            
-            vertex_response = await self._call_vertex_ai_with_service_account(vertex_request, VERTEX_MODEL)
-            
-            if "candidates" in vertex_response and len(vertex_response["candidates"]) > 0:
-                response_text = vertex_response["candidates"][0]["content"]["parts"][0]["text"]
+            if result and isinstance(result, dict):
+                # Ensure explore_params has model and view for inline Looker queries
+                explore_params = result.get("explore_params", {})
+                if "model" not in explore_params:
+                    explore_params["model"] = model_name
+                if "view" not in explore_params:
+                    explore_params["view"] = explore_name
+                result["explore_params"] = explore_params
                 
-                # Try to parse the JSON response
-                try:
-                    # Clean up the response to extract JSON
-                    json_start = response_text.find('{')
-                    json_end = response_text.rfind('}') + 1
-                    if json_start >= 0 and json_end > json_start:
-                        json_str = response_text[json_start:json_end]
-                        explore_params = json.loads(json_str)
-                        
-                        # Validate and enhance the parameters for Looker API format
-                        if not isinstance(explore_params.get('fields'), list):
-                            explore_params['fields'] = []
-                        if not isinstance(explore_params.get('filters'), dict):
-                            explore_params['filters'] = {}
-                        
-                        # Ensure required fields are present
-                        if 'model' not in explore_params:
-                            explore_params['model'] = model_name
-                        if 'view' not in explore_params:
-                            explore_params['view'] = explore_name
-                        
-                        result = {
-                            "explore_params": explore_params,
-                            "explore_key": determined_explore_key,
-                            "model_name": model_name,
-                            "explore_name": explore_name,
-                            "original_prompt": prompt,
-                            "has_conversation_context": bool(conversation_context),
-                            "generation_method": "vertex_ai_mcp",
-                            "restricted_explore_keys": restricted_explore_keys,
-                            "determined_explore": determined_explore_key
-                        }
-                        
-                        return [TextContent(
-                            type="text",
-                            text=json.dumps(result, indent=2)
-                        )]
-                        
-                    else:
-                        raise ValueError("No valid JSON found in response")
-                        
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse JSON response: {e}")
-                    logger.error(f"Raw response: {response_text}")
-                    
-                    # Fallback: return a basic structure using correct Looker API format
-                    fallback_params = {
-                        "model": model_name,
-                        "view": explore_name,
-                        "fields": [],
-                        "filters": {},
-                        "limit": 500
-                    }
-                    
-                    return [TextContent(
-                        type="text",
-                        text=json.dumps({
-                            "explore_params": fallback_params,
-                            "error": "Failed to parse AI response, using fallback",
-                            "raw_response": response_text[:500],
-                            "explore_key": determined_explore_key,
-                            "determined_explore": determined_explore_key
-                        }, indent=2)
-                    )]
+                # Add MCP-specific metadata
+                result.update({
+                    "original_prompt": prompt,
+                    "has_conversation_context": bool(conversation_context),
+                    "generation_method": "vector_search_enhanced_mcp",
+                    "restricted_explore_keys": restricted_explore_keys,
+                    "determined_explore": determined_explore_key,
+                    "model_name": model_name,
+                    "explore_name": explore_name,
+                    "explore_key": determined_explore_key
+                })
+                
+                # Log vector search usage if present
+                if result.get('vector_search_used'):
+                    logger.info(f"🔍 Vector search was used: {len(result['vector_search_used'])} operations")
+                    vector_summary = result.get('vector_search_summary', {})
+                    if vector_summary.get('user_messages'):
+                        logger.info(f"📝 Vector search insights: {vector_summary['user_messages']}")
+                
+                return [TextContent(
+                    type="text",
+                    text=json.dumps(result, indent=2)
+                )]
             else:
-                raise ValueError("No response from Vertex AI")
+                # Fallback if vector search enhanced generation fails
+                logger.warning("Vector search enhanced generation failed, using basic fallback")
+                fallback_params = {
+                    "model": model_name,
+                    "view": explore_name,
+                    "fields": [],
+                    "filters": {},
+                    "limit": 500
+                }
+                
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "explore_params": fallback_params,
+                        "error": "Vector search enhanced generation failed, using fallback",
+                        "explore_key": determined_explore_key,
+                        "determined_explore": determined_explore_key,
+                        "generation_method": "fallback_no_vector_search"
+                    }, indent=2)
+                )]
                 
         except Exception as e:
             logger.error(f"Generate explore params failed: {e}")
@@ -2243,6 +2328,258 @@ class LookerExploreAssistantMCPServer:
                 type="text",
                 text=json.dumps({"error": f"Failed to handle improvement request: {e}"}, indent=2)
             )]
+
+    async def _handle_vector_search(self, arguments: dict) -> List[TextContent]:
+        """Handle vector search requests"""
+        query = arguments["query"]
+        limit = arguments.get("limit", 10)
+        similarity_threshold = arguments.get("similarity_threshold", 0.7)
+        
+        try:
+            # Import vector search functionality
+            from vector_search_mcp_integration import VectorSearchMCPIntegration
+            
+            vector_search = VectorSearchMCPIntegration()
+            results = await vector_search.search_vectors(
+                query=query,
+                limit=limit,
+                similarity_threshold=similarity_threshold
+            )
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps(results, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Vector search failed: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": f"Vector search failed: {e}"}, indent=2)
+            )]
+
+    async def _handle_area_facts(self, tool_name: str, arguments: dict) -> List[TextContent]:
+        """Handle area-based facts requests using the well-tested explore parameter generation logic"""
+        logger.info(f"🎯 Area facts tool called: {tool_name}")
+        logger.info(f"📝 Arguments received: {arguments}")
+        
+        if "user_question" not in arguments:
+            error_msg = "Missing required parameter 'user_question'. Please provide the user's question."
+            logger.error(f"❌ {error_msg}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "error": error_msg,
+                    "example": "user_question: 'what were the top 5 brands by revenue last year?'"
+                }, indent=2)
+            )]
+            
+        user_question = arguments["user_question"]
+        oauth_token = arguments.get("oauth_token")  # Optional for demo
+        
+        logger.info(f"🔍 User question: {user_question}")
+        logger.info(f"🔐 OAuth token provided: {'Yes' if oauth_token else 'No (demo mode)'}")
+        
+        try:
+            # Extract area from tool name (e.g., "sales_and_revenue_facts" -> "Sales & Revenue")
+            area_key = tool_name.replace("_facts", "").replace("_", " ").replace("and", "&").title()
+            logger.info(f"🔍 Extracted area key: {area_key}")
+            
+            # Get all area entries from BigQuery (there may be multiple explore keys per area)
+            logger.info("📊 Fetching areas from BigQuery...")
+            all_areas = self._get_areas_from_bigquery()
+            logger.info(f"📊 Found {len(all_areas)} total area entries in BigQuery")
+            
+            # Find all entries for this specific area
+            area_entries = []
+            for area_entry in all_areas:
+                if area_entry["area"].lower().replace(" ", "_").replace("&", "and") == area_key.lower().replace(" ", "_").replace("&", "and"):
+                    area_entries.append(area_entry)
+            
+            if not area_entries:
+                error_msg = f"No area found for tool {tool_name}. Available areas: {list(set([a['area'] for a in all_areas]))}"
+                logger.error(f"❌ {error_msg}")
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({"error": error_msg}, indent=2)
+                )]
+            
+            logger.info(f"✅ Found {len(area_entries)} explore(s) for area '{area_entries[0]['area']}':")
+            for entry in area_entries:
+                logger.info(f"   📊 {entry['explore_key']} - {entry['description']}")
+            
+            # Step 1: Retrieve golden queries for the area's explores
+            logger.info("🏆 Retrieving golden queries for area explores...")
+            
+            # Collect all explore keys for this area
+            restricted_explore_keys = [entry["explore_key"] for entry in area_entries]
+            area_name = area_entries[0]["area"]  # All entries have the same area name
+            
+            # Get golden queries for each explore in this area
+            golden_queries = {}
+            await self._ensure_olympic_manager()
+            
+            for explore_key in restricted_explore_keys:
+                try:
+                    explore_gold_queries = self.olympic_manager.get_gold_queries_for_training(explore_id=explore_key)
+                    if explore_gold_queries:
+                        golden_queries[explore_key] = explore_gold_queries[:10]  # Limit to 10 golden queries per explore
+                        logger.info(f"   📊 Found {len(explore_gold_queries)} golden queries for {explore_key}")
+                    else:
+                        logger.info(f"   ⚠️ No golden queries found for {explore_key}")
+                        golden_queries[explore_key] = []
+                except Exception as e:
+                    logger.warning(f"   ❌ Failed to get golden queries for {explore_key}: {e}")
+                    golden_queries[explore_key] = []
+            
+            total_golden_queries = sum(len(queries) for queries in golden_queries.values())
+            logger.info(f"✅ Retrieved {total_golden_queries} total golden queries for {len(restricted_explore_keys)} explores")
+            
+            # Step 2: Use the well-tested explore parameter generation logic with golden queries
+            logger.info("🧠 Generating explore parameters using existing logic with golden queries...")
+            
+            explore_params_args = {
+                "prompt": user_question,
+                "restricted_explore_keys": restricted_explore_keys,  # Pass all explores for this area
+                "conversation_context": f"This is a {area_name} related question. Available explores: {', '.join(restricted_explore_keys)}",
+                "golden_queries": golden_queries  # Include the golden queries for better parameter generation
+            }
+            
+            # Call the existing explore parameter generation method
+            explore_params_result = await self._handle_generate_explore_params(explore_params_args)
+            
+            # Parse the explore parameters result
+            if not explore_params_result or len(explore_params_result) == 0:
+                raise ValueError("Failed to generate explore parameters")
+            
+            params_text = explore_params_result[0].text
+            params_data = json.loads(params_text)
+            
+            if "error" in params_data:
+                logger.error(f"❌ Explore parameter generation failed: {params_data['error']}")
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "area": area_name,
+                        "available_explores": restricted_explore_keys,
+                        "user_question": user_question,
+                        "status": "Parameter Generation Failed",
+                        "error": params_data["error"]
+                    }, indent=2)
+                )]
+            
+            explore_params = params_data.get("explore_params", {})
+            determined_explore_key = params_data.get("determined_explore", params_data.get("explore_key", "unknown"))
+            logger.info(f"✅ Generated explore parameters for: {determined_explore_key}")
+            logger.info(f"   Fields: {len(explore_params.get('fields', []))}, Filters: {len(explore_params.get('filters', {}))}")
+            
+            # Ensure model and view parameters are present for inline Looker query
+            if ":" in determined_explore_key:
+                model_name, explore_name = determined_explore_key.split(":", 1)
+                if "model" not in explore_params:
+                    explore_params["model"] = model_name
+                    logger.info(f"   Added missing model parameter: {model_name}")
+                if "view" not in explore_params:
+                    explore_params["view"] = explore_name
+                    logger.info(f"   Added missing view parameter: {explore_name}")
+            
+            logger.info(f"   Final query params: model={explore_params.get('model')}, view={explore_params.get('view')}")
+            
+            # Step 3: Use the generated parameters to run the Looker query
+            logger.info("📊 Running Looker query with generated parameters...")
+            
+            query_args = {
+                "query_body": explore_params,
+                "result_format": "json"
+            }
+            
+            # Call the existing run_looker_query method
+            query_result = await self._handle_run_looker_query(query_args)
+            
+            # Parse the query result
+            if not query_result or len(query_result) == 0:
+                raise ValueError("Failed to execute Looker query")
+            
+            query_text = query_result[0].text
+            query_data = json.loads(query_text)
+            
+            if "error" in query_data:
+                logger.error(f"❌ Looker query failed: {query_data['error']}")
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "area": area_name,
+                        "available_explores": restricted_explore_keys,
+                        "selected_explore": determined_explore_key,
+                        "user_question": user_question,
+                        "status": "Query Execution Failed",
+                        "error": query_data["error"],
+                        "explore_params_used": explore_params
+                    }, indent=2)
+                )]
+            
+            # Extract the actual query results
+            query_results = query_data.get("results", [])
+            if isinstance(query_results, str):
+                try:
+                    query_results = json.loads(query_results)
+                except:
+                    query_results = []
+            
+            logger.info(f"✅ Query completed with {len(query_results)} rows from {determined_explore_key}")
+            
+            # Find which area entry was used (for description)
+            used_area_entry = None
+            for entry in area_entries:
+                if entry["explore_key"] == determined_explore_key:
+                    used_area_entry = entry
+                    break
+            if not used_area_entry:
+                used_area_entry = area_entries[0]  # Fallback to first entry
+            
+            # Step 4: Structure the comprehensive response
+            result = {
+                "area": area_name,
+                "available_explores": restricted_explore_keys,
+                "selected_explore": determined_explore_key,
+                "selected_explore_description": used_area_entry["description"],
+                "user_question": user_question,
+                "status": "Success - Using tested explore parameter generation",
+                "method": "generate_explore_params + run_looker_query",
+                "golden_queries_used": total_golden_queries,
+                "explore_params_generated": {
+                    "model": explore_params.get("model"),
+                    "view": explore_params.get("view"),
+                    "fields": explore_params.get("fields", []),
+                    "filters": explore_params.get("filters", {}),
+                    "pivots": explore_params.get("pivots", []),
+                    "sorts": explore_params.get("sorts", []),
+                    "limit": explore_params.get("limit")
+                },
+                "row_count": len(query_results),
+                "sample_data": query_results[:5] if query_results else [],  # First 5 rows
+                "insights": f"Selected '{determined_explore_key}' from {len(restricted_explore_keys)} available explores for '{user_question}' and retrieved {len(query_results)} rows",
+                "fields_selected": explore_params.get("fields", []),
+                "filters_applied": explore_params.get("filters", {})
+            }
+            
+            logger.info(f"✅ Generated comprehensive response with {result['row_count']} rows using tested logic")
+            return [TextContent(
+                type="text",
+                text=json.dumps(result, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Area facts generation failed: {e}")
+            return [TextContent(
+                type="text",
+                text=json.dumps({
+                    "area": area_entries[0]["area"] if 'area_entries' in locals() and area_entries else "unknown",
+                    "user_question": user_question,
+                    "error": f"Area facts generation failed: {e}",
+                    "method": "generate_explore_params + run_looker_query"
+                }, indent=2)
+            )]
     
     # Helper methods
     async def _ensure_bigquery_client(self):
@@ -2390,7 +2727,11 @@ class FlaskMCPAdapter:
                 if not request_data:
                     return jsonify({'error': 'Missing request body'}), 400, self._get_cors_headers()
                 
-                # Check for MCP tool call
+                # Check if this is a JSON-RPC MCP protocol request
+                if 'method' in request_data:
+                    return self._handle_mcp_protocol_request(request_data)
+                
+                # Otherwise, handle as a direct tool call
                 tool_name = request_data.get('tool_name')
                 arguments = request_data.get('arguments', {})
                 
@@ -2450,6 +2791,119 @@ class FlaskMCPAdapter:
             response.headers.update(self._get_cors_headers())
             response.status_code = 200
             return response
+    
+    def _handle_mcp_protocol_request(self, request_data):
+        """Handle MCP JSON-RPC protocol requests like tools/list"""
+        try:
+            method = request_data.get('method')
+            params = request_data.get('params', {})
+            request_id = request_data.get('id')
+            
+            # Initialize MCP server if needed
+            if not self.mcp_server:
+                self.mcp_server = LookerExploreAssistantMCPServer()
+            
+            # Handle different MCP protocol methods
+            if method == 'tools/list':
+                # Call the MCP server's list_tools handler
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    tools = loop.run_until_complete(self.mcp_server.get_tools_list())
+                    
+                    # Convert Tool objects to JSON format
+                    tools_json = []
+                    for tool in tools:
+                        tools_json.append({
+                            "name": tool.name,
+                            "description": tool.description,
+                            "inputSchema": tool.inputSchema
+                        })
+                    
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "result": {
+                            "tools": tools_json
+                        }
+                    }
+                    return jsonify(response), 200, self._get_cors_headers()
+                finally:
+                    loop.close()
+            
+            elif method == 'tools/call':
+                # Handle tool calls via MCP protocol
+                tool_name = params.get('name')
+                arguments = params.get('arguments', {})
+                
+                if not tool_name:
+                    error_response = {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {
+                            "code": -32602,
+                            "message": "Missing tool name"
+                        }
+                    }
+                    return jsonify(error_response), 400, self._get_cors_headers()
+                
+                # Apply security validation
+                auth_header = request.headers.get("Authorization")
+                user_context = self._validate_tool_security(tool_name, auth_header)
+                
+                if user_context:
+                    arguments['_user_context'] = user_context
+                
+                # Call the tool
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    result = loop.run_until_complete(
+                        self._call_mcp_tool(tool_name, arguments)
+                    )
+                    
+                    # Convert TextContent result to MCP protocol response
+                    content = []
+                    for item in result:
+                        content.append({
+                            "type": "text",
+                            "text": item.text
+                        })
+                    
+                    response = {
+                        "jsonrpc": "2.0", 
+                        "id": request_id,
+                        "result": {
+                            "content": content
+                        }
+                    }
+                    return jsonify(response), 200, self._get_cors_headers()
+                finally:
+                    loop.close()
+            
+            else:
+                # Unknown method
+                error_response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32601,
+                        "message": f"Unknown method: {method}"
+                    }
+                }
+                return jsonify(error_response), 400, self._get_cors_headers()
+                
+        except Exception as e:
+            logger.error(f"MCP protocol error: {e}")
+            error_response = {
+                "jsonrpc": "2.0",
+                "id": request_data.get('id'),
+                "error": {
+                    "code": -32603,
+                    "message": str(e)
+                }
+            }
+            return jsonify(error_response), 500, self._get_cors_headers()
     
     async def _call_mcp_tool(self, tool_name: str, arguments: dict):
         """Call MCP tool and return result"""

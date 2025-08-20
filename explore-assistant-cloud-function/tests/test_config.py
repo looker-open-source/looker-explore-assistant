@@ -49,14 +49,37 @@ def get_test_data_path(filename):
 # Set up the environment when this module is imported
 mcp_server = setup_test_environment()
 
-# Export commonly used functions from mcp_server for convenience
-from mcp_server import (
-    filter_golden_queries_by_explores,
-    filter_semantic_models_by_explores,
-    call_vertex_ai_with_retry,
-    get_max_tokens_for_model,
-    calculate_max_output_tokens
-)
+# Export commonly used functions from new modular architecture
+try:
+    # Import from new modular structure
+    from explore_selection.filters import (
+        filter_golden_queries_by_explores,
+        filter_semantic_models_by_explores
+    )
+    from vertex.client import call_vertex_ai_with_retry
+    from core.config import get_max_tokens_for_model
+    from parameter_generation import generate_explore_params_from_query
+    logging.info("✅ Imported from new modular architecture")
+except ImportError as e:
+    logging.warning(f"⚠️ Falling back to legacy imports: {e}")
+    # Fallback to legacy imports
+    from mcp_server import (
+        filter_golden_queries_by_explores,
+        filter_semantic_models_by_explores,
+        call_vertex_ai_with_retry,
+        get_max_tokens_for_model
+    )
+
+# For backward compatibility, also try to import calculate_max_output_tokens
+try:
+    from mcp_server import calculate_max_output_tokens
+except ImportError:
+    # Create a fallback implementation
+    def calculate_max_output_tokens(model_name: str, input_tokens: int) -> int:
+        """Fallback implementation for calculate_max_output_tokens"""
+        from core.config import get_max_tokens_for_model
+        limits = get_max_tokens_for_model(model_name)
+        return min(limits["output"], max(1000, limits["input"] - input_tokens))
 
 # Test data constants
 SAMPLE_GOLDEN_QUERIES = {

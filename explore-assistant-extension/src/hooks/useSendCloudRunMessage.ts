@@ -24,29 +24,46 @@ const useSendCloudRunMessage = () => {
       throw new Error('Identity token not available')
     }
 
-    console.log('Making request to Cloud Run service using Identity token...')
-    console.log('Request URL:', CLOUD_RUN_URL)
-    
+    // Use REST API endpoint instead of root endpoint
+    const restApiUrl = `${CLOUD_RUN_URL}/api/v1/query`
+    console.log('Making request to REST API endpoint using Identity token...')
+    console.log('Request URL:', restApiUrl)
+
+    // Always include required fields in the request body
+    const requestBody = {
+      query: payload.prompt,
+      restricted_explore_keys: payload.restricted_explore_keys,
+      semantic_models: payload.semantic_models,
+      golden_queries: payload.golden_queries,
+      conversation_context: payload.thread_messages ? JSON.stringify(payload.thread_messages) : '',
+      // Optionally include these if present
+      vertex_model: payload.vertex_model,
+      test_mode: payload.test_mode,
+      conversation_id: payload.conversation_id,
+      prompt_history: payload.prompt_history,
+      thread_messages: payload.thread_messages
+    }
+
     try {
       // Try fetchProxy first (preferred)
       try {
         console.log('Attempting fetchProxy request with Bearer token...')
-        const response = await extensionSDK.fetchProxy(CLOUD_RUN_URL, {
+        const response = await extensionSDK.fetchProxy(restApiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${identityToken}`,
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(requestBody),
         })
         console.log('fetchProxy request successful')
         console.log('fetchProxy response structure:', typeof response, Object.keys(response || {}))
-        
+
         // fetchProxy returns a FetchProxyDataResponse, extract the body
         if (response && response.body) {
           console.log('fetchProxy response body type:', typeof response.body)
           console.log('fetchProxy response body:', response.body)
-          
+
           // The body should already be parsed JSON
           return response.body
         } else {
@@ -54,27 +71,8 @@ const useSendCloudRunMessage = () => {
           throw new Error('Invalid response from fetchProxy - no body')
         }
       } catch (proxyError) {
-        console.warn('fetchProxy failed, falling back to direct fetch...', proxyError)
-        // Fallback to direct fetch
-        const response = await fetch(CLOUD_RUN_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${identityToken}`,
-          },
-          body: JSON.stringify(payload),
-          mode: 'cors',
-          credentials: 'omit',
-        })
-        if (response.ok) {
-          console.log('Direct fetch with Bearer token successful')
-          const jsonResponse = await response.json()
-          console.log('Direct fetch response structure:', typeof jsonResponse, Object.keys(jsonResponse || {}))
-          return jsonResponse
-        } else {
-          const errorText = await response.text()
-          throw new Error(`Cloud Run fetch error: ${response.status} ${response.statusText} - ${errorText}`)
-        }
+        console.error('fetchProxy request failed:', proxyError)
+        throw new Error(`REST API request failed: ${proxyError}`)
       }
     } catch (error) {
       console.error('Cloud Run request failed:', error)
@@ -87,11 +85,11 @@ const useSendCloudRunMessage = () => {
       try {
         // Get current thread and its messages - use currentExploreThread or find from history
         const threadToUse = currentExploreThread || history?.find((t: any) => t.uuid === conversationId)
-        
+
         // Get explore keys for selected area if area is selected
         const selectedAreaData = selectedArea ? availableAreas.find(area => area.area === selectedArea) : null
-        
-        // Use selected explores if any are chosen, otherwise use all explores from the area
+
+        // Use selected explores if any are chosen, otherwise use all from the area
         let restrictedExploreKeys: string[] = []
         if (selectedExplores && selectedExplores.length > 0) {
           // User has specifically selected explores
@@ -101,9 +99,8 @@ const useSendCloudRunMessage = () => {
           restrictedExploreKeys = selectedAreaData.explore_keys
         }
         // If no area or explores selected, restrictedExploreKeys remains empty (no restrictions)
-        
-        // Build the payload for the Cloud Run service with conversation context
-        // Note: current_explore and model_name are ignored by backend in favor of AI selection
+
+        // Always include required fields in the payload
         const payload = {
           prompt,
           conversation_id: conversationId,
@@ -113,7 +110,6 @@ const useSendCloudRunMessage = () => {
           semantic_models: semanticModels,
           vertex_model: vertexModel,
           test_mode: false,
-          // Area context for explore restriction
           restricted_explore_keys: restrictedExploreKeys
         }
 
@@ -165,49 +161,29 @@ const useSendCloudRunMessage = () => {
         testInFlight.current = false
         return false
       }
-      console.log('Testing Cloud Run connection using Identity token...')
-      // Simple test payload in MCP format
-      const testPayload = {
-        tool_name: 'generate_explore_parameters',
-        arguments: {
-          prompt: "test connection",
-          explore_key: "test",
-          model_name: "test",
-          conversation_id: "test",
-          vertex_model: vertexModel,
-          test_mode: true
-        }
-      }
+      console.log('Testing Cloud Run connection using REST API health check...')
+      
       try {
-        // Try fetchProxy first
-        await extensionSDK.fetchProxy(CLOUD_RUN_URL, {
-          method: 'POST',
+        // Test using the health check endpoint instead of MCP format
+        const healthUrl = `${CLOUD_RUN_URL}/api/v1/system-status/health`
+        const response = await extensionSDK.fetchProxy(healthUrl, {
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${identityToken}`
-          },
-          body: JSON.stringify(testPayload)
+          }
         })
-        console.log('Cloud Run test successful via fetchProxy')
-        return true
-      } catch (fetchProxyError) {
-        console.log('fetchProxy failed, trying direct fetch...', fetchProxyError)
-        // Fallback to direct fetch
-        const response = await fetch(CLOUD_RUN_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${identityToken}`
-          },
-          body: JSON.stringify(testPayload)
-        })
-        if (response.ok) {
-          console.log('Cloud Run test successful via direct fetch')
+        
+        if (response && response.ok) {
+          console.log('Cloud Run health check successful:', response.body)
           return true
         } else {
-          console.log('Cloud Run test failed:', response.status, response.statusText)
+          console.log('Cloud Run health check failed:', response)
           return false
         }
+      } catch (error) {
+        console.log('Cloud Run health check error:', error)
+        return false
       }
     } catch (error) {
       console.error('Cloud Run test error:', error)

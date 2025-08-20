@@ -130,46 +130,81 @@ const AgentPage = () => {
     scrollIntoView()
   }, [currentExploreThread, query, isQuerying])
 
-  // Helper function to flexibly extract summary from response
-  const extractSummary = (response: any): string | undefined => {
-    // Check various possible field names for summary information
-    const summaryFields = [
-      'summary',
-      'description', 
-      'explanation',
-      'note',
-      'comment',
-      'insight',
-      'analysis',
-      'interpretation',
-      'context',
-      'details',
-      'info',
-      'message',
-      'clarification',
-      'annotation'
-    ]
-    
-    for (const field of summaryFields) {
-      if (response[field] && typeof response[field] === 'string' && response[field].trim()) {
-        console.log(`Found summary in field '${field}':`, response[field])
-        return response[field].trim()
+
+    // Helper to parse Ruby-style object format (as in the provided example)
+    const parseRubyStyleObject = (input: string): any => {
+      // Remove code block markers if present
+      let str = input.trim()
+      if (str.startsWith('```')) {
+        str = str.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim()
       }
-    }
-    
-    // Also check for nested objects that might contain summary info
-    if (response.metadata && typeof response.metadata === 'object') {
-      for (const field of summaryFields) {
-        if (response.metadata[field] && typeof response.metadata[field] === 'string' && response.metadata[field].trim()) {
-          console.log(`Found summary in metadata.${field}:`, response.metadata[field])
-          return response.metadata[field].trim()
+      // Replace Ruby hash rockets and symbols with JSON style
+      str = str
+        .replace(/([a-zA-Z0-9_]+)\s*:/g, '"$1":') // key: => "key":
+        .replace(/:([a-zA-Z0-9_]+)/g, '"$1"') // :key => "key"
+        .replace(/=>/g, ':')
+      // Try to parse as JSON
+      try {
+        return JSON.parse(str)
+      } catch (e) {
+        // Fallback: try to eval as JS object
+        try {
+          // eslint-disable-next-line no-eval
+          return eval('(' + str + ')')
+        } catch (e2) {
+          console.error('Failed to parse Ruby-style object:', e2, str)
+          return null
         }
       }
     }
-    
-    console.log('No summary found in response fields:', Object.keys(response))
-    return undefined
-  }
+
+    // Helper function to flexibly extract summary from response
+    const extractSummary = (response: any): string | undefined => {
+      // If response is a string in Ruby-style object format, try to parse it
+      if (typeof response === 'string' && response.includes('data') && response.includes('parameters')) {
+        const parsed = parseRubyStyleObject(response)
+        if (parsed && typeof parsed === 'object') {
+          response = parsed
+        }
+      }
+      // Check various possible field names for summary information
+      const summaryFields = [
+        'summary',
+        'description', 
+        'explanation',
+        'note',
+        'comment',
+        'insight',
+        'analysis',
+        'interpretation',
+        'context',
+        'details',
+        'info',
+        'message',
+        'clarification',
+        'annotation'
+      ]
+      
+      for (const field of summaryFields) {
+        if (response[field] && typeof response[field] === 'string' && response[field].trim()) {
+          console.log(`Found summary in field '${field}':`, response[field])
+          return response[field].trim()
+        }
+      }
+      
+      // Also check for nested objects that might contain summary info
+      if (response.metadata && typeof response.metadata === 'object') {
+        for (const field of summaryFields) {
+          if (response.metadata[field] && typeof response.metadata[field] === 'string' && response.metadata[field].trim()) {
+            console.log(`Found summary in metadata.${field}:`, response.metadata[field])
+            return response.metadata[field].trim()
+          }
+        }
+      }
+      
+      console.log('No summary found in response fields:', Object.keys(response))
+      return undefined
+    }
 
   const submitMessage = useCallback(async () => {
     if (query === '') {
@@ -209,8 +244,9 @@ const AgentPage = () => {
     
     try {
       // SINGLE CALL to Cloud Run service
-      const response = await processPrompt(query, conversationId, promptList)
-      
+      let response = await processPrompt(query, conversationId, promptList)
+      if (response.data) response = response.data
+
       console.log('Cloud Run response:', response)
       
       // Handle explore determination from response
@@ -257,7 +293,7 @@ const AgentPage = () => {
       // Update thread with response data
       dispatch(
         updateCurrentThread({
-          exploreParams: response.explore_params || {},
+          exploreParams: response.explore_params || response.parameters || {},
           summarizedPrompt: response.summarized_prompt || query,
         }),
       )
@@ -268,7 +304,7 @@ const AgentPage = () => {
       if (messageType === 'summarize') {
         dispatch(
           addMessage({
-            exploreParams: response.explore_params || {},
+            exploreParams: response.explore_params || response.parameters || {},
             uuid: uuidv4(),
             actor: 'system',
             createdAt: Date.now(),
@@ -278,7 +314,7 @@ const AgentPage = () => {
         )
       } else {
         // Default to explore message
-        dispatch(setSidePanelExploreParams(response.explore_params || {}))
+        dispatch(setSidePanelExploreParams(response.explore_params || response.parameters || {}))
         dispatch(openSidePanel())
 
         dispatch(

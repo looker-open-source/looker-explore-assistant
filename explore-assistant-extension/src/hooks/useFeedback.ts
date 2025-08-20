@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useContext } from 'react'
+import { ExtensionContext } from '@looker/extension-sdk-react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store'
 import { AssistantState } from '../slices/assistantSlice'
@@ -51,6 +52,22 @@ export const useFeedback = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { settings } = useSelector((state: RootState) => state.assistant as AssistantState)
+  const extensionContext = useContext(ExtensionContext)
+  // Utility to update the hostname in a URL to match the extension context host
+  function updateUrlHostname(originalUrl: string): string {
+    try {
+      const url = new URL(originalUrl)
+      // Use hostOrigin if available, else fallback to window.location.origin
+      const hostOrigin = extensionContext?.lookerHostData?.hostOrigin || window.location.origin
+      const parsedHost = new URL(hostOrigin)
+      url.protocol = parsedHost.protocol
+      url.hostname = parsedHost.hostname
+      url.port = parsedHost.port // will be empty string if not present
+      return url.toString()
+    } catch {
+      return originalUrl
+    }
+  }
   
   // Get Cloud Run settings
   const CLOUD_RUN_URL = settings['cloud_run_service_url']?.value as string || ''
@@ -159,37 +176,33 @@ export const useFeedback = () => {
 
   const submitFeedback = async (feedbackData: FeedbackData): Promise<boolean> => {
     setIsSubmitting(true)
-    
     try {
-      // Check if we have Cloud Run settings configured
       if (!CLOUD_RUN_URL) {
         throw new Error('Cloud Run URL not configured')
       }
-      
       if (!identityToken) {
         throw new Error('Identity token not available')
       }
-
-      // Use the new add_feedback_query MCP tool with comprehensive data structure
+      // Replace shareUrl hostname with extension context host
+      const updatedShareUrl = updateUrlHostname(feedbackData.shareUrl)
       const requestBody = {
         tool_name: 'add_feedback_query',
         arguments: {
           explore_id: feedbackData.exploreId,
           original_prompt: feedbackData.originalPrompt,
           generated_params: feedbackData.generatedParams,
-          share_url: feedbackData.shareUrl,
+          share_url: updatedShareUrl,
           feedback_type: feedbackData.feedbackType,
           user_id: feedbackData.userId,
           conversation_context: null, // TODO: Add conversation context from state
           user_comment: feedbackData.userComment,
-          suggested_improvements: typeof feedbackData.suggestedImprovements === 'string' 
-            ? feedbackData.suggestedImprovements 
+          suggested_improvements: typeof feedbackData.suggestedImprovements === 'string'
+            ? feedbackData.suggestedImprovements
             : JSON.stringify(feedbackData.suggestedImprovements),
           issues: feedbackData.issues || (feedbackData.feedbackType === 'negative' ? ['User marked as unhelpful'] : null),
           query_id: feedbackData.queryId
         }
       }
-
       const response = await fetch(CLOUD_RUN_URL, {
         method: 'POST',
         headers: {
@@ -198,18 +211,13 @@ export const useFeedback = () => {
         },
         body: JSON.stringify(requestBody)
       })
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-
       const result = await response.json()
-      
-      // Check if the MCP server returned success
       if (result.error || result.status !== 'success') {
         throw new Error(result.error || 'Failed to submit feedback')
       }
-
       return true
     } catch (error) {
       console.error('Failed to submit feedback:', error)

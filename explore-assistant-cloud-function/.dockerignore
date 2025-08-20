@@ -62,6 +62,11 @@ get_oauth_token.sh
 test_*.py
 testing/
 *copy*/
+debug_*.py
+demo_*.py
+check_*.py
+sample_*.py
+function_first_architecture.py
 
 # Development utilities
 scripts/
@@ -89,6 +94,19 @@ deploy_to_cloudrun.sh
 redeploy*.sh
 update_env_vars.sh
 fix-cors*.sh
+setup_*.sh
+deploy-new-service.sh
+test-new-service.sh
+
+# Build files
+cloudbuild*.yaml
+Dockerfile.mcp_server.optimized
+
+# Refactoring documentation files
+MCP_*.md
+OLYMPIC_*.md
+VECTOR_*.md
+MIGRATION_*.md
 
 # Frontend files (if accidentally included)
 node_modules/

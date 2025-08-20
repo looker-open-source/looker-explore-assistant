@@ -612,7 +612,7 @@ class FieldLookupMCPServer:
                 return json.dumps({
                     "status": "active",
                     "bigquery_connected": self.bq_client is not None,
-                    "spacy_loaded": nlp is not None,
+                    "vector_search_available": True,  # Modern vector search replaces spaCy
                     "project_id": PROJECT_ID,
                     "dataset_id": DATASET_ID
                 }, indent=2)
@@ -763,7 +763,10 @@ class FieldLookupMCPServer:
     
     def extract_searchable_terms(self, query_text: str) -> List[str]:
         """
-        Extract nouns, codes, and searchable terms from natural language query
+        Extract searchable terms from natural language query using regex patterns.
+        
+        DEPRECATED: spaCy noun extraction has been replaced with modern vector search.
+        This method now uses simple regex patterns for basic term extraction.
         
         Args:
             query_text: "Show me customer lifetime value for orders with status shipped"
@@ -771,19 +774,13 @@ class FieldLookupMCPServer:
         Returns:
             ["customer", "lifetime", "value", "orders", "status", "shipped"]
         """
-        if not nlp:
-            logger.warning("spaCy not available, using basic term extraction")
-            # Fallback to simple word extraction
-            words = re.findall(r'\b[a-zA-Z]{3,}\b', query_text.lower())
-            return list(set(words))
+        logger.info("Using regex-based term extraction (spaCy deprecated)")
         
-        doc = nlp(query_text)
         searchable_terms = []
         
-        # Extract nouns and proper nouns
-        for token in doc:
-            if token.pos_ in ['NOUN', 'PROPN'] and len(token.text) > 2:
-                searchable_terms.append(token.text.lower())
+        # Extract basic words (3+ characters)
+        words = re.findall(r'\b[a-zA-Z]{3,}\b', query_text.lower())
+        searchable_terms.extend(words)
         
         # Extract quoted strings (often codes or specific values)
         quoted_pattern = r"['\"]([^'\"]+)['\"]"

@@ -6,10 +6,10 @@
 set -e  # Exit on any error
 
 # Configuration variables - should match your existing deployment
-PROJECT_ID="combined-genai-bi"  # Replace with your GCP project ID
+PROJECT_ID="explore-assistant-cf-mis"  # Updated for new GCP project
 REGION="us-central1"  # Replace with your preferred region
-SERVICE_NAME="looker-explore-assistant-mcp"
-IMAGE_NAME="looker-explore-assistant-mcp"
+SERVICE_NAME="ea-demo-backend"  # New unique service name
+IMAGE_NAME="ea-demo-backend"  # Match image name to service for clarity
 
 # Colors for output
 RED='\033[0;31m'

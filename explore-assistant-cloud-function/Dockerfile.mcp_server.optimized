@@ -1,0 +1,54 @@
+# Dockerfile for True MCP Protocol Server (looker_mcp_server.py)
+# Serves vector search, olympic tables, and all MCP tools
+# Updated for new modular architecture
+
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Copy requirements first for better layer caching
+COPY requirements.txt ./
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m spacy download en_core_web_sm
+
+# Copy the new modular structure (core modules)
+COPY core/ ./core/
+COPY vertex/ ./vertex/
+COPY vector_search/ ./vector_search/
+COPY explore_selection/ ./explore_selection/
+COPY parameter_generation/ ./parameter_generation/
+
+# Copy additional module directories if they exist
+COPY looker/ ./looker/ 2>/dev/null || true
+COPY olympic/ ./olympic/ 2>/dev/null || true
+COPY areas/ ./areas/ 2>/dev/null || true
+COPY mcp/ ./mcp/ 2>/dev/null || true
+
+# Copy main server files
+COPY looker_mcp_server.py ./
+COPY mcp_server.py ./
+
+# Copy still-needed legacy utility files (based on import analysis)
+COPY llm_utils.py ./
+COPY olympic_query_manager.py ./
+COPY olympic_mcp_integration.py ./
+COPY field_lookup_service.py ./
+
+# Copy additional files that may be imported dynamically
+COPY graceful_table_manager.py ./
+COPY vector_table_manager.py ./
+COPY looker_reference.py ./
+
+# Optional: Copy legacy files for backward compatibility
+# These can be removed once fully migrated to modular structure
+COPY enhanced_vector_integration.py ./
+COPY vector_search_mcp_integration.py ./
+COPY olympic_migration_manager.py ./
+
+EXPOSE 8080
+ENV FLASK_ENV=production
+
+# Entrypoint for the true MCP server
+CMD ["python", "looker_mcp_server.py"]

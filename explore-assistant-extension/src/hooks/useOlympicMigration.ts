@@ -12,6 +12,7 @@ import { RootState } from '../store'
 import { AssistantState } from '../slices/assistantSlice'
 import { useContext } from 'react'
 import { ExtensionContext } from '@looker/extension-sdk-react'
+import { useSystemStatus } from './useSystemStatus'
 
 interface OlympicQuery {
   id: string
@@ -153,82 +154,45 @@ export const useOlympicQueries = () => {
   const [migrationStatus, setMigrationStatus] = useState<MigrationStatus | null>(null)
   const [migrationResult, setMigrationResult] = useState<MigrationResult | null>(null)
 
+  // Import the new REST-based system status hook  
+  const { getSystemStatus: getRestSystemStatus, getMigrationStatus: getRestMigrationStatus } = useSystemStatus()
+  
+  // Migration Status:
+  // ✅ MIGRATED TO REST: getBronzeQueries, getSilverQueries, getGoldenQueries
+  // 🔄 STILL MCP: addBronzeQuery, addSilverQuery, promoteQuery, deleteQuery, getQueryStats, performMigration
+  // 
+  // Available REST endpoints for remaining operations:
+  // - addBronzeQuery -> POST /api/v1/admin/queries/bronze (needs implementation)
+  // - addSilverQuery -> POST /api/v1/admin/queries/silver (needs implementation)  
+  // - promoteQuery -> POST /api/v1/admin/promote
+  // - deleteQuery -> DELETE /api/v1/admin/queries/{id} (needs implementation)
+
   // Cloud Run service settings
   const CLOUD_RUN_URL = settings['cloud_run_service_url']?.value as string || ''
   const identityToken = settings['identity_token']?.value as string || ''
 
-  const callMCPTool = useCallback(async (toolName: string, args: any): Promise<any> => {
-    if (!CLOUD_RUN_URL) {
-      throw new Error('Cloud Run URL not configured')
-    }
-    
-    if (!identityToken) {
-      throw new Error('Identity token not available')
-    }
-
-    const requestBody = {
-      tool_name: toolName,
-      arguments: args
-    }
-
-    console.log('Making Olympic MCP tool request:', { toolName, args })
-
-    try {
-      // Try fetchProxy first (preferred)
-      try {
-        console.log('Attempting fetchProxy request...')
-        const response = await extensionSDK.fetchProxy(CLOUD_RUN_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${identityToken}`,
-          },
-          body: JSON.stringify(requestBody)
-        })
-
-        if (!response.ok) {
-          const errorText = await response.body
-          throw new Error(`HTTP ${response.status}: ${errorText}`)
-        }
-
-        return response.body
-      } catch (proxyError) {
-        console.warn('fetchProxy failed, falling back to direct fetch...', proxyError)
-        
-        // Fallback to direct fetch
-        const response = await fetch(CLOUD_RUN_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${identityToken}`,
-          },
-          body: JSON.stringify(requestBody)
-        })
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`HTTP ${response.status}: ${errorText}`)
-        }
-
-        return await response.json()
-      }
-    } catch (error) {
-      console.error('Olympic MCP tool call failed:', error)
-      throw error
-    }
-  }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
   const getSystemStatus = useCallback(async (): Promise<OlympicSystemStatus> => {
     setOperationStatus('loading')
     try {
-      console.log('Getting Olympic system status...')
-      const result = await callMCPTool('get_system_status', {})
+      console.log('Getting Olympic system status via REST API...')
+      const result = await getRestSystemStatus()
       
-      if (result.status !== 'success') {
-        throw new Error(result.error || 'Failed to get system status')
+      // Transform REST response to match existing interface
+      const status: OlympicSystemStatus = {
+        table_exists: result.olympic_table_exists,
+        total_records: result.olympic_record_count,
+        records_by_rank: {
+          bronze: result.olympic_records_by_rank?.bronze || 0,
+          silver: result.olympic_records_by_rank?.silver || 0, 
+          gold: result.olympic_records_by_rank?.gold || 0,
+          disqualified: 0 // Not available in REST response yet
+        },
+        explore_distribution: {}, // Not available in REST response yet
+        schema_version: '1.0', // Default value
+        last_updated: result.timestamp
       }
-
-      const status = result.result
+      
       setSystemStatus(status)
       setOperationStatus('success')
       return status
@@ -237,7 +201,7 @@ export const useOlympicQueries = () => {
       setOperationStatus('error')
       throw error
     }
-  }, [callMCPTool])
+  }, [getRestSystemStatus])
 
   const addBronzeQuery = useCallback(async (
     exploreId: string,
@@ -247,27 +211,38 @@ export const useOlympicQueries = () => {
     userEmail: string
   ): Promise<QueryOperationResult> => {
     setOperationStatus('loading')
-    
     try {
-      console.log('Adding bronze query...', { exploreId, inputText })
-      const result = await callMCPTool('add_bronze_query', {
-        explore_id: exploreId,
-        input: inputText,
-        output: JSON.stringify(outputData),
-        link,
-        user_email: userEmail
+      if (!CLOUD_RUN_URL || !identityToken) {
+        throw new Error('Cloud Run URL or identity token not configured')
+      }
+      const restApiUrl = `${CLOUD_RUN_URL}/api/v1/admin/queries/bronze`
+      const response = await extensionSDK.fetchProxy(restApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        },
+        body: JSON.stringify({
+          explore_id: exploreId,
+          input: inputText,
+          output: outputData,
+          link,
+          user_email: userEmail
+        })
       })
-      
-      if (result.status !== 'success') {
+      if (!response.ok) {
+        const errorText = response.body?.error || `HTTP ${response.status}`
+        throw new Error(errorText)
+      }
+      const result = response.body
+      if (!result.success) {
         throw new Error(result.error || 'Failed to add bronze query')
       }
-
       const operationResult: QueryOperationResult = {
         success: true,
-        query_id: result.result.query_id || result.result.id,
+        query_id: result.data?.id || result.data?.query_id,
         system: 'olympic'
       }
-      
       setLastOperationResult(operationResult)
       setOperationStatus('success')
       return operationResult
@@ -282,7 +257,7 @@ export const useOlympicQueries = () => {
       console.error('Adding bronze query failed:', error)
       throw error
     }
-  }, [callMCPTool])
+  }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
   const addSilverQuery = useCallback(async (
     exploreId: string,
@@ -294,29 +269,40 @@ export const useOlympicQueries = () => {
     conversationHistory?: Record<string, any>[]
   ): Promise<QueryOperationResult> => {
     setOperationStatus('loading')
-    
     try {
-      console.log('Adding silver query...', { exploreId, inputText, feedbackType })
-      const result = await callMCPTool('add_silver_query', {
-        explore_id: exploreId,
-        input: inputText,
-        output: JSON.stringify(outputData),
-        link,
-        user_id: userId,
-        feedback_type: feedbackType,
-        conversation_history: conversationHistory ? JSON.stringify(conversationHistory) : undefined
+      if (!CLOUD_RUN_URL || !identityToken) {
+        throw new Error('Cloud Run URL or identity token not configured')
+      }
+      const restApiUrl = `${CLOUD_RUN_URL}/api/v1/admin/queries/silver`
+      const response = await extensionSDK.fetchProxy(restApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        },
+        body: JSON.stringify({
+          explore_id: exploreId,
+          input: inputText,
+          output: outputData,
+          link,
+          user_id: userId,
+          feedback_type: feedbackType,
+          conversation_history: conversationHistory
+        })
       })
-      
-      if (result.status !== 'success') {
+      if (!response.ok) {
+        const errorText = response.body?.error || `HTTP ${response.status}`
+        throw new Error(errorText)
+      }
+      const result = response.body
+      if (!result.success) {
         throw new Error(result.error || 'Failed to add silver query')
       }
-
       const operationResult: QueryOperationResult = {
         success: true,
-        query_id: result.result.query_id || result.result.id,
+        query_id: result.data?.id || result.data?.query_id,
         system: 'olympic'
       }
-      
       setLastOperationResult(operationResult)
       setOperationStatus('success')
       return operationResult
@@ -331,29 +317,41 @@ export const useOlympicQueries = () => {
       console.error('Adding silver query failed:', error)
       throw error
     }
-  }, [callMCPTool])
+  }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
   const promoteQuery = useCallback(async (
     queryId: string,
     promotedBy: string,
-    fromRank: 'bronze' | 'silver' = 'bronze', // Default to bronze if not specified
-    toRank: 'silver' | 'gold' = 'gold' // Default to gold if not specified
+    fromRank: 'bronze' | 'silver' = 'bronze',
+    toRank: 'silver' | 'gold' = 'gold'
   ): Promise<QueryPromotionResult> => {
     setOperationStatus('loading')
-    
     try {
-      console.log('Promoting query...', { queryId, fromRank, toRank })
-      const result = await callMCPTool('promote_query_flexible', {
-        query_id: queryId,
-        from_rank: fromRank,
-        to_rank: toRank,
-        promoted_by: promotedBy
+      if (!CLOUD_RUN_URL || !identityToken) {
+        throw new Error('Cloud Run URL or identity token not configured')
+      }
+      const restApiUrl = `${CLOUD_RUN_URL}/api/v1/admin/promote`
+      const response = await extensionSDK.fetchProxy(restApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        },
+        body: JSON.stringify({
+          query_id: queryId,
+          target_rank: toRank.toUpperCase(),
+          promoted_by: promotedBy,
+          promotion_reason: undefined
+        })
       })
-      
-      if (result.status !== 'success') {
+      if (!response.ok) {
+        const errorText = response.body?.error || `HTTP ${response.status}`
+        throw new Error(errorText)
+      }
+      const result = response.body
+      if (!result.success) {
         throw new Error(result.error || 'Failed to promote query')
       }
-
       const promotionResult: QueryPromotionResult = {
         success: true,
         query_id: queryId,
@@ -362,7 +360,6 @@ export const useOlympicQueries = () => {
         promoted_by: promotedBy,
         promoted_at: new Date().toISOString()
       }
-      
       setOperationStatus('success')
       return promotionResult
     } catch (error) {
@@ -370,37 +367,39 @@ export const useOlympicQueries = () => {
       console.error('Query promotion failed:', error)
       throw error
     }
-  }, [callMCPTool])
+  }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
   const deleteQuery = useCallback(async (
     queryId: string,
     deletedBy: string
   ): Promise<QueryOperationResult> => {
     setOperationStatus('loading')
-    
     try {
-      console.log('Deleting query...', { queryId, deletedBy })
-      const result = await callMCPTool('delete_olympic_query', {
-        query_id: queryId,
-        confirm_delete: true
+      if (!CLOUD_RUN_URL || !identityToken) {
+        throw new Error('Cloud Run URL or identity token not configured')
+      }
+      const restApiUrl = `${CLOUD_RUN_URL}/api/v1/admin/queries/${queryId}`
+      const response = await extensionSDK.fetchProxy(restApiUrl, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        },
+        body: JSON.stringify({ deleted_by: deletedBy })
       })
-      
-      // Check for backend error response
-      if (result.error) {
-        throw new Error(result.error)
+      if (!response.ok) {
+        const errorText = response.body?.error || `HTTP ${response.status}`
+        throw new Error(errorText)
       }
-      
-      // Check for success in the direct response structure
+      const result = response.body
       if (!result.success) {
-        throw new Error(result.message || 'Failed to delete query')
+        throw new Error(result.error || 'Failed to delete query')
       }
-
       const operationResult: QueryOperationResult = {
         success: true,
         query_id: queryId,
         system: 'olympic'
       }
-      
       setLastOperationResult(operationResult)
       setOperationStatus('success')
       return operationResult
@@ -415,24 +414,38 @@ export const useOlympicQueries = () => {
       console.error('Query deletion failed:', error)
       throw error
     }
-  }, [callMCPTool])
+  }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
     const getGoldenQueries = useCallback(async (exploreId?: string, limit: number = 50): Promise<OlympicQuery[]> => {
     setOperationStatus('loading')
     
     try {
-      console.log('Getting golden queries...', { exploreId, limit })
-      const result = await callMCPTool('get_queries_by_rank', {
-        rank: 'gold',
-        explore_id: exploreId,
-        limit
+      console.log('Getting golden queries via REST API...', { exploreId, limit })
+      
+      if (!CLOUD_RUN_URL || !identityToken) {
+        throw new Error('Cloud Run URL or identity token not configured')
+      }
+
+      const restApiUrl = `${CLOUD_RUN_URL}/api/v1/admin/queries/gold`
+      const response = await extensionSDK.fetchProxy(restApiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        }
       })
       
-      if (result.status !== 'success') {
+      if (!response.ok) {
+        const errorText = response.body?.error || `HTTP ${response.status}`
+        throw new Error(errorText)
+      }
+
+      const result = response.body
+      if (!result.success) {
         throw new Error(result.error || 'Failed to get golden queries')
       }
 
-      const queries = result.result?.queries || []
+      const queries = result.data || []
       setOperationStatus('success')
       return queries
     } catch (error) {
@@ -440,24 +453,38 @@ export const useOlympicQueries = () => {
       setOperationStatus('error')
       throw error
     }
-  }, [callMCPTool])
+  }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
   const getBronzeQueries = useCallback(async (exploreId?: string, limit: number = 50): Promise<OlympicQuery[]> => {
     setOperationStatus('loading')
     
     try {
-      console.log('Getting bronze queries...', { exploreId, limit })
-      const result = await callMCPTool('get_queries_by_rank', {
-        rank: 'bronze',
-        explore_id: exploreId,
-        limit
+      console.log('Getting bronze queries via REST API...', { exploreId, limit })
+      
+      if (!CLOUD_RUN_URL || !identityToken) {
+        throw new Error('Cloud Run URL or identity token not configured')
+      }
+
+      const restApiUrl = `${CLOUD_RUN_URL}/api/v1/admin/queries/bronze`
+      const response = await extensionSDK.fetchProxy(restApiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        }
       })
       
-      if (result.status !== 'success') {
+      if (!response.ok) {
+        const errorText = response.body?.error || `HTTP ${response.status}`
+        throw new Error(errorText)
+      }
+
+      const result = response.body
+      if (!result.success) {
         throw new Error(result.error || 'Failed to get bronze queries')
       }
 
-      const queries = result.result?.queries || []
+      const queries = result.data || []
       setOperationStatus('success')
       return queries
     } catch (error) {
@@ -465,24 +492,38 @@ export const useOlympicQueries = () => {
       setOperationStatus('error')
       throw error
     }
-  }, [callMCPTool])
+  }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
   const getSilverQueries = useCallback(async (exploreId?: string, limit: number = 50): Promise<OlympicQuery[]> => {
     setOperationStatus('loading')
     
     try {
-      console.log('Getting silver queries...', { exploreId, limit })
-      const result = await callMCPTool('get_queries_by_rank', {
-        rank: 'silver',
-        explore_id: exploreId,
-        limit
+      console.log('Getting silver queries via REST API...', { exploreId, limit })
+      
+      if (!CLOUD_RUN_URL || !identityToken) {
+        throw new Error('Cloud Run URL or identity token not configured')
+      }
+
+      const restApiUrl = `${CLOUD_RUN_URL}/api/v1/admin/queries/silver`
+      const response = await extensionSDK.fetchProxy(restApiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        }
       })
       
-      if (result.status !== 'success') {
+      if (!response.ok) {
+        const errorText = response.body?.error || `HTTP ${response.status}`
+        throw new Error(errorText)
+      }
+
+      const result = response.body
+      if (!result.success) {
         throw new Error(result.error || 'Failed to get silver queries')
       }
 
-      const queries = result.result?.queries || []
+      const queries = result.data || []
       setOperationStatus('success')
       return queries
     } catch (error) {
@@ -490,24 +531,31 @@ export const useOlympicQueries = () => {
       setOperationStatus('error')
       throw error
     }
-  }, [callMCPTool])
+  }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
-  const getDisqualifiedQueries = useCallback(async (exploreId?: string, limit: number = 50): Promise<OlympicQuery[]> => {
+  const getDisqualifiedQueries = useCallback(async (): Promise<OlympicQuery[]> => {
     setOperationStatus('loading')
     try {
-      console.log('Getting disqualified queries...', { exploreId, limit })
-      const result = await callMCPTool('get_queries_by_rank', {
-        rank: 'disqualified',
-        explore_id: exploreId,
-        limit: limit
+      if (!CLOUD_RUN_URL || !identityToken) {
+        throw new Error('Cloud Run URL or identity token not configured')
+      }
+      const restApiUrl = `${CLOUD_RUN_URL}/api/v1/admin/queries/disqualified`
+      const response = await extensionSDK.fetchProxy(restApiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        }
       })
-      
-      if (!result || result.error) {
+      if (!response.ok) {
+        const errorText = response.body?.error || `HTTP ${response.status}`
+        throw new Error(errorText)
+      }
+      const result = response.body
+      if (!result.success) {
         throw new Error(result.error || 'Failed to get disqualified queries')
       }
-      
-      const queries = result.result?.queries || []
-      console.log(`Retrieved ${queries.length} disqualified queries`)
+      const queries = result.data || []
       setOperationStatus('success')
       return queries
     } catch (error) {
@@ -515,20 +563,31 @@ export const useOlympicQueries = () => {
       setOperationStatus('error')
       throw error
     }
-  }, [callMCPTool])
+  }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
   const getQueryStats = useCallback(async (): Promise<QueryStatsResult> => {
     setOperationStatus('loading')
-    
     try {
-      console.log('Getting query stats...')
-      const result = await callMCPTool('get_query_stats', {})
-      
-      if (result.status !== 'success') {
+      if (!CLOUD_RUN_URL || !identityToken) {
+        throw new Error('Cloud Run URL or identity token not configured')
+      }
+      const restApiUrl = `${CLOUD_RUN_URL}/api/v1/admin/stats`
+      const response = await extensionSDK.fetchProxy(restApiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        }
+      })
+      if (!response.ok) {
+        const errorText = response.body?.error || `HTTP ${response.status}`
+        throw new Error(errorText)
+      }
+      const result = response.body
+      if (!result.success) {
         throw new Error(result.error || 'Failed to get query stats')
       }
-
-      const stats = result.result
+      const stats = result.data
       setQueryStats(stats)
       setOperationStatus('success')
       return stats
@@ -537,20 +596,27 @@ export const useOlympicQueries = () => {
       console.error('Getting query stats failed:', error)
       throw error
     }
-  }, [callMCPTool])
+  }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
   const checkMigrationStatus = useCallback(async (): Promise<MigrationStatus> => {
     setOperationStatus('loading')
     
     try {
-      console.log('Checking migration status...')
-      const result = await callMCPTool('check_migration_status', {})
+      console.log('Checking migration status via REST API...')
+      const result = await getRestMigrationStatus()
       
-      if (result.status !== 'success') {
-        throw new Error(result.error || 'Failed to check migration status')
+      // Transform REST response to match existing interface
+      const status: MigrationStatus = {
+        migration_needed: result.migration_required,
+        legacy_tables_exist: [], // Not directly available in REST response
+        olympic_table_exists: result.status !== 'needs_olympic_setup',
+        estimated_record_count: result.legacy_records_to_migrate || 0,
+        schema_issues: [], // Not available in REST response yet
+        can_migrate_safely: result.can_migrate,
+        recommendations: result.obstacles || [],
+        summary: `Migration status: ${result.status}`
       }
-
-      const status = result.result
+      
       setMigrationStatus(status)
       setOperationStatus('success')
       return status
@@ -559,39 +625,46 @@ export const useOlympicQueries = () => {
       console.error('Checking migration status failed:', error)
       throw error
     }
-  }, [callMCPTool])
+  }, [getRestMigrationStatus])
 
   const performMigration = useCallback(async (preserveData: boolean = true, verifyMigration: boolean = true): Promise<MigrationResult> => {
     setOperationStatus('loading')
     setMigrationResult(null)
-    
     try {
-      console.log('Starting Olympic migration...', { preserveData, verifyMigration })
-      const result = await callMCPTool('migrate_to_olympic_system', {
-        preserve_data: preserveData,
-        verify_migration: verifyMigration
+      if (!CLOUD_RUN_URL || !identityToken) {
+        throw new Error('Cloud Run URL or identity token not configured')
+      }
+      const restApiUrl = `${CLOUD_RUN_URL}/api/v1/admin/migrate`
+      const response = await extensionSDK.fetchProxy(restApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        },
+        body: JSON.stringify({ preserve_data: preserveData, verify_migration: verifyMigration })
       })
-      
-      if (result.status !== 'success') {
+      if (!response.ok) {
+        const errorText = response.body?.error || `HTTP ${response.status}`
+        throw new Error(errorText)
+      }
+      const result = response.body
+      if (!result.success) {
         throw new Error(result.error || 'Migration failed')
       }
-
-      const migrationData = result.result
+      const migrationData = result.data
       setMigrationResult(migrationData)
-      
       if (migrationData.success) {
         setOperationStatus('success')
       } else {
         setOperationStatus('error')
       }
-      
       return migrationData
     } catch (error) {
       setOperationStatus('error')
       console.error('Migration failed:', error)
       throw error
     }
-  }, [callMCPTool])
+  }, [CLOUD_RUN_URL, identityToken, extensionSDK])
 
   const resetState = useCallback(() => {
     setOperationStatus('idle')

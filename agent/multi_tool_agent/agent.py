@@ -1,9 +1,10 @@
 from google.adk.agents import Agent
 import requests
 import os
-from typing import Optional
+import json
+from typing import Optional, Dict, List, Any
 
-MCP_SERVER_URL = "https://mcp-server-730192175971.us-central1.run.app/"
+MCP_SERVER_URL = "https://mcp-server-rchq2jmtba-uc.a.run.app"
 
 def _call_mcp(tool_name: str, arguments: dict) -> dict:
     """Internal helper to call the MCP server with the given tool_name and arguments."""
@@ -27,83 +28,134 @@ def _call_mcp(tool_name: str, arguments: dict) -> dict:
     except Exception:
         return {"error": f"Non-JSON response: {response.text}"}
 
-# Explicit wrappers for each MCP tool (matching server tool names)
-def generate_explore_params(prompt: str, restricted_explore_keys: list, conversation_context: Optional[dict] = None) -> dict:
-    """Generate Looker explore parameters from a prompt and restricted explores."""
-    args = {"prompt": prompt, "restricted_explore_keys": restricted_explore_keys}
-    if conversation_context is not None:
-        args["conversation_context"] = conversation_context
-    return _call_mcp("generate_explore_params", args)
+def _get_auth_headers() -> dict:
+    """Get authentication headers for MCP server requests."""
+    headers = {"Content-Type": "application/json"}
+    try:
+        import google.auth.transport.requests as greq
+        import google.auth
+        creds, _ = google.auth.default()
+        auth_req = greq.Request()
+        creds.refresh(auth_req)
+        id_token = creds.id_token
+        if id_token:
+            headers["Authorization"] = f"Bearer {id_token}"
+    except Exception:
+        pass
+    return headers
 
-def semantic_field_search(search_terms: list, explore_ids: Optional[list] = None, limit_per_term: int = 5) -> dict:
-    """Find indexed fields containing specific values/codes."""
-    args = {"search_terms": search_terms, "limit_per_term": limit_per_term}
-    if explore_ids is not None:
-        args["explore_ids"] = explore_ids
-    return _call_mcp("semantic_field_search", args)
+def _discover_mcp_tools() -> List[Dict[str, Any]]:
+    """Discover available tools from the MCP server using the MCP protocol."""
+    try:
+        headers = _get_auth_headers()
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/list",
+            "params": {}
+        }
+        
+        response = requests.post(MCP_SERVER_URL, json=payload, headers=headers)
+        if response.status_code == 200:
+            result = response.json()
+            if "result" in result and "tools" in result["result"]:
+                return result["result"]["tools"]
+            else:
+                print(f"Unexpected MCP response format: {result}")
+                return []
+        else:
+            print(f"MCP tools discovery failed: {response.status_code} - {response.text}")
+            return []
+    except Exception as e:
+        print(f"Error discovering MCP tools: {e}")
+        return []
 
-def field_value_lookup(search_string: str, field_location: Optional[str] = None, limit: int = 10) -> dict:
-    """Find specific dimension values in indexed fields."""
-    args = {"search_string": search_string, "limit": limit}
-    if field_location is not None:
-        args["field_location"] = field_location
-    return _call_mcp("field_value_lookup", args)
+def _create_dynamic_tool_wrapper(tool_name: str, tool_description: str, input_schema: Dict[str, Any]):
+    """Create a dynamic tool wrapper function for a discovered MCP tool."""
+    
+    # Extract required and optional parameters from the schema
+    properties = input_schema.get("properties", {})
+    required_params = input_schema.get("required", [])
+    
+    # For facts tools, create a more explicit wrapper
+    if tool_name.endswith("_facts"):
+        def facts_tool_wrapper(user_question: str, oauth_token: Optional[str] = None):
+            """Wrapper for facts tools that explicitly requires user_question parameter."""
+            tool_args = {
+                "user_question": user_question
+            }
+            if oauth_token:
+                tool_args["oauth_token"] = oauth_token
+            return _call_mcp(tool_name, tool_args)
+        
+        facts_tool_wrapper.__name__ = tool_name
+        facts_tool_wrapper.__doc__ = f"{tool_description}\n\nParameters:\n- user_question (str): The user's exact question\n- oauth_token (str, optional): Looker OAuth token"
+        return facts_tool_wrapper
+    
+    # Generic wrapper for other tools
+    def tool_wrapper(*args, **kwargs):
+        # Build arguments dict from the provided parameters
+        tool_args = {}
+        
+        # Handle positional arguments (map to required parameters in order)
+        for i, arg in enumerate(args):
+            if i < len(required_params):
+                tool_args[required_params[i]] = arg
+        
+        # Handle keyword arguments
+        for key, value in kwargs.items():
+            tool_args[key] = value
+        
+        # Call the MCP server
+        return _call_mcp(tool_name, tool_args)
+    
+    # Set function metadata
+    tool_wrapper.__name__ = tool_name
+    tool_wrapper.__doc__ = tool_description
+    
+    return tool_wrapper
 
-def extract_searchable_terms(query_text: str) -> dict:
-    """Extract searchable terms from natural language."""
-    args = {"query_text": query_text}
-    return _call_mcp("extract_searchable_terms", args)
+def _create_all_dynamic_tools() -> List[callable]:
+    """Discover and create dynamic tool wrappers for all MCP server tools."""
+    discovered_tools = _discover_mcp_tools()
+    dynamic_tools = []
+    
+    print(f"Discovered {len(discovered_tools)} tools from MCP server:")
+    
+    for tool_info in discovered_tools:
+        tool_name = tool_info.get("name", "unknown_tool")
+        tool_description = tool_info.get("description", f"MCP tool: {tool_name}")
+        input_schema = tool_info.get("inputSchema", {})
+        
+        print(f"  - {tool_name}: {tool_description}")
+        
+        # Create dynamic wrapper
+        wrapper_func = _create_dynamic_tool_wrapper(tool_name, tool_description, input_schema)
+        dynamic_tools.append(wrapper_func)
+    
+    return dynamic_tools
 
-def run_looker_query(query_body: dict, result_format: str = "json") -> dict:
-    """Run a Looker query and return results."""
-    args = {"query_body": query_body, "result_format": result_format}
-    return _call_mcp("run_looker_query", args)
+# Create dynamic tools by discovering them from the MCP server
+print("🔍 Discovering tools from MCP server...")
+dynamic_tools = _create_all_dynamic_tools()
 
-def get_explore_fields(model_name: str, explore_name: str) -> dict:
-    """Get field metadata for a Looker explore."""
-    args = {"model_name": model_name, "explore_name": explore_name}
-    return _call_mcp("get_explore_fields", args)
+# Build dynamic tool names for instructions
+if dynamic_tools:
+    tool_names = [tool.__name__ for tool in dynamic_tools]
+    tools_list = ", ".join(tool_names)
+    description = f"Agent to answer questions using the Looker MCP server with {len(dynamic_tools)} dynamically discovered tools including vector search, explore parameter generation, query execution, feedback capabilities, and area-based facts tools."
+    instruction = f"I can answer your questions about Looker data using the MCP server. Available tools: {tools_list}."
+else:
+    # Fallback if discovery fails
+    print("⚠️  Tool discovery failed, using fallback mode")
+    description = "Agent to answer questions using the Looker MCP server (tool discovery failed)"
+    instruction = "I can answer your questions about Looker data, but tool discovery failed. Please check MCP server connection."
 
-def add_bronze_query(explore_id: str, input: str, output: str, link: str, user_email: str, query_run_count: int = 1) -> dict:
-    """Add a bronze query for Olympic training."""
-    args = {"explore_id": explore_id, "input": input, "output": output, "link": link, "user_email": user_email, "query_run_count": query_run_count}
-    return _call_mcp("add_bronze_query", args)
-
-def add_silver_query(explore_id: str, input: str, output: str, link: str, user_id: str, feedback_type: str, conversation_history: Optional[str] = None) -> dict:
-    """Add a silver query for Olympic training."""
-    args = {"explore_id": explore_id, "input": input, "output": output, "link": link, "user_id": user_id, "feedback_type": feedback_type}
-    if conversation_history is not None:
-        args["conversation_history"] = conversation_history
-    return _call_mcp("add_silver_query", args)
-
-def promote_to_gold(query_id: str, promoted_by: str) -> dict:
-    """Promote a query to gold rank."""
-    args = {"query_id": query_id, "promoted_by": promoted_by}
-    return _call_mcp("promote_to_gold", args)
-
-def get_gold_queries(explore_id: Optional[str] = None, limit: int = 50) -> dict:
-    """Get golden queries for training."""
-    args = {"limit": limit}
-    if explore_id is not None:
-        args["explore_id"] = explore_id
-    return _call_mcp("get_gold_queries", args)
-
-# Register all wrappers as tools for the agent
+# Register dynamically discovered tools with the agent
 root_agent = Agent(
     name="looker_mcp_agent",
-    model="gemini-2.0-flash",
-    description="Agent to answer questions using the Looker MCP server (vector search, explore selection, parameter generation, etc.)",
-    instruction="I can answer your questions about Looker data using the MCP server. Available tools: generate_explore_params, semantic_field_search, field_value_lookup, extract_searchable_terms, run_looker_query, get_explore_fields, add_bronze_query, add_silver_query, promote_to_gold, get_gold_queries.",
-    tools=[
-        generate_explore_params,
-        semantic_field_search,
-        field_value_lookup,
-        extract_searchable_terms,
-        run_looker_query,
-        get_explore_fields,
-        add_bronze_query,
-        add_silver_query,
-        promote_to_gold,
-        get_gold_queries
-    ]
+    model="gemini-2.5-flash",
+    description=description,
+    instruction=instruction,
+    tools=dynamic_tools if dynamic_tools else []
 )

@@ -24,17 +24,37 @@ const VectorPage: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    if (operationStatus === 'error') {
+    // Handle different system states
+    if (systemStatus) {
+      if (systemStatus.system_status === 'operational') {
+        setSuccess('Vector search system is operational!')
+        setError(null)
+      } else if (systemStatus.system_status === 'degraded') {
+        setError(`System is degraded. Issues: ${systemStatus.recommendations.join('; ')}`)
+        setSuccess(null)
+      } else if (systemStatus.system_status === 'partial') {
+        setError(`System is partially functional. Issues: ${systemStatus.recommendations.join('; ')}`)
+        setSuccess(null)
+      } else if (systemStatus.system_status === 'needs_setup') {
+        setError('Vector search system needs setup. Click "Run Vector Search Setup" to initialize.')
+        setSuccess(null)
+      } else {
+        setError(null)
+        setSuccess(null)
+      }
+    } else if (operationStatus === 'error') {
       setError('Operation failed. See console for details.')
+      setSuccess(null)
     } else {
       setError(null)
-    }
-    if (operationStatus === 'success' && setupResult?.success) {
-      setSuccess('Vector search setup completed successfully!')
-    } else {
       setSuccess(null)
     }
-  }, [operationStatus, setupResult])
+
+    // Handle setup completion
+    if (operationStatus === 'success' && setupResult?.success) {
+      setSuccess('Vector search setup completed successfully!')
+    }
+  }, [operationStatus, setupResult, systemStatus])
 
   const toggleSidebar = () => setSidebarExpanded((prev) => !prev)
   const navigateBack = () => history.push('/index')
@@ -86,45 +106,62 @@ const VectorPage: React.FC = () => {
                   </Typography>
                   {systemStatus ? (
                     <Box>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        <b>Overall Status:</b> {systemStatus.system_status.toUpperCase()}
+                      </Typography>
+                      
+                      <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                        Components
+                      </Typography>
+                      
                       <Typography variant="body2">
-                        <b>Vector Table Exists:</b> {systemStatus.table_exists ? 'Yes' : 'No'}
+                        <b>BigQuery Connection:</b> {systemStatus.components.bigquery_connection}
                       </Typography>
                       <Typography variant="body2">
-                        <b>Embedding Model Exists:</b> {systemStatus.model_exists ? 'Yes' : 'No'}
+                        <b>Embedding Model:</b> {systemStatus.components.embedding_model}
                       </Typography>
                       <Typography variant="body2">
-                        <b>Table Row Count:</b> {systemStatus.table_row_count ?? 'N/A'}
+                        <b>Field Values Table:</b> {systemStatus.components.field_values_table}
                       </Typography>
                       <Typography variant="body2">
-                        <b>Model Training State:</b> {systemStatus.model_training_state ?? 'N/A'}
+                        <b>Vector Index:</b> {systemStatus.components.vector_index}
                       </Typography>
-                      <Typography variant="body2">
-                        <b>Last Updated:</b> {systemStatus.last_updated ? new Date(systemStatus.last_updated).toLocaleString() : 'N/A'}
-                      </Typography>
-                      {systemStatus.errors && systemStatus.errors.length > 0 && (
+                      
+                      {systemStatus.statistics && Object.keys(systemStatus.statistics).length > 0 && (
                         <Box mt={2}>
-                          <Typography variant="body2" color="error">
-                            Errors:
+                          <Typography variant="h6" sx={{ mb: 1 }}>
+                            Statistics
                           </Typography>
-                          <ul>
-                            {systemStatus.errors.map((err, idx) => (
-                              <li key={idx}>{err}</li>
+                          <Typography variant="body2">
+                            <b>Total Rows:</b> {systemStatus.statistics.total_rows ?? 'N/A'}
+                          </Typography>
+                          <Typography variant="body2">
+                            <b>Unique Fields:</b> {systemStatus.statistics.unique_fields ?? 'N/A'}
+                          </Typography>
+                          <Typography variant="body2">
+                            <b>Unique Explores:</b> {systemStatus.statistics.unique_explores ?? 'N/A'}
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      {systemStatus.recommendations && systemStatus.recommendations.length > 0 && (
+                        <Box mt={2}>
+                          <Typography variant="body2" color="warning.main" sx={{ fontWeight: 'bold' }}>
+                            Recommendations:
+                          </Typography>
+                          <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+                            {systemStatus.recommendations.map((rec, idx) => (
+                              <li key={idx} style={{ fontSize: '0.875rem', marginBottom: '4px' }}>
+                                {rec}
+                              </li>
                             ))}
                           </ul>
                         </Box>
                       )}
-                      {systemStatus.warnings && systemStatus.warnings.length > 0 && (
-                        <Box mt={2}>
-                          <Typography variant="body2" color="warning.main">
-                            Warnings:
-                          </Typography>
-                          <ul>
-                            {systemStatus.warnings.map((warn, idx) => (
-                              <li key={idx}>{warn}</li>
-                            ))}
-                          </ul>
-                        </Box>
-                      )}
+                      
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+                        Last Updated: {new Date(systemStatus.timestamp).toLocaleString()}
+                      </Typography>
                     </Box>
                   ) : (
                     <Typography variant="body2" color="text.secondary">
@@ -137,7 +174,7 @@ const VectorPage: React.FC = () => {
                     <Button
                       variant="contained"
                       color="primary"
-                      onClick={setupVectorSystem}
+                      onClick={() => setupVectorSystem()}
                       disabled={loading}
                       sx={{ mb: 2 }}
                     >
@@ -146,7 +183,7 @@ const VectorPage: React.FC = () => {
                     <Button
                       variant="outlined"
                       color="secondary"
-                      onClick={getVectorSystemStatus}
+                      onClick={() => getVectorSystemStatus()}
                       disabled={loading}
                     >
                       Refresh Status

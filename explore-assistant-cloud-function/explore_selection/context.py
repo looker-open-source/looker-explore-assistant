@@ -46,6 +46,8 @@ Rules:
 - Output one standalone query only
 - Be concise and specific
 
+Conversation context may include previous queries and filters. IMPORTANT: If the user's new request is about a different topic, entity, or metric than previous queries, you should start a new query and ignore previous filters. If the new request is a refinement (such as changing a filter value, adding a filter, or narrowing the previous result), you should update or add to the previous filters. Use your best judgment to determine whether to refine or replace based on the relationship between the current query and the prior context.
+
 Output only the synthesized query."""
 
         logger.info(f"🔍 Synthesis prompt size: ~{len(synthesis_prompt)} characters")

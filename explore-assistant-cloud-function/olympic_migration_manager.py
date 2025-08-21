@@ -6,6 +6,8 @@ Provides safe migration with data preservation and rollback capabilities.
 """
 
 import uuid
+import os
+import urllib.parse
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from google.cloud import bigquery
@@ -29,6 +31,244 @@ class OlympicMigrationManager:
         self.dataset_id = dataset_id
         self.legacy_tables = ['bronze_queries', 'silver_queries', 'golden_queries']
         self.olympic_table = 'olympic_queries'
+        self.looker_base_url = os.environ.get("LOOKERSDK_BASE_URL", "https://bytecodeef.looker.com")
+        
+    def _generate_looker_link(self, model_name: str, explore_name: str, explore_params: str = None, 
+                             query_url_params: str = None) -> str:
+        """
+        Generate a Looker explore link from model, explore, and parameters.
+        
+        Args:
+            model_name: Looker model name
+            explore_name: Looker explore name  
+            explore_params: JSON string or query parameters for the explore
+            query_url_params: Additional URL parameters
+            
+        Returns:
+            str: Complete Looker explore URL
+        """
+        if not model_name or not explore_name:
+            return None
+            
+        # Build base URL
+        base_url = self.looker_base_url.rstrip('/')
+        link = f"{base_url}/explore/{model_name}/{explore_name}"
+        
+        # Combine parameters
+        params = ""
+        if explore_params:
+            # Handle both JSON and URL parameter formats
+            if explore_params.strip().startswith('{'):
+                # JSON format - for now, we'll skip complex JSON parsing
+                # Could be enhanced later to parse JSON and convert to URL params
+                pass
+            else:
+                # Assume it's already URL parameters
+                params = explore_params.strip('?&')
+                
+        if query_url_params:
+            additional_params = query_url_params.strip('?&')
+            if params:
+                params += "&" + additional_params
+            else:
+                params = additional_params
+        
+        if params:
+            link += "?" + params
+            
+        return link
+        
+    def _generate_link_sql(self, source_fields: set) -> str:
+        """
+        Generate SQL to create Looker links during migration.
+        
+        Args:
+            source_fields: Set of available fields in the source table
+            
+        Returns:
+            str: SQL expression to generate Looker link
+        """
+        base_url = self.looker_base_url.rstrip('/')
+        
+        # Check what fields are available for link generation
+        has_model = 'model_name' in source_fields
+        has_explore = 'explore_name' in source_fields  
+        has_params = 'explore_params' in source_fields
+        has_url_params = 'query_url_params' in source_fields
+        has_output = 'output' in source_fields
+        has_existing_link = 'link' in source_fields
+        
+        # If there's already a link field, use it unless it's null
+        if has_existing_link:
+            if has_model and has_explore:
+                # Generate link if existing link is null, otherwise use existing
+                return f"""CASE 
+                    WHEN link IS NOT NULL AND link != '' THEN link
+                    WHEN model_name IS NOT NULL AND explore_name IS NOT NULL THEN 
+                        CONCAT(
+                            '{base_url}/explore/', 
+                            model_name, 
+                            '/', 
+                            explore_name
+                            {', "?", explore_params' if has_params else ''}
+                            {', CASE WHEN query_url_params IS NOT NULL THEN CONCAT("&", query_url_params) ELSE "" END' if has_url_params else ''}
+                        )
+                    ELSE link
+                END"""
+            else:
+                return "COALESCE(link, 'NULL')"
+        
+        # Generate link from model/explore fields if available
+        if has_model and has_explore:
+            link_sql = f"""CASE 
+                WHEN model_name IS NOT NULL AND explore_name IS NOT NULL THEN 
+                    CASE 
+                        WHEN output IS NOT NULL AND output != '' THEN
+                            -- Use output field for parameters if available
+                            CONCAT(
+                                '{base_url}/explore/', 
+                                model_name, 
+                                '/', 
+                                explore_name,
+                                '?',
+                                output
+                            )
+                        """ + ("""WHEN explore_params IS NOT NULL AND explore_params != '' THEN
+                            -- Use explore_params if output not available
+                            CONCAT(
+                                '{base_url}/explore/', 
+                                model_name, 
+                                '/', 
+                                explore_name,
+                                '?',
+                                explore_params""" + (""",
+                                CASE WHEN query_url_params IS NOT NULL AND query_url_params != '' 
+                                     THEN CONCAT('&', query_url_params) 
+                                     ELSE '' END""" if has_url_params else "") + """
+                            )""" if has_params else "") + f"""
+                        ELSE
+                            -- Basic link without parameters
+                            CONCAT(
+                                '{base_url}/explore/', 
+                                model_name, 
+                                '/', 
+                                explore_name
+                            )
+                    END
+                ELSE NULL
+            END"""
+            
+            return link_sql
+        else:
+            # No model/explore info available, return NULL
+            return "NULL"
+            
+    def update_olympic_links(self, force_regenerate: bool = False) -> Dict[str, Any]:
+        """
+        Update existing Olympic table records with generated Looker links.
+        This is useful for records that were migrated before link generation was implemented.
+        
+        Returns:
+            dict: Update results including number of records updated
+        """
+        logger.info("Updating Olympic table records with generated Looker links...")
+        
+        try:
+            # First, check what data we have to work with
+            inspect_query = f"""
+            SELECT 
+                COUNT(*) as total_records,
+                COUNT(CASE WHEN link IS NULL OR link = '' THEN 1 END) as records_without_links,
+                COUNT(CASE WHEN link IS NOT NULL AND link != '' THEN 1 END) as records_with_links,
+                STRING_AGG(DISTINCT 
+                    CASE WHEN link IS NULL OR link = '' THEN 'missing_link' 
+                         ELSE 'has_link' END
+                ) as link_status
+            FROM `{self.project_id}.{self.dataset_id}.{self.olympic_table}`
+            WHERE id IS NOT NULL
+            """
+            
+            inspect_result = list(self.bq_client.query(inspect_query).result())[0]
+            logger.info(f"Olympic table inspection: {dict(inspect_result)}")
+            
+            # Check if we have data to extract model/explore from explore_id
+            sample_query = f"""
+            SELECT explore_id, link
+            FROM `{self.project_id}.{self.dataset_id}.{self.olympic_table}`
+            WHERE (link IS NULL OR link = '') 
+            AND explore_id IS NOT NULL
+            LIMIT 5
+            """
+            
+            sample_results = list(self.bq_client.query(sample_query).result())
+            logger.info(f"Sample records needing links: {[dict(r) for r in sample_results]}")
+            
+            # Generate links by parsing explore_id (format: "model:explore")
+            base_url = self.looker_base_url.rstrip('/')
+            
+            # Build the CASE condition based on force_regenerate flag
+            if force_regenerate:
+                case_condition = "explore_id IS NOT NULL AND CONTAINS_SUBSTR(explore_id, ':')"
+            else:
+                case_condition = "(link IS NULL OR link = '') AND explore_id IS NOT NULL AND CONTAINS_SUBSTR(explore_id, ':')"
+            
+            update_query = f"""
+            UPDATE `{self.project_id}.{self.dataset_id}.{self.olympic_table}`
+            SET link = CASE 
+                WHEN {case_condition} THEN
+                    CASE 
+                        WHEN output IS NOT NULL AND output != '' THEN
+                            -- Include query parameters from output field
+                            CONCAT(
+                                '{base_url}/explore/',
+                                SPLIT(explore_id, ':')[OFFSET(0)],  -- model name
+                                '/',
+                                SPLIT(explore_id, ':')[OFFSET(1)],  -- explore name
+                                '?',
+                                output  -- query parameters
+                            )
+                        ELSE
+                            -- Basic link without parameters
+                            CONCAT(
+                                '{base_url}/explore/',
+                                SPLIT(explore_id, ':')[OFFSET(0)],  -- model name
+                                '/',
+                                SPLIT(explore_id, ':')[OFFSET(1)]   -- explore name
+                            )
+                    END
+                ELSE link
+            END,
+            updated_at = CURRENT_TIMESTAMP()
+            WHERE {('(link IS NULL OR link = "")' if not force_regenerate else 'TRUE')}
+            AND explore_id IS NOT NULL 
+            AND CONTAINS_SUBSTR(explore_id, ':')
+            """
+            
+            logger.info(f"Executing link update query (force_regenerate={force_regenerate})...")
+            logger.info(f"Update query:\n{update_query}")
+            job = self.bq_client.query(update_query)
+            job.result()  # Wait for completion
+            
+            # Check results
+            final_inspect = list(self.bq_client.query(inspect_query).result())[0]
+            
+            updated_count = inspect_result.records_without_links - final_inspect.records_without_links
+            
+            return {
+                "success": True,
+                "records_updated": updated_count,
+                "before": dict(inspect_result),
+                "after": dict(final_inspect),
+                "message": f"Successfully updated {updated_count} records with Looker links"
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to update Olympic links: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": "Failed to update Olympic table links"
+            }
         
     def _detect_table_schema(self, table_name: str) -> Dict[str, Any]:
         """
@@ -350,7 +590,11 @@ class OlympicMigrationManager:
                 
                 field_selects = []
                 for field, default in optional_fields.items():
-                    if field in source_fields:
+                    if field == 'link':
+                        # Special handling for link generation
+                        link_sql = self._generate_link_sql(source_fields)
+                        field_selects.append(f"{link_sql} as link")
+                    elif field in source_fields:
                         if field == 'promoted_at':
                             # Handle timestamp type compatibility for promoted_at
                             field_selects.append(f"SAFE_CAST(COALESCE({field}, {default}) AS TIMESTAMP) as {field}")

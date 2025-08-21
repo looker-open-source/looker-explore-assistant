@@ -14,7 +14,7 @@ REGION = os.environ.get("REGION", "us-central1")
 VERTEX_MODEL = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash-001")
 
 # BigQuery Configuration
-BQ_PROJECT_ID = os.environ.get("BQ_PROJECT_ID", "ml-accelerator-dbarr")
+BQ_PROJECT_ID = os.environ.get("BQ_PROJECT_ID", "explore-assistant-cf-mis")
 BQ_DATASET_ID = os.environ.get("BQ_DATASET_ID", "explore_assistant")
 BQ_SUGGESTED_TABLE = os.environ.get("BQ_SUGGESTED_TABLE", "silver_queries")
 FIELD_VALUES_TABLE = "field_values_for_vectorization"

@@ -114,7 +114,16 @@ export const useVectorSearchSetup = () => {
       }
       const status = result.data
       setSystemStatus(status)
-      setOperationStatus('success')
+      
+      // Set operation status based on system_status, not just API success
+      if (status.system_status === 'operational') {
+        setOperationStatus('success')
+      } else if (status.system_status === 'degraded' || status.system_status === 'partial') {
+        setOperationStatus('error') // Show as error to indicate issues
+      } else {
+        setOperationStatus('idle') // needs_setup, unknown, etc.
+      }
+      
       return status
     } catch (error) {
       setOperationStatus('error')

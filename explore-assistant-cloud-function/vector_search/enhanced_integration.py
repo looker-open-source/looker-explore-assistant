@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Optional, Tuple, Callable
 
 from vector_search.field_lookup import FieldLookupService
 from core.exceptions import VectorSearchError
+from llm_utils import parse_llm_response
 
 import logging
 logger = logging.getLogger(__name__)
@@ -63,51 +64,40 @@ Return only a JSON array of extracted values, no explanation:"""
             
             if response and 'candidates' in response:
                 text_response = response['candidates'][0]['content']['parts'][0]['text']
+                logger.info(f"🤖 Raw LLM response: {text_response[:200]}")
                 
-                # Try to parse as JSON array
-                try:
-                    entities = json.loads(text_response)
-                    if isinstance(entities, list):
-                        # Filter out empty strings and very short values
-                        filtered_entities = [e for e in entities if isinstance(e, str) and len(e.strip()) > 1]
-                        logger.info(f"🧠 LLM extracted entities: {filtered_entities}")
-                        return filtered_entities[:5]  # Limit to 5 entities
-                except json.JSONDecodeError:
-                    # Fallback: extract from text using regex
-                    logger.warning("LLM response wasn't valid JSON, using regex fallback")
-                    return self._extract_entities_regex_fallback(query)
+                # Preprocess to remove markdown code blocks
+                clean_response = text_response.strip()
+                if clean_response.startswith('```'):
+                    # Find the end of the opening fence
+                    lines = clean_response.split('\n')
+                    if len(lines) > 1:
+                        # Remove first line (```json or ```)
+                        lines = lines[1:]
+                        # Remove last line if it's closing fence
+                        if lines and lines[-1].strip() == '```':
+                            lines = lines[:-1]
+                        clean_response = '\n'.join(lines).strip()
+                
+                # Use robust LLM response parser on cleaned text
+                parsed_response = parse_llm_response(clean_response)
+                logger.info(f"🧹 Cleaned response: {clean_response[:100]}")
+                
+                if parsed_response and isinstance(parsed_response, list):
+                    # Filter out empty strings and very short values
+                    filtered_entities = [e for e in parsed_response if isinstance(e, str) and len(e.strip()) > 1]
+                    logger.info(f"🧠 LLM extracted entities: {filtered_entities}")
+                    return filtered_entities[:5]  # Limit to 5 entities
+                else:
+                    logger.warning(f"LLM response wasn't a valid array. Parsed: {parsed_response}")
+                    return []
             
             return []
             
         except Exception as e:
             logger.error(f"LLM entity extraction failed: {e}")
-            # Fallback to regex extraction
-            return self._extract_entities_regex_fallback(query)
+            return []
     
-    def _extract_entities_regex_fallback(self, query: str) -> List[str]:
-        """Fallback regex-based entity extraction"""
-        # Extract quoted strings, years, and capitalized words
-        patterns = [
-            r'"([^"]+)"',  # Quoted strings
-            r"'([^']+)'",  # Single-quoted strings  
-            r'\b(20\d{2})\b',  # Years 2000-2099
-            r'\b([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]+)*)\b',  # Capitalized words/phrases
-        ]
-        
-        entities = []
-        for pattern in patterns:
-            matches = re.findall(pattern, query)
-            entities.extend(matches)
-        
-        # Filter and dedupe
-        filtered = []
-        seen = set()
-        for entity in entities:
-            if len(entity.strip()) > 1 and entity.lower() not in seen:
-                filtered.append(entity)
-                seen.add(entity.lower())
-        
-        return filtered[:5]
     
     async def enhance_query_with_vector_search(self, query: str, call_vertex_ai_func: Callable) -> Tuple[str, str, Dict[str, List]]:
         """
@@ -125,10 +115,12 @@ Return only a JSON array of extracted values, no explanation:"""
         
         try:
             # Step 1: Extract potential entities from the query
+            logger.info(f"🎯 Extracting entities from query: {query}")
             entities = self.extract_entities_with_llm_call(query, call_vertex_ai_func)
+            logger.info(f"🎯 Final extracted entities: {entities}")
             
             if not entities:
-                logger.info("No entities extracted, skipping vector search enhancement")
+                logger.warning("❌ No entities extracted, skipping vector search enhancement")
                 return "", "", {}
             
             # Step 2: Search for relevant fields using the entities

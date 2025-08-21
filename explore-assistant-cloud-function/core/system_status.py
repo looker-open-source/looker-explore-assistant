@@ -274,12 +274,12 @@ class SystemStatusService:
                 })
             elif not has_olympic and has_legacy:
                 migration_info.update({
-                    "migration_ready": False,
+                    "migration_ready": True,  # Changed to True - migration will create the table
                     "migration_required": True, 
-                    "can_migrate": False,
-                    "status": "needs_olympic_setup"
+                    "can_migrate": True,      # Changed to True - migration process handles table creation
+                    "status": "ready_for_migration"
                 })
-                migration_info["obstacles"].append("Olympic table must be created before migration")
+                # Remove the obstacle - table creation is part of migration process
             else:
                 migration_info.update({
                     "migration_ready": False,

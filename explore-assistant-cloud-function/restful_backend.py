@@ -31,7 +31,7 @@ import looker_sdk
 from looker_sdk.rtl import api_settings
 
 # Import from new modular architecture
-from core.config import get_environment_config, VERTEX_MODEL
+from core.config import get_environment_config, VERTEX_MODEL, BQ_PROJECT_ID, BQ_DATASET_ID, EMBEDDING_MODEL
 from core.auth import extract_user_info_from_token
 from core.exceptions import ParameterGenerationError
 from core.models import QueryParameters, GenerationResult
@@ -44,6 +44,7 @@ from vector_search.client import VectorSearchClient
 from llm_utils import parse_llm_response
 from olympic_query_manager import OlympicQueryManager, QueryRank
 from olympic_mcp_integration import OlympicMCPIntegration
+from olympic_migration_manager import OlympicMigrationManager
 from field_lookup_service import FieldValueLookupService
 
 # Configure logging
@@ -156,7 +157,7 @@ def _register_blueprints(app: Flask) -> None:
         
         try:
             # Extract request data
-            data = request.get_json()
+            data = request.get_json(force=True)
             if not data:
                 raise RestfulBackendError("No JSON data provided", 400)
             
@@ -317,7 +318,7 @@ def _register_blueprints(app: Flask) -> None:
         
         try:
             # Extract request data
-            data = request.get_json()
+            data = request.get_json(force=True)
             if not data:
                 raise RestfulBackendError("No JSON data provided", 400)
             
@@ -342,6 +343,90 @@ def _register_blueprints(app: Flask) -> None:
         except Exception as e:
             logger.error(f"Vertex proxy error: {traceback.format_exc()}")
             return _handle_api_error(RestfulBackendError(f"Vertex AI error: {str(e)}", 500))
+
+    @api_v1.route('/feedback/positive', methods=['POST', 'OPTIONS'])
+    def submit_positive_feedback():
+        """Submit positive feedback for a query"""
+        if request.method == 'OPTIONS':
+            return _handle_cors()
+        
+        try:
+            data = request.get_json(force=True)
+            
+            # Extract required fields
+            query_id = data.get('query_id')
+            user_input = data.get('user_input') 
+            response = data.get('response')
+            explore_key = data.get('explore_key')
+            feedback_notes = data.get('feedback_notes', '')
+            
+            if not all([query_id, user_input, response]):
+                raise RestfulBackendError("query_id, user_input, and response are required", 400)
+            
+            # Store positive feedback in Olympic system
+            app.olympic_manager.add_feedback_query(
+                explore_id=explore_key or "unknown",
+                original_prompt=user_input,
+                generated_params=json.loads(response) if isinstance(response, str) else response,
+                link="",
+                feedback_type="positive",
+                user_email="unknown",
+                feedback_notes=feedback_notes
+            )
+            
+            return jsonify({
+                "success": True,
+                "message": "Positive feedback submitted successfully"
+            })
+            
+        except Exception as e:
+            logger.error(f"Positive feedback submission error: {traceback.format_exc()}")
+            return _handle_api_error(RestfulBackendError(f"Failed to submit positive feedback: {str(e)}", 500))
+
+    @api_v1.route('/feedback/negative', methods=['POST', 'OPTIONS'])
+    def submit_negative_feedback():
+        """Submit negative feedback for a query"""
+        if request.method == 'OPTIONS':
+            return _handle_cors()
+        
+        try:
+            data = request.get_json(force=True)
+            
+            # Extract required fields
+            query_id = data.get('query_id')
+            user_input = data.get('user_input')
+            response = data.get('response') 
+            explore_key = data.get('explore_key')
+            issues = data.get('issues', [])
+            improvement_suggestions = data.get('improvement_suggestions', '')
+            
+            if not all([query_id, user_input, response]):
+                raise RestfulBackendError("query_id, user_input, and response are required", 400)
+            
+            # Combine issues and suggestions into feedback notes
+            feedback_notes = f"Issues: {', '.join(issues)}"
+            if improvement_suggestions:
+                feedback_notes += f"\nSuggestions: {improvement_suggestions}"
+            
+            # Store negative feedback in Olympic system
+            app.olympic_manager.add_feedback_query(
+                explore_id=explore_key or "unknown",
+                original_prompt=user_input,
+                generated_params=json.loads(response) if isinstance(response, str) else response,
+                link="",
+                feedback_type="negative", 
+                user_email="unknown",
+                feedback_notes=feedback_notes
+            )
+            
+            return jsonify({
+                "success": True,
+                "message": "Negative feedback submitted successfully"
+            })
+            
+        except Exception as e:
+            logger.error(f"Negative feedback submission error: {traceback.format_exc()}")
+            return _handle_api_error(RestfulBackendError(f"Failed to submit negative feedback: {str(e)}", 500))
     
     # Register the blueprint
     app.register_blueprint(api_v1)
@@ -394,7 +479,7 @@ def _register_admin_endpoints(app: Flask) -> None:
             return _handle_cors()
         
         try:
-            data = request.get_json()
+            data = request.get_json(force=True)
             if not data:
                 raise RestfulBackendError("No JSON data provided", 400)
 
@@ -457,7 +542,7 @@ def _register_admin_endpoints(app: Flask) -> None:
             return _handle_cors()
         
         try:
-            data = request.get_json()
+            data = request.get_json(force=True)
             if not data:
                 raise RestfulBackendError("No JSON data provided", 400)
             
@@ -516,7 +601,7 @@ def _register_admin_endpoints(app: Flask) -> None:
             return _handle_cors()
         
         try:
-            data = request.get_json()
+            data = request.get_json(force=True)
             if not data:
                 raise RestfulBackendError("No JSON data provided", 400)
             
@@ -577,7 +662,7 @@ def _register_admin_endpoints(app: Flask) -> None:
             return _handle_cors()
         
         try:
-            data = request.get_json() or {}
+            data = request.get_json(force=True) or {}
             deleted_by = data.get('deleted_by', 'unknown')
             
             # Initialize Olympic service
@@ -666,7 +751,7 @@ def _register_admin_endpoints(app: Flask) -> None:
         if request.method == 'OPTIONS':
             return _handle_cors()
         try:
-            data = request.get_json() or {}
+            data = request.get_json(force=True) or {}
             preserve_data = data.get('preserve_data', True)
             verify_migration = data.get('verify_migration', True)
             # Use OlympicMCPIntegration for migration logic
@@ -690,6 +775,38 @@ def _register_admin_endpoints(app: Flask) -> None:
         except Exception as e:
             logger.error(f"Olympic migration error: {traceback.format_exc()}")
             return _handle_api_error(RestfulBackendError(f"Failed to perform migration: {str(e)}", 500))
+
+    @admin_bp.route('/olympic/update-links', methods=['POST', 'OPTIONS'])
+    def update_olympic_links():
+        """Update existing Olympic table records with generated Looker links"""
+        if request.method == 'OPTIONS':
+            return _handle_cors()
+            
+        try:
+            logger.info("Starting Olympic link update...")
+            
+            # Get request parameters
+            data = request.get_json(force=True) or {}
+            force_regenerate = data.get('force_regenerate', False)
+            
+            # Initialize migration manager for link updating
+            migration_manager = OlympicMigrationManager(
+                bq_client=app.bq_client,
+                project_id=BQ_PROJECT_ID,
+                dataset_id=BQ_DATASET_ID
+            )
+            
+            # Update links
+            result = migration_manager.update_olympic_links(force_regenerate=force_regenerate)
+            
+            return jsonify({
+                "success": result["success"],
+                "data": result,
+                "timestamp": datetime.utcnow().isoformat()
+            })
+        except Exception as e:
+            logger.error(f"Olympic link update error: {traceback.format_exc()}")
+            return _handle_api_error(RestfulBackendError(f"Failed to update links: {str(e)}", 500))
 
     # --- Vector Search Management Endpoints ---
     @admin_bp.route('/vector-search/status', methods=['GET', 'OPTIONS'])
@@ -723,21 +840,34 @@ def _register_admin_endpoints(app: Flask) -> None:
                 status["components"]["bigquery_connection"] = "failed"
                 status["recommendations"].append(f"BigQuery connection failed: {str(e)}")
             
-            # Check embedding model
+            # Check embedding model by trying to use it
             try:
+                logger.info(f"🔍 Checking embedding model: {BQ_PROJECT_ID}.{BQ_DATASET_ID}.{EMBEDDING_MODEL}")
+                # Try to use the model with a simple embedding generation query
                 model_query = f"""
-                SELECT model_name FROM `{BQ_PROJECT_ID}.{BQ_DATASET_ID}.INFORMATION_SCHEMA.MODELS`
-                WHERE model_name = 'text_embedding_model'
+                SELECT 1 as test_query
+                FROM ML.GENERATE_TEXT_EMBEDDING(
+                    MODEL `{BQ_PROJECT_ID}.{BQ_DATASET_ID}.{EMBEDDING_MODEL}`,
+                    (SELECT 'test' as content),
+                    STRUCT('SEMANTIC_SIMILARITY' as task_type)
+                )
+                LIMIT 1
                 """
+                logger.info(f"🔍 Executing embedding model test query: {model_query}")
                 results = list(app.bq_client.query(model_query).result())
-                if results:
-                    status["components"]["embedding_model"] = "operational"
-                else:
+                logger.info(f"✅ Embedding model test successful")
+                status["components"]["embedding_model"] = "operational"
+            except Exception as e:
+                logger.error(f"❌ Embedding model check failed: {str(e)}")
+                error_str = str(e).lower()
+                if "not found" in error_str or "does not exist" in error_str:
+                    logger.info("🔍 Embedding model not found - marking as missing")
                     status["components"]["embedding_model"] = "missing"
                     status["recommendations"].append("Text embedding model needs to be created")
-            except Exception as e:
-                status["components"]["embedding_model"] = "failed"
-                status["recommendations"].append(f"Failed to check embedding model: {str(e)}")
+                else:
+                    logger.info("🔍 Embedding model exists but failed - marking as failed")
+                    status["components"]["embedding_model"] = "failed"
+                    status["recommendations"].append(f"Failed to check embedding model: {str(e)}")
             
             # Check field values table and get statistics
             try:
@@ -752,14 +882,10 @@ def _register_admin_endpoints(app: Flask) -> None:
                 status["components"]["field_values_table"] = "failed"
                 status["recommendations"].append(f"Failed to check field values table: {str(e)}")
             
-            # Check vector index (optional)
+            # Check vector index (optional) - skip for now as INFORMATION_SCHEMA.VECTOR_INDEXES may not be available
             try:
-                index_query = f"""
-                SELECT index_name FROM `{BQ_PROJECT_ID}.{BQ_DATASET_ID}.INFORMATION_SCHEMA.VECTOR_INDEXES`
-                WHERE table_name = 'field_values_for_vectorization'
-                """
-                results = list(app.bq_client.query(index_query).result())
-                status["components"]["vector_index"] = "operational" if results else "optional"
+                # For now, just mark as optional since vector indexes are not critical
+                status["components"]["vector_index"] = "optional"
             except Exception:
                 status["components"]["vector_index"] = "optional"
             
@@ -791,7 +917,7 @@ def _register_admin_endpoints(app: Flask) -> None:
         if request.method == 'OPTIONS':
             return _handle_cors()
         try:
-            data = request.get_json() or {}
+            data = request.get_json(force=True) or {}
             force_refresh = data.get('force_refresh', False)
             focus_explore = data.get('focus_explore')
             
@@ -865,6 +991,7 @@ def _register_admin_endpoints(app: Flask) -> None:
             return _handle_api_error(RestfulBackendError(f"Failed to setup vector search system: {str(e)}", 500))
 
     app.register_blueprint(admin_bp)
+
 
 
 def _register_legacy_endpoints(app: Flask) -> None:
@@ -951,6 +1078,7 @@ def _process_query_request(data: Dict[str, Any], auth_header: str, user_info: Di
             "generation_metadata": {
                 "model_used": result.get('model_used', VERTEX_MODEL),
                 "vector_search_used": result.get('vector_search_used', []),
+                "vector_search_summary": result.get('vector_search_summary', {}),
                 "generation_method": result.get('generation_method', 'modular_pipeline')
             },
             "user_info": {
@@ -994,13 +1122,18 @@ def _get_semantic_models() -> Dict[str, Any]:
 def _store_query_for_learning(query: str, explore_key: str, params: Dict, user_info: Dict) -> None:
     """Store query in Olympic system for learning"""
     try:
-        app.olympic_manager.store_query(
-            query_text=query,
-            explore_key=explore_key,
-            parameters=params,
+        # Convert parameters to JSON string for storage
+        output_str = json.dumps(params) if params else "{}"
+        
+        app.olympic_manager.add_bronze_query(
+            explore_id=explore_key,
+            input_text=query,
+            output=output_str,
+            link="",  # No link for automatic storage
             user_email=user_info.get('email', 'unknown'),
-            rank=QueryRank.BRONZE  # Start as bronze
+            query_run_count=1
         )
+        logger.info(f"✅ Stored bronze query for learning: {explore_key}")
     except Exception as e:
         logger.warning(f"Failed to store query for learning: {e}")
 

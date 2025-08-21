@@ -114,13 +114,24 @@ export const useFeedback = () => {
     setIsSubmitting(true)
     
     try {
-      await callMCPTool('submit_positive_feedback', {
-        query_id: data.queryId,
-        user_input: data.userInput,
-        response: data.response,
-        explore_key: data.exploreKey,  // Include explore_key for Olympic integration
-        feedback_notes: data.feedbackNotes
+      const response = await fetch(`${CLOUD_RUN_URL}/api/v1/feedback/positive`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        },
+        body: JSON.stringify({
+          query_id: data.queryId,
+          user_input: data.userInput,
+          response: data.response,
+          explore_key: data.exploreKey,
+          feedback_notes: data.feedbackNotes
+        })
       })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
 
       return true
     } catch (error) {
@@ -135,14 +146,25 @@ export const useFeedback = () => {
     setIsSubmitting(true)
     
     try {
-      await callMCPTool('submit_negative_feedback', {
-        query_id: data.queryId,
-        user_input: data.userInput,
-        response: data.response,
-        issues: data.issues,
-        improvement_suggestions: data.improvementSuggestions,
-        feedback_notes: data.feedbackNotes
+      const response = await fetch(`${CLOUD_RUN_URL}/api/v1/feedback/negative`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${identityToken}`,
+        },
+        body: JSON.stringify({
+          query_id: data.queryId,
+          user_input: data.userInput,
+          response: data.response,
+          explore_key: data.exploreKey,
+          issues: data.issues,
+          improvement_suggestions: data.improvementSuggestions
+        })
       })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
 
       return true
     } catch (error) {

@@ -47,17 +47,33 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
         if not explore_semantic_model:
             logger.warning(f"⚠️ No semantic model found for explore: {explore_key}")
         
-        # Step 2: Enhance query with vector search (temporarily disabled until async is fixed)
-        # vector_client = VectorSearchClient()
-        # param_context, explore_context, search_results = await vector_client.enhance_query_for_parameters(
-        #     query, 
-        #     lambda req: call_vertex_ai_with_retry(req, context="vector_search", process_response=False)
-        # )
+        # Step 2: Enhance query with vector search
+        logger.info(f"🚀 Starting vector search for query: {query}")
+        vector_client = VectorSearchClient()
         
-        # Temporary fallback without vector search
-        param_context = f"Query: {query}\n\nPlease generate appropriate parameters."
-        explore_context = ""
-        search_results = {}
+        # Use asyncio.run to call async vector search from sync context
+        import asyncio
+        try:
+            param_context, explore_context, search_results = asyncio.run(
+                vector_client.enhance_query_for_parameters(
+                    query, 
+                    lambda req: call_vertex_ai_with_retry(req, context="vector_search", process_response=False)
+                )
+            )
+            logger.info(f"🔍 Vector search completed - search_results keys: {list(search_results.keys())}")
+            logger.info(f"🔍 Vector search results: semantic_fields={len(search_results.get('semantic_fields', []))}, field_values={len(search_results.get('field_values', []))}")
+            if search_results.get('semantic_fields'):
+                logger.info(f"🔍 Sample semantic fields: {[f.get('field_location') for f in search_results['semantic_fields'][:3]]}")
+            if search_results.get('field_values'):  
+                logger.info(f"🔍 Sample field values: {[f.get('value') for f in search_results['field_values'][:3]]}")
+        except Exception as e:
+            logger.error(f"❌ Vector search enhancement failed with exception: {str(e)}")
+            import traceback
+            logger.error(f"❌ Vector search traceback: {traceback.format_exc()}")
+            # Fallback without vector search
+            param_context = f"Query: {query}\n\nPlease generate appropriate parameters."
+            explore_context = ""
+            search_results = {}
         
         # Step 3: Build comprehensive system prompt
         system_prompt = _build_parameter_generation_prompt(
@@ -78,11 +94,21 @@ def generate_explore_params_from_query(auth_header: str, query: str, explore_key
         formatted_params = format_parameters_for_looker(validated_params)
         
         # Step 6: Build comprehensive result
+        # Debug vector search results structure
+        logger.info(f"🔍 Raw search_results structure: {search_results}")
+        if search_results.get('semantic_fields'):
+            logger.info(f"🔍 semantic_fields sample: {search_results['semantic_fields'][:2]}")
+        if search_results.get('field_values'):
+            logger.info(f"🔍 field_values sample: {search_results['field_values'][:2]}")
+        
+        formatted_vector_results = _format_vector_search_results(search_results)
+        logger.info(f"🔍 Formatted vector_search_used length: {len(formatted_vector_results)}")
+        
         result = {
             "explore_params": formatted_params,
             "explore_key": explore_key,
             "original_query": query,
-            "vector_search_used": _format_vector_search_results(search_results),
+            "vector_search_used": formatted_vector_results,
             "generation_method": "vector_search_enhanced",
             "model_used": VERTEX_MODEL,
             "field_context_available": bool(explore_semantic_model),
@@ -152,6 +178,7 @@ def _build_parameter_generation_prompt(query: str, explore_key: str, semantic_mo
                     example_context += f"{i}. Query: {example_query}\n   Parameters: {example_params}\n\n"
     
     # Build the comprehensive prompt
+
     system_prompt = f"""You are an expert Looker query builder. Generate JSON parameters for a Looker inline query.
 
 EXPLORE: {explore_key}
@@ -162,6 +189,8 @@ QUERY: {query}
 {param_context}
 
 {example_context}
+
+Conversation context may include previous queries and filters. IMPORTANT: If the user's new request is about a different topic, entity, or metric than previous queries, you should start a new query and ignore previous filters. If the new request is a refinement (such as changing a filter value, adding a filter, or narrowing the previous result), you should update or add to the previous filters. Use your best judgment to determine whether to refine or replace based on the relationship between the current query and the prior context.
 
 Generate a JSON object with these fields:
 - "model": "{model_name}"
@@ -181,7 +210,6 @@ Rules:
 6. Return only valid JSON
 
 JSON Response:"""
-    
     return system_prompt
 
 

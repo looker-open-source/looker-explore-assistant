@@ -326,8 +326,8 @@ const AgentPage = () => {
             actor: 'system',
             createdAt: Date.now(),
             type: 'explore',
-            vectorSearchUsed: response.vector_search_used || [],
-            vectorSearchSummary: response.vector_search_summary || null,
+            vectorSearchUsed: response.generation_metadata?.vector_search_used || response.vector_search_used || [],
+            vectorSearchSummary: response.generation_metadata?.vector_search_summary || response.vector_search_summary || null,
           }),
         )
       }

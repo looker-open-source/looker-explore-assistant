@@ -16,6 +16,12 @@ resource "google_project_iam_member" "iam_permission_bq_job_user" {
   member  = format("serviceAccount:%s", google_service_account.explore-assistant-bq-sa.email)
 }
 
+resource "google_project_iam_member" "iam_permission_bq_connection_user" {
+  project = var.project_id
+  role    = "roles/bigquery.connectionUser"
+  member  = format("serviceAccount:%s", google_service_account.explore-assistant-bq-sa.email)
+}
+
 resource "google_bigquery_job" "create_explore_assistant_examples_table" {
   job_id = "create_explore_assistant_examples_table-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   query {
